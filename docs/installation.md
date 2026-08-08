@@ -25,7 +25,12 @@ Use the focused local contract before publishing a binary:
 
 ```sh
 just check
-cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml
+```
+
+For a complete local sweep across the extracted Go modules and Rust worker:
+
+```sh
+just check-all
 ```
 
 ## Agent usage

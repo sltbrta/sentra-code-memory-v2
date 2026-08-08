@@ -4,8 +4,13 @@ default:
     @just --list
 
 check:
-    go test ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/memory ./services/brain/internal/productsearch
-    go vet ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/memory ./services/brain/internal/productsearch
+    go test ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/memory ./services/brain/internal/productsearch ./services/brain/internal/repoignore
+    go vet ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/memory ./services/brain/internal/productsearch ./services/brain/internal/repoignore
+
+check-all:
+    go test ./services/...
+    go test ./packages/contracts/...
+    cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml
 
 cli-help:
     go run ./services/brain/cmd/sentra-code-memory --help
