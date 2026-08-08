@@ -37,14 +37,19 @@ memory directory ──► memory + hosted/local store ──► optional memory
   publication, and fsnotify/poll watching. Watch events are debounced and
   coalesced in a bounded path queue; refresh failures retry exponentially and
   queue overflow forces an authoritative full stamp/hash reconciliation. Warm
-  refreshes avoid body reads when stamps match.
+  refreshes avoid body reads when stamps match. Crawls load one repository
+  ignore policy from `.gitignore`, `.dockerignore`, `.git/info/exclude`, and
+  conservative generated/secret defaults, so ignored files never enter the
+  index or watcher refreshes.
 - **`codeindex`** is the exact P5 lane. It performs bounded deterministic
   projections for Go, TypeScript, Python, Rust, and Java. Syntax-aware results
   are distinguished from lexical degradation and carry content/receipt digests.
 - **`productsearch`** chooses the code profile. Exact search projects files
   individually under the codeindex hard caps, avoiding a whole-repository
   snapshot result overflow on large repositories while retaining deterministic
-  receipt coverage and source coordinates.
+  receipt coverage and source coordinates. Heuristic lexical ranking applies
+  inverse document frequency and multi-token coverage before path/symbol
+  boosts, reducing irrelevant single-term and generated-file hits.
 - **`memory`** is the projection-only cortex: claims, temporal relations,
   episodes, utility, PageIndex, PPR/PageRank, RAPTOR/community, agent-memory
   tiers, and durable local state. Heavy enrichment remains off the ingest/query

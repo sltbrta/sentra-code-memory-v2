@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/repoignore"
 )
 
 // AgentHit is a lean agent-facing hit (SCM find_relevant style).
@@ -561,15 +563,23 @@ func (idx *Index) Freshness(root string, meta DurableMeta) FreshnessReport {
 		IndexedFiles: idx.FileCount(),
 		Schema:       meta.Schema,
 	}
+	ignores, _ := repoignore.Load(rootAbs)
 	var walked []string
 	_ = filepath.Walk(rootAbs, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info == nil {
 			return nil
 		}
-		if info.IsDir() {
-			if _, ok := skipDir[info.Name()]; ok {
+		rel, relErr := filepath.Rel(rootAbs, path)
+		if relErr != nil {
+			return nil
+		}
+		if ignores != nil && ignores.Ignored(rel, info.IsDir()) {
+			if info.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if info.IsDir() {
 			return nil
 		}
 		if _, ok := extOK[strings.ToLower(filepath.Ext(path))]; !ok {
@@ -618,6 +628,10 @@ func (idx *Index) IngestPaths(root string, rels []string) (changed int, err erro
 	if err != nil {
 		return 0, err
 	}
+	ignores, err := repoignore.Load(rootAbs)
+	if err != nil {
+		return 0, err
+	}
 	if idx.filePostings == nil {
 		idx.filePostings = map[string]map[string]int{}
 	}
@@ -659,7 +673,7 @@ func (idx *Index) IngestPaths(root string, rels []string) (changed int, err erro
 			changed++
 			continue
 		}
-		if info.IsDir() {
+		if info.IsDir() || ignores.Ignored(rel, false) {
 			continue
 		}
 		if _, ok := extOK[strings.ToLower(filepath.Ext(abs))]; !ok {

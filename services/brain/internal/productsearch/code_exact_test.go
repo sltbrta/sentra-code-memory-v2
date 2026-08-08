@@ -9,6 +9,35 @@ import (
 	"testing"
 )
 
+func TestCodeExactHonorsRepositoryIgnorePolicy(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("generated/\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for path, body := range map[string]string{
+		"kept.go":              "package kept\nfunc Target() {}\n",
+		"generated/ignored.go": "package ignored\nfunc Target() {}\n",
+		".env.go":              "package secret\nfunc Target() {}\n",
+	} {
+		path := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result := searchCodeExact(context.Background(), Request{
+		CodeRoot: root, Question: "Target", TopK: 10, ExactKind: "definition",
+	})
+	if result.Failure != "" {
+		t.Fatalf("exact search failed: %s", result.Failure)
+	}
+	if len(result.Hits) != 1 || result.Hits[0].ID != "kept.go" {
+		t.Fatalf("ignored exact sources leaked into results: %#v", result.Hits)
+	}
+}
+
 func TestCodeExactScansLargeRepositoryWithoutSnapshotResultOverflow(t *testing.T) {
 	root := t.TempDir()
 	body := "package sample\n\nfunc Target() {}\n"

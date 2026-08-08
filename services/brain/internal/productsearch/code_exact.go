@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeindex"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/repoignore"
 )
 
 const maxCodeExactFiles = 16_384
@@ -125,22 +126,26 @@ func exactKindMatch(want string, kind codeindex.Kind) bool {
 // collectP5Sources returns supported-language files in deterministic filepath
 // walk order, excluding generated/build/vendor trees and oversized files.
 func collectP5Sources(rootAbs string) ([]codeindex.SourceFile, error) {
+	ignores, err := repoignore.Load(rootAbs)
+	if err != nil {
+		return nil, err
+	}
 	var out []codeindex.SourceFile
-	err := filepath.Walk(rootAbs, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(rootAbs, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info == nil {
 			return nil
 		}
-		if info.IsDir() {
-			name := info.Name()
-			if name == ".git" || name == "node_modules" || name == "vendor" || name == "bazel-*" ||
-				name == ".ouroboros" || name == "dist" || name == "target" {
-				if name != "." && name != ".." {
-					return filepath.SkipDir
-				}
-			}
-			if strings.HasPrefix(name, "bazel-") {
+		rel, relErr := filepath.Rel(rootAbs, path)
+		if relErr != nil {
+			return nil
+		}
+		if ignores.Ignored(rel, info.IsDir()) {
+			if info.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if info.IsDir() {
 			return nil
 		}
 		lang, ok := p5Language(path)
@@ -155,7 +160,7 @@ func collectP5Sources(rootAbs string) ([]codeindex.SourceFile, error) {
 		if err != nil {
 			return nil
 		}
-		rel, err := filepath.Rel(rootAbs, path)
+		rel, err = filepath.Rel(rootAbs, path)
 		if err != nil {
 			return nil
 		}

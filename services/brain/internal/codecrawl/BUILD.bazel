@@ -14,11 +14,13 @@ go_library(
         "verbs.go",
         "watch.go",
         "watch_fs.go",
+        "watch_queue.go",
     ],
     importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl",
     visibility = ["//services/brain:__subpackages__"],
     deps = [
         "@com_github_fsnotify_fsnotify//:fsnotify",
+        "//services/brain/internal/repoignore",
     ],
 )
 
@@ -31,6 +33,7 @@ go_test(
         "symbol_test.go",
         "verbs_test.go",
         "watch_test.go",
+        "watch_queue_test.go",
     ],
     embed = [":codecrawl"],
     tags = [

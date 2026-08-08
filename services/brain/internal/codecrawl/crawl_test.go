@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -83,6 +84,62 @@ func heavyPad(seed int) string {
 		b = append(b, fmt.Sprintf("token_%d_%d ", seed, i)...)
 	}
 	return string(b)
+}
+
+func TestCrawlHonorsRepositoryIgnorePolicy(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("ignored/\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".dockerignore"), []byte("docker-only/\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for path, body := range map[string]string{
+		"kept.go":                  "package kept\nfunc Kept() {}\n",
+		"ignored/hidden.go":        "package hidden\nfunc Hidden() {}\n",
+		"docker-only/generated.go": "package generated\nfunc Generated() {}\n",
+		".github/workflows/ci.go":  "package ci\nfunc CI() {}\n",
+	} {
+		path := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	idx, _, err := CrawlDir(root, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"kept.go", ".github/workflows/ci.go"} {
+		if _, ok := idx.files[path]; !ok {
+			t.Fatalf("expected %q in index files=%v", path, idx.Files())
+		}
+	}
+	for _, path := range []string{"ignored/hidden.go", "docker-only/generated.go"} {
+		if _, ok := idx.files[path]; ok {
+			t.Fatalf("ignored %q was indexed: files=%v", path, idx.Files())
+		}
+	}
+}
+
+func TestSearchPrefersMultiTokenCoverageOverTermFrequencyFloods(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "complete.go"), []byte("package complete\nextension host service\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "generic.go"), []byte("package generic\n"+strings.Repeat("host ", 100)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	idx, _, err := CrawlDir(root, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hits := idx.Search("extension host service", 2)
+	if len(hits) == 0 || hits[0].Path != "complete.go" {
+		t.Fatalf("multi-token match was not preferred: %#v", hits)
+	}
 }
 
 func TestCrawlEmpty(t *testing.T) {

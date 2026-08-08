@@ -53,7 +53,7 @@ func (idx *Index) SearchOpts(query string, topK int, symbolHop bool) []Hit {
 	if idx == nil || len(idx.inverted) == 0 {
 		return nil
 	}
-	qTokens := tokenize(query)
+	qTokens := queryTokens(query)
 	if len(qTokens) == 0 {
 		return nil
 	}
@@ -71,8 +71,10 @@ func (idx *Index) SearchOpts(query string, topK int, symbolHop bool) []Hit {
 		if !ok {
 			continue
 		}
+		docFreq := len(postings)
+		idf := math.Log1p(float64(maxInt(idx.FileCount(), 1)) / float64(docFreq+1))
 		for path, tf := range postings {
-			scores[path] += math.Log1p(float64(tf))
+			scores[path] += math.Log1p(float64(tf)) * idf
 		}
 	}
 	if len(scores) == 0 {
@@ -100,6 +102,18 @@ func (idx *Index) SearchOpts(query string, topK int, symbolHop bool) []Hit {
 
 	hits := make([]Hit, 0, len(scores))
 	for path, score := range scores {
+		matched := 0
+		for _, t := range uniq {
+			if _, ok := idx.inverted[t][path]; ok {
+				matched++
+			}
+		}
+		if len(uniq) > 1 {
+			coverage := float64(matched) / float64(len(uniq))
+			// A repeated generic token must not outrank a file that covers the
+			// whole request. Keep partial matches visible, but demote them.
+			score *= 0.10 + 0.90*coverage
+		}
 		s := score * pathRankMultiplier(path)
 		base := strings.ToLower(filepath.Base(path))
 		rawStem := strings.TrimSuffix(base, filepath.Ext(base))
@@ -173,6 +187,37 @@ func (idx *Index) SearchOpts(query string, topK int, symbolHop bool) []Hit {
 		}
 	}
 	return hits
+}
+
+var queryStopWords = map[string]struct{}{
+	"a": {}, "an": {}, "and": {}, "are": {}, "as": {}, "at": {}, "be": {},
+	"by": {}, "for": {}, "from": {}, "how": {}, "in": {}, "is": {}, "it": {},
+	"of": {}, "on": {}, "or": {}, "the": {}, "to": {}, "what": {}, "where": {},
+	"which": {}, "with": {}, "why": {},
+}
+
+func queryTokens(query string) []string {
+	tokens := tokenize(query)
+	if len(tokens) <= 1 {
+		return tokens
+	}
+	filtered := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		if _, stop := queryStopWords[token]; !stop {
+			filtered = append(filtered, token)
+		}
+	}
+	if len(filtered) == 0 {
+		return tokens
+	}
+	return filtered
+}
+
+func maxInt(value, minimum int) int {
+	if value < minimum {
+		return minimum
+	}
+	return value
 }
 
 func normalizeStem(s string) string {

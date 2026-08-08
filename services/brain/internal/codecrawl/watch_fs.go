@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/repoignore"
 )
 
 // WatchFS uses fsnotify for near-real-time dirty detection, then debounced
@@ -28,6 +29,10 @@ func WatchFS(ctx context.Context, opt WatchOptions) error {
 	if strings.TrimSpace(opt.GobPath) == "" {
 		opt.GobPath = filepath.Join(rootAbs, DefaultIndexFile)
 	}
+	ignores, err := repoignore.Load(rootAbs)
+	if err != nil {
+		return err
+	}
 	if _, err := os.Stat(opt.GobPath); err != nil {
 		if _, _, _, _, err := OpenOrRefresh(rootAbs, opt.GobPath, opt.Workers, true); err != nil {
 			return err
@@ -47,10 +52,13 @@ func WatchFS(ctx context.Context, opt WatchOptions) error {
 		if err != nil || info == nil || !info.IsDir() {
 			return nil
 		}
-		if _, ok := skipDir[info.Name()]; ok {
+		rel, relErr := filepath.Rel(rootAbs, path)
+		if relErr != nil {
+			return nil
+		}
+		if ignores.Ignored(rel, true) {
 			return filepath.SkipDir
 		}
-		rel, _ := filepath.Rel(rootAbs, path)
 		if rel != "." && strings.Count(rel, string(filepath.Separator)) > 3 {
 			return filepath.SkipDir
 		}
@@ -114,14 +122,24 @@ func WatchFS(ctx context.Context, opt WatchOptions) error {
 			if ev.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename) == 0 {
 				continue
 			}
+			rel, relErr := filepath.Rel(rootAbs, ev.Name)
+			if relErr != nil || ignores.Ignored(rel, false) {
+				continue
+			}
 			if info, statErr := os.Stat(ev.Name); statErr == nil && info.IsDir() {
+				if ignores.Ignored(rel, true) {
+					continue
+				}
 				_ = w.Add(ev.Name)
 				queue.enqueue("")
 				dirtyAt = time.Now()
 				continue
 			}
+			base := filepath.Base(ev.Name)
+			ignoreFile := base == ".gitignore" || base == ".dockerignore" ||
+				(base == "exclude" && strings.Contains(filepath.ToSlash(ev.Name), "/.git/info/"))
 			ext := strings.ToLower(filepath.Ext(ev.Name))
-			if ext != "" {
+			if !ignoreFile && ext != "" {
 				if _, ok := extOK[ext]; !ok {
 					continue
 				}

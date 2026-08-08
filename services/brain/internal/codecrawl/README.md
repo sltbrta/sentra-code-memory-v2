@@ -7,7 +7,12 @@ Working-tree **code operator** index (SCM repo tools, not session memory).
 - Multi-worker crawl → durable `code-index.gob`
 - Stamp+hash warm refresh (zero body read when stamps match)
 - Search, find-relevant, expand, impact, find-route (heuristic authority)
+- Search ranking uses rare-term weighting and query-term coverage so repeated
+  generic tokens do not drown out files matching the complete request.
 - Watch: fsnotify or poll
+- One shared ignore policy reads root `.gitignore`, `.dockerignore`, and
+  `.git/info/exclude`, plus conservative generated/secret defaults. Useful
+  configuration such as `.github` remains searchable unless explicitly ignored.
 
 ## CLI
 

@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "repoignore",
+    srcs = ["ignore.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/repoignore",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "repoignore_test",
+    srcs = ["ignore_test.go"],
+    embed = [":repoignore"],
+)

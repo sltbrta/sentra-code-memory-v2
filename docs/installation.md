@@ -84,8 +84,10 @@ response line:
 
 ```sh
 printf '%s\n' \
-  '{"verb":"code_search","root":"/path/to/repository","q":"extension host","top_k":10}' \
-  '{"verb":"code_defs","root":"/path/to/repository","q":"IExtensionHostStarter","top_k":5}' \
+  '{"verb":"code_search","root":"/path/to/repository",'\
+  '"q":"extension host","top_k":10}' \
+  '{"verb":"code_defs","root":"/path/to/repository",'\
+  '"q":"IExtensionHostStarter","top_k":5}' \
   | ./bin/sentra-code-memory serve
 ```
 
@@ -145,7 +147,10 @@ separate from code search so an agent can choose evidence mode explicitly.
 - Use `--no-refresh` only when the cache freshness is known; otherwise a normal
   search performs a bounded incremental refresh.
 - `--force` deliberately rebuilds the code index.
-- The crawler skips `.git`, `node_modules`, `vendor`, build outputs, and local
-  projection directories.
+- The crawler and exact search honor root `.gitignore`, `.dockerignore`, and
+  `.git/info/exclude`, then apply conservative defaults for secrets, editor
+  metadata, dependency trees, caches, generated/build outputs, logs, maps, and
+  bytecode. Useful dot-config and `.github` source remains eligible unless a
+  repository rule excludes it.
 - Indexing/search does not upload working-tree files.
 - A malformed JSONL request exits non-zero without returning the input payload.

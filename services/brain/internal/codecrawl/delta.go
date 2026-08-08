@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/repoignore"
 )
 
 // FileHash is content identity for delta crawls (stack-graph file incrementality).
@@ -35,15 +37,26 @@ func CrawlDeltaFrom(root string, workers int, prevHashes map[string]string, prev
 	if prevHashes == nil && prev != nil {
 		prevHashes = prev.fileHashes
 	}
+	ignores, err := repoignore.Load(root)
+	if err != nil {
+		return nil, Stats{}, nil, err
+	}
 	var paths []string
 	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info == nil {
 			return nil
 		}
-		if info.IsDir() {
-			if _, ok := skipDir[info.Name()]; ok {
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return nil
+		}
+		if ignores.Ignored(rel, info.IsDir()) {
+			if info.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if info.IsDir() {
 			return nil
 		}
 		if _, ok := extOK[strings.ToLower(filepath.Ext(path))]; !ok {

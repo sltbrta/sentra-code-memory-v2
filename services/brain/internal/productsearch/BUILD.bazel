@@ -14,6 +14,7 @@ go_library(
         "//services/brain/internal/codeindex",
         "//services/brain/internal/codecrawl",
         "//services/brain/internal/hosted",
+        "//services/brain/internal/repoignore",
     ],
 )
 

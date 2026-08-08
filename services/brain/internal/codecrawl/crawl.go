@@ -7,6 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/repoignore"
 )
 
 var skipDir = map[string]struct{}{
@@ -157,15 +159,26 @@ func CrawlDir(root string, workers int) (*Index, Stats, error) {
 	if workers < 1 {
 		workers = 1
 	}
+	ignores, err := repoignore.Load(root)
+	if err != nil {
+		return nil, Stats{}, err
+	}
 	var paths []string
 	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info == nil {
 			return nil
 		}
-		if info.IsDir() {
-			if _, ok := skipDir[info.Name()]; ok {
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return nil
+		}
+		if ignores.Ignored(rel, info.IsDir()) {
+			if info.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if info.IsDir() {
 			return nil
 		}
 		if _, ok := extOK[strings.ToLower(filepath.Ext(path))]; !ok {
