@@ -31,4 +31,3 @@ func TestExhaustiveFacetsFromIdentifiers(t *testing.T) {
 		t.Fatalf("facets=%v", f)
 	}
 }
-

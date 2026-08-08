@@ -23,7 +23,9 @@ sentra-code-memory exact --root /path/to/repo --q "ValidateToken" --kind any
 For one persistent process, send one JSON object per line to `serve`:
 
 ```sh
-printf '%s\n' '{"verb":"code_search","root":"/path/to/repo","q":"authentication","top_k":20}' \
+printf '%s\n' \
+  '{"verb":"code_search","root":"/path/to/repo",'\
+  '"q":"authentication","top_k":20}' \
   | sentra-code-memory serve
 ```
 
@@ -33,14 +35,14 @@ and never require a network call.
 
 ## Code capabilities
 
-The code surface preserves the multi-worker incremental crawler, stamp/hash warm
-refresh, durable `code-index.gob` cache, search/relevant/expand/impact/route/
-freshness/ingest paths, exact syntax definitions/references/imports, and a
-watcher with debounce, bounded coalescing queue, retry backoff, and overflow
-full-rescan protection. Exact projection is processed file-by-file under hard
-caps so large repositories do not fail because an in-memory snapshot result
-limit was exceeded. Use `--no-refresh` for the lowest-latency warm read when
-the cache is known fresh.
+The code surface preserves the multi-worker incremental crawler,
+stamp/hash warm refresh, durable `code-index.gob` cache,
+search/relevant/expand/impact/route/freshness/ingest paths, exact syntax
+definitions/references/imports, and a watcher with debounce, bounded coalescing
+queue, retry backoff, and overflow full-rescan protection. Exact projection is
+processed file-by-file under hard caps so large repositories do not fail because
+an in-memory snapshot result limit was exceeded. Use `--no-refresh` for the
+lowest-latency warm read when the cache is known fresh.
 
 The memory surface retains the projection-only cortex, claims, temporal
 relations, episodes, utility, PageIndex, PPR/PageRank, RAPTOR/community,
@@ -54,4 +56,8 @@ Indexing and search are local filesystem operations. The CLI does not upload
 working-tree source. Hosted retrieval/model calls are opt-in through the copied
 client configuration. Paths must be explicitly supplied, cache writes are
 atomic/durable, and malformed JSONL requests return a bounded error response.
-Run the focused CLI/code-memory checks from the root README before publishing a built binary. The repository is a Go workspace, so use `go test ./services/... ./packages/contracts/...` when you intentionally need the full extracted backend; some authority tests require an optional pinned Bun executable and some evidence fixtures are not part of the local CLI preflight.
+Run the focused CLI/code-memory checks from the root README before
+publishing a built binary. The repository is a Go workspace, so use
+`go test ./services/... ./packages/contracts/...` when you intentionally need
+the full extracted backend. Some authority tests require an optional pinned Bun
+executable, and some evidence fixtures are not part of the local CLI preflight.

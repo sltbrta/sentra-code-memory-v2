@@ -21,9 +21,9 @@ type funnelBudgets struct {
 	FactsLimit   int
 	EntityMax    int
 	// Recovery
-	RecN           int
-	DenseRecovery  bool // short HyDE dense even if phase-A had dense
-	Doc2QueryN     int
+	RecN          int
+	DenseRecovery bool // short HyDE dense even if phase-A had dense
+	Doc2QueryN    int
 	// Hydrate (answer)
 	WholeDocN      int
 	WholeDocChunks int

@@ -116,9 +116,9 @@ func TestClaimConflictPrefersSupersedingWinner(t *testing.T) {
 	// If admit already applied supersession, ContestedGroups may be empty — soft policy still OK.
 	_ = neu
 	g := &Grounded{
-		Answer:            "5 days",
-		CitedDocumentIDs:  []string{"d_old"},
-		Diagnostics:       map[string]any{},
+		Answer:           "5 days",
+		CitedDocumentIDs: []string{"d_old"},
+		Diagnostics:      map[string]any{},
 	}
 	diag := map[string]any{}
 	// Manually contest both if needed for ContestedGroups

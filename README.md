@@ -27,13 +27,16 @@ cd /path/to/repo && ./sentra-code-memory watch --workers 8  # watches cwd by def
 Coding agents can keep one process warm with JSONL:
 
 ```sh
-printf '%s\n' '{"verb":"code_search","root":"/path/to/repo","q":"authentication","top_k":20,"no_refresh":true}' \
+printf '%s\n' \
+  '{"verb":"code_search","root":"/path/to/repo",'\
+  '"q":"authentication","top_k":20,"no_refresh":true}' \
   | ./sentra-code-memory serve
 ```
 
 Run `catalog` to discover every supported verb. Each input line produces one
 JSON response; errors are structured as `ok:false`. A real VS Code benchmark
-and answer-quality report is in [docs/benchmarks/vscode-qa.md](docs/benchmarks/vscode-qa.md).
+and answer-quality report is in
+[docs/benchmarks/vscode-qa.md](docs/benchmarks/vscode-qa.md).
 
 ## Offline model profile
 
