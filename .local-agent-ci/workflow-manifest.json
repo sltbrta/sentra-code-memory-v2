@@ -1,7 +1,7 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "20260808T164908Z-inspect-ouroboros-and-create-standalone-21885",
-  "head": "6692c0ad501593963211748f33075b6874b9cfb0",
+  "run_id": "20260808T164908Z-inspect-ouroboros-and-create-standalone-21885-v2",
+  "head": "651798dfc560717da67a53753cbb4a9cd003818a",
   "workflow": "standalone-code-memory-extraction",
   "scope": "Create a self-contained standalone copy of Ouroboros' code-memory and code-intelligence backend under github.com/sltbrta/sentra-code-memory-v2. Preserve committed implementation parity for code crawl, durable incremental indexing, exact symbol indexing, code serving verbs, memory cortex/storage, hosted/local model clients, concurrency/worker pools, hardening, and low-latency warm paths. Add a simple coding-agent CLI with direct commands and JSONL protocol, rewrite module/import identities so no runtime/build dependency remains on Ouroboros, document independent setup and operation, run parity and smoke checks, and publish the initialized GitHub repository.",
   "non_goals": [
@@ -23,11 +23,11 @@
     "github workflows"
   ],
   "acceptance_commands": [
-    "go test ./...",
-    "go vet ./...",
+    "go test ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/memory",
+    "go vet ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/memory",
     "go run ./services/brain/cmd/sentra-code-memory --help",
     "go run ./services/brain/cmd/sentra-code-memory catalog",
-    "go test ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/memory"
+    "cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml"
   ],
   "risks": [
     "Large wholesale extraction may retain stale Ouroboros import paths or generated metadata.",
@@ -39,7 +39,7 @@
   "issue_ids": [
     "1"
   ],
-  "created_at": "2026-08-08T16:58:27.954Z",
+  "created_at": "2026-08-08T17:03:49.155Z",
   "tier": "T2",
   "stage": "spec-lock",
   "phases": [
