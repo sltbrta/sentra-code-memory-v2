@@ -1,0 +1,418 @@
+// Bounded grounded-query contracts for the Stage 04 TUI.
+// The authenticated gateway supplies caller identity; request identity is an
+// untrusted cross-check, and implementations answer only from the authorized
+// Stage 03 committed-Git corpus with exact citations.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/brain.proto";
+import "ouroboros/contracts/v1/common.proto";
+import "ouroboros/contracts/v1/evidence.proto";
+import "ouroboros/contracts/v1/ingestion.proto";
+import "ouroboros/contracts/v1/local_authority.proto";
+
+// QueryService provides the four bounded query views used by the thin TUI.
+service QueryService {
+  // Ask answers one grounded question from one pinned Stage 03 generation.
+  rpc Ask(AskRequest) returns (AskResponse);
+  // ListSources lists authorized non-revoked sources with provenance.
+  rpc ListSources(ListSourcesRequest) returns (ListSourcesResponse);
+  // GetHistory reads the authenticated principal's own private turn history,
+  // paginated in a deterministic occurred-at then turn-identity total order.
+  rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
+  // GetStatus reads freshness, coverage, and projection state for one source.
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+}
+
+// FreshnessState discloses whether the pinned generation is current.
+enum FreshnessState {
+  // FRESHNESS_STATE_UNSPECIFIED is invalid in a served response.
+  FRESHNESS_STATE_UNSPECIFIED = 0;
+  // FRESHNESS_STATE_CURRENT pins the current complete generation.
+  FRESHNESS_STATE_CURRENT = 1;
+  // FRESHNESS_STATE_STALE_DISCLOSED serves a superseded generation explicitly.
+  FRESHNESS_STATE_STALE_DISCLOSED = 2;
+  // FRESHNESS_STATE_DEGRADED serves a complete generation with reduced lanes.
+  FRESHNESS_STATE_DEGRADED = 3;
+}
+
+// ProjectionState discloses the rebuildable search projection, never deletion.
+enum ProjectionState {
+  // PROJECTION_STATE_UNSPECIFIED is invalid in a served response.
+  PROJECTION_STATE_UNSPECIFIED = 0;
+  // PROJECTION_STATE_READY serves the pinned generation projection.
+  PROJECTION_STATE_READY = 1;
+  // PROJECTION_STATE_REBUILDING is rebuilding after restart or reconcile.
+  PROJECTION_STATE_REBUILDING = 2;
+  // PROJECTION_STATE_ABSENT has no projection; canonical revisions remain.
+  PROJECTION_STATE_ABSENT = 3;
+}
+
+// ConversationRole distinguishes user input from synthesized assistant output.
+enum ConversationRole {
+  // CONVERSATION_ROLE_UNSPECIFIED is invalid for a committed turn.
+  CONVERSATION_ROLE_UNSPECIFIED = 0;
+  // CONVERSATION_ROLE_USER is an authenticated principal's own input.
+  CONVERSATION_ROLE_USER = 1;
+  // CONVERSATION_ROLE_ASSISTANT is model proposal output, never source fact.
+  CONVERSATION_ROLE_ASSISTANT = 2;
+}
+
+// ConversationTurnStatus is the bounded v1 lifecycle of one committed turn.
+enum ConversationTurnStatus {
+  // CONVERSATION_TURN_STATUS_UNSPECIFIED is invalid for a committed turn.
+  CONVERSATION_TURN_STATUS_UNSPECIFIED = 0;
+  // CONVERSATION_TURN_STATUS_ACTIVE is a completed committed turn.
+  CONVERSATION_TURN_STATUS_ACTIVE = 1;
+  // CONVERSATION_TURN_STATUS_FAILED is an interrupted turn never read as fact.
+  CONVERSATION_TURN_STATUS_FAILED = 2;
+}
+
+// UntrustedQueryCaller carries body identity only for authenticated-context checks.
+message UntrustedQueryCaller {
+  // requested_principal must match the authenticated peer principal and tenant.
+  AuthenticatedPrincipalRef requested_principal = 1 [(buf.validate.field).required = true];
+  // requested_session must match the authenticated gateway session.
+  Identifier requested_session = 2 [(buf.validate.field).required = true];
+}
+
+// GroundedCitation binds one claim to exact authorized committed-code evidence.
+message GroundedCitation {
+  option (buf.validate.message).cel = {
+    id: "grounded_citation.exact_anchor"
+    message: "citation anchor must name an exact Git object and repository-relative range"
+    expression: "this.anchor.git_oid.matches('^[0-9a-f]{40}([0-9a-f]{24})?$') && has(this.anchor.range) && this.anchor.range.path.size() <= 4096 && this.anchor.range.path.matches('^[^/\\\\\\x00-\\x1f\\x7f](?:[^\\\\\\x00-\\x1f\\x7f]*[^/\\\\\\x00-\\x1f\\x7f])?$') && this.anchor.range.path.split('/').all(segment, segment != '' && segment != '.' && segment != '..')"
+  };
+  option (buf.validate.message).cel = {
+    id: "grounded_citation.forward_range"
+    message: "citation range must use positive coordinates and move forward"
+    expression: "this.anchor.range.start_line > 0 && this.anchor.range.start_column > 0 && this.anchor.range.end_line > 0 && this.anchor.range.end_column > 0 && (this.anchor.range.start_line < this.anchor.range.end_line || (this.anchor.range.start_line == this.anchor.range.end_line && this.anchor.range.start_column < this.anchor.range.end_column))"
+  };
+  option (buf.validate.message).cel = {
+    id: "grounded_citation.sha256_digests"
+    message: "supporting text digest must be canonical SHA-256"
+    expression: "this.supporting_text_digest.algorithm == 'sha256' && this.supporting_text_digest.hex.matches('^[0-9a-f]{64}$')"
+  };
+  // evidence identifies the cited immutable evidence and source revision.
+  EvidenceRef evidence = 1 [(buf.validate.field).required = true];
+  // anchor pins the exact committed Git object and line/column range.
+  EvidenceAnchor.CodeAnchor anchor = 2 [(buf.validate.field).required = true];
+  // supporting_text_digest binds the hydrated supporting bytes without prose.
+  Digest supporting_text_digest = 3 [(buf.validate.field).required = true];
+}
+
+// GroundedAnswerClaim is one bounded material answer assertion and its support.
+message GroundedAnswerClaim {
+  option (buf.validate.message).cel = {
+    id: "grounded_answer_claim.proposal_authority"
+    message: "answer claims are model proposals and never promote themselves"
+    expression: "this.authority_class == 6"
+  };
+  // claim_id is an opaque claim identity within one answer.
+  Identifier claim_id = 1 [(buf.validate.field).required = true];
+  // statement is the bounded material assertion text.
+  string statement = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 4096
+  ];
+  // citations provide exact authorized support; unsupported claims are discarded.
+  repeated GroundedCitation citations = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 16
+  }];
+  // authority_class is always AUTHORITY_CLASS_MODEL_PROPOSAL at this boundary.
+  AuthorityClass authority_class = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // confidence_per_mille is a disclosed calibrated estimate in [0, 1000].
+  uint32 confidence_per_mille = 5 [(buf.validate.field).uint32.lte = 1000];
+}
+
+// QueryAnswer is the bounded grounded result: answered, partial, or abstained.
+message QueryAnswer {
+  option (buf.validate.message).cel = {
+    id: "query_answer.bounded_reasons"
+    message: "degraded reasons must use the bounded non-disclosing vocabulary"
+    expression: "this.degraded_reasons.all(r, r in ['absent_support', 'stale_support', 'partial_coverage', 'lane_degraded', 'retrieval_unavailable', 'citation_verification_failed', 'synthesis_unavailable'])"
+  };
+  option (buf.validate.message).cel = {
+    id: "query_answer.status_consistency"
+    message: "answered and partial results carry supported claims; abstention carries none"
+    expression: "this.status == 1 ? (this.prose != '' && this.claims.size() > 0 && this.degraded_reasons.size() == 0 && this.factual_consistency.status in [1, 3] && this.factual_consistency.total_claim_count == uint(this.claims.size())) : (this.status == 2 ? (this.prose != '' && this.claims.size() > 0 && this.degraded_reasons.size() > 0 && this.factual_consistency.status in [1, 3] && this.factual_consistency.total_claim_count == uint(this.claims.size())) : (this.status == 3 ? (this.prose == '' && this.claims.size() == 0 && this.degraded_reasons.size() > 0 && this.factual_consistency.status == 2) : false))"
+  };
+  // query_id echoes the server-authored admitted query identity.
+  Identifier query_id = 1 [(buf.validate.field).required = true];
+  // status distinguishes answered, disclosed partial, and abstained results.
+  AnswerStatus status = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // prose is the rendered answer; every material span maps to a claim.
+  string prose = 3 [(buf.validate.field).string.max_len = 16384];
+  // claims is the bounded complete material-claim set for the prose.
+  repeated GroundedAnswerClaim claims = 4 [(buf.validate.field).repeated.max_items = 64];
+  // degraded_reasons discloses partial or abstention causes from a bounded set.
+  repeated string degraded_reasons = 5 [(buf.validate.field).repeated = {
+    max_items: 8
+    items: {string: {max_len: 64}}
+  }];
+  // token_usage discloses bounded synthesis consumption.
+  uint64 token_usage = 6;
+  // factual_consistency discloses a calibrated score or explicit non-score.
+  FactualConsistencyScore factual_consistency = 7 [(buf.validate.field).required = true];
+}
+
+// QueryFreshness pins one complete Stage 03 generation and discloses its state.
+message QueryFreshness {
+  // generation pins the exact served committed-Git generation and readiness.
+  IngestionGeneration generation = 1 [(buf.validate.field).required = true];
+  // state discloses whether the pinned generation is current, stale, or degraded.
+  FreshnessState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // acl_epoch records the authorization epoch used for hydration decisions.
+  uint64 acl_epoch = 3;
+  // observed_at records when the freshness state was evaluated.
+  google.protobuf.Timestamp observed_at = 4 [(buf.validate.field).required = true];
+}
+
+// QueryCoverage discloses canonical versus indexed coverage without existence detail.
+message QueryCoverage {
+  option (buf.validate.message).cel = {
+    id: "query_coverage.indexed_within_canonical"
+    message: "indexed revisions are a subset of canonical revisions"
+    expression: "this.indexed_revision_count <= this.canonical_revision_count"
+  };
+  // canonical_revision_count counts canonical revisions in the pinned generation.
+  uint64 canonical_revision_count = 1;
+  // indexed_revision_count counts revisions present in the search projection.
+  uint64 indexed_revision_count = 2;
+}
+
+// ConversationTurn is one committed private history entry.
+message ConversationTurn {
+  option (buf.validate.message).cel = {
+    id: "conversation_turn.role_content"
+    message: "user turns carry text; assistant turns carry an answer unless failed"
+    expression: "(this.role == 1 && this.text != '' && !has(this.answer)) || (this.role == 2 && this.text == '' && ((this.status == 2 && !has(this.answer)) || (this.status != 2 && has(this.answer))))"
+  };
+  // turn_id is the opaque committed turn identity.
+  Identifier turn_id = 1 [(buf.validate.field).required = true];
+  // session_id names the owning authenticated session.
+  Identifier session_id = 2 [(buf.validate.field).required = true];
+  // sequence is monotonic within the session.
+  uint64 sequence = 3 [(buf.validate.field).uint64.gt = 0];
+  // role distinguishes principal input from synthesized assistant output.
+  ConversationRole role = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // status distinguishes completed turns from visibly failed interruptions.
+  ConversationTurnStatus status = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // occurred_at records when the turn was committed.
+  google.protobuf.Timestamp occurred_at = 6 [(buf.validate.field).required = true];
+  // text is the bounded user input; assistant turns never carry it.
+  string text = 7 [(buf.validate.field).string.max_len = 8192];
+  // answer is the committed assistant result for completed assistant turns.
+  QueryAnswer answer = 8;
+}
+
+// AskRequest asks one bounded grounded question against one pinned generation.
+message AskRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedQueryCaller caller = 1 [(buf.validate.field).required = true];
+  // source_id selects the authorized Stage 03 source under authenticated scope.
+  Identifier source_id = 2 [(buf.validate.field).required = true];
+  // generation_id pins one immutable complete generation for the whole query.
+  Identifier generation_id = 3 [(buf.validate.field).required = true];
+  // query is the bounded natural-language question.
+  string query = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 8192
+  ];
+  // freshness selects best-effort, complete-generation, or abstain-if-stale behavior.
+  FreshnessRequirement freshness = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// AskSuccess contains one grounded result with freshness and coverage disclosure.
+message AskSuccess {
+  // answer is the bounded answered, partial, or abstained result.
+  QueryAnswer answer = 1 [(buf.validate.field).required = true];
+  // freshness pins the served generation and discloses its state.
+  QueryFreshness freshness = 2 [(buf.validate.field).required = true];
+  // coverage discloses canonical versus indexed coverage for the query.
+  QueryCoverage coverage = 3 [(buf.validate.field).required = true];
+}
+
+// AskResponse returns exactly one grounded result or non-disclosing denial.
+message AskResponse {
+  option (buf.validate.message).cel = {
+    id: "ask_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized query decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents a grounded result and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the grounded result after authorization.
+    AskSuccess success = 2;
+    // error uses the same static model for absent, denied, and revoked reads.
+    PublicError error = 3;
+  }
+}
+
+// ListSourcesRequest lists authorized sources with bounded pagination.
+message ListSourcesRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedQueryCaller caller = 1 [(buf.validate.field).required = true];
+  // page_size is bounded before lookup or allocation.
+  uint32 page_size = 2 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 100
+  ];
+  // after is an opaque continuation within the same listing.
+  Cursor after = 3;
+}
+
+// SourceSummary exposes authorized non-sensitive provenance for one source.
+message SourceSummary {
+  // source is the authorized opaque source reference.
+  SourceReference source = 1 [(buf.validate.field).required = true];
+  // state is a present, defined, non-revoked source state.
+  SourceState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [
+      0,
+      4
+    ]
+  }];
+  // current_generation is the complete authorized generation when available.
+  IngestionGeneration current_generation = 3;
+}
+
+// ListSourcesSuccess contains one authorized page of source summaries.
+message ListSourcesSuccess {
+  // sources lists only authorized non-revoked sources; absence is not disclosing.
+  repeated SourceSummary sources = 1 [(buf.validate.field).repeated.max_items = 100];
+  // next_cursor continues the same bounded listing.
+  Cursor next_cursor = 2;
+}
+
+// ListSourcesResponse returns exactly one authorized page or static denial.
+message ListSourcesResponse {
+  option (buf.validate.message).cel = {
+    id: "list_sources_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the listing decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents source facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the authorized source page.
+    ListSourcesSuccess success = 2;
+    // error is a static presentation-safe rejection.
+    PublicError error = 3;
+  }
+}
+
+// GetHistoryRequest reads the caller's own private turns with bounded pagination.
+message GetHistoryRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedQueryCaller caller = 1 [(buf.validate.field).required = true];
+  // page_size is bounded before lookup or allocation.
+  uint32 page_size = 2 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 100
+  ];
+  // after is an opaque continuation within the same private history.
+  Cursor after = 3;
+}
+
+// GetHistorySuccess contains one page of the caller's own committed turns.
+message GetHistorySuccess {
+  // turns contains only turns owned by the authenticated principal.
+  repeated ConversationTurn turns = 1 [(buf.validate.field).repeated.max_items = 100];
+  // next_cursor continues within the same private history.
+  Cursor next_cursor = 2;
+}
+
+// GetHistoryResponse returns exactly one private page or non-disclosing denial.
+message GetHistoryResponse {
+  option (buf.validate.message).cel = {
+    id: "get_history_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the private history read decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents history facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the caller's own committed turn page.
+    GetHistorySuccess success = 2;
+    // error uses the same static model for absent and denied reads.
+    PublicError error = 3;
+  }
+}
+
+// GetStatusRequest reads freshness, coverage, and projection state for one source.
+message GetStatusRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedQueryCaller caller = 1 [(buf.validate.field).required = true];
+  // source_id is resolved under authenticated tenant and brain scope.
+  Identifier source_id = 2 [(buf.validate.field).required = true];
+}
+
+// GetStatusSuccess discloses pinned freshness, coverage, and projection truth.
+message GetStatusSuccess {
+  // source is the authorized opaque source reference.
+  SourceReference source = 1 [(buf.validate.field).required = true];
+  // freshness pins the current complete generation and discloses its state.
+  QueryFreshness freshness = 2 [(buf.validate.field).required = true];
+  // coverage discloses canonical versus indexed counts without existence detail.
+  QueryCoverage coverage = 3 [(buf.validate.field).required = true];
+  // projection discloses the rebuildable projection state; absence is not deletion.
+  ProjectionState projection = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+// GetStatusResponse returns exactly one authorized status or static denial.
+message GetStatusResponse {
+  option (buf.validate.message).cel = {
+    id: "get_status_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the status read decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents status facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains authorized freshness, coverage, and projection state.
+    GetStatusSuccess success = 2;
+    // error uses the same static model for absent, denied, and revoked reads.
+    PublicError error = 3;
+  }
+}

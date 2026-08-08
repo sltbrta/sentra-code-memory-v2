@@ -1,0 +1,184 @@
+// Local authority RPCs define the three Stage 02 gateway operations.
+// The authenticated Unix-peer boundary supplies caller identity; body identity is
+// only a cross-check and every public error remains a static render model.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/common.proto";
+import "ouroboros/contracts/v1/security.proto";
+
+// LocalAuthorityService provides the narrow gateway surface used by the thin local TUI.
+service LocalAuthorityService {
+  // OpenLocalSession creates or resumes one peer-authenticated local session.
+  rpc OpenLocalSession(OpenLocalSessionRequest) returns (OpenLocalSessionResponse);
+  // ExecuteAuthorityCommand admits one typed artifact authority command.
+  rpc ExecuteAuthorityCommand(ExecuteAuthorityCommandRequest) returns (ExecuteAuthorityCommandResponse);
+  // ReadStatus reads non-sensitive session and authority state after authentication.
+  rpc ReadStatus(ReadStatusRequest) returns (ReadStatusResponse);
+}
+
+// RenderModel is a bounded non-sensitive presentation model for the thin TUI.
+message RenderModel {
+  // title is a stable short heading suitable for a terminal status line.
+  string title = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 160
+  ];
+  // detail is bounded static explanatory text and never an upstream error body.
+  string detail = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 1024
+  ];
+  // action_label suggests the next local action without implying authority.
+  string action_label = 3 [(buf.validate.field).string.max_len = 80];
+}
+
+// PublicError exposes a static public error code with an optional safe render model.
+message PublicError {
+  // code is a stable, non-sensitive machine-readable public error code.
+  string code = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // render supplies presentation-safe text for the TUI.
+  RenderModel render = 2;
+}
+
+// Cursor pins an ordered replay or status position without exposing storage internals.
+message Cursor {
+  // watermark is the inclusive canonical event watermark observed by the caller.
+  uint64 watermark = 1;
+  // token is an opaque bounded continuation token.
+  string token = 2 [(buf.validate.field).string.max_len = 512];
+}
+
+// OpenLocalSessionRequest asks the peer-authenticated gateway for a local session.
+message OpenLocalSessionRequest {
+  // requested_principal is untrusted and must match the authenticated peer identity.
+  AuthenticatedPrincipalRef requested_principal = 1 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact session-open retries from conflicts.
+  string idempotency_key = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+  // resume_from optionally requests an ordered replay position.
+  Cursor resume_from = 3;
+}
+
+// OpenLocalSessionResponse returns a canonical receipt or a static denial.
+message OpenLocalSessionResponse {
+  // session is the authenticated local session reference when admitted.
+  AuthenticatedPrincipalRef session = 1;
+  // receipt records the authoritative admission outcome.
+  Receipt receipt = 2 [(buf.validate.field).required = true];
+  // error is present only for static, non-disclosing rejection presentation.
+  PublicError error = 3;
+}
+
+// ArtifactAdmitCommand requests immutable artifact staging and publication metadata admission.
+message ArtifactAdmitCommand {
+  // artifact identifies immutable bytes without granting future reads.
+  ArtifactRef artifact = 1 [(buf.validate.field).required = true];
+  // declared_length bounds the total artifact bytes before allocation or publication.
+  uint64 declared_length = 2 [(buf.validate.field).uint64 = {
+    gt: 0
+    lte: 1099511627776
+  }];
+  // frame_count bounds independently authenticated frame metadata.
+  uint32 frame_count = 3 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 1048576
+  ];
+  // expected_generation permits zero for initial creation and otherwise prevents stale publication.
+  uint64 expected_generation = 4;
+}
+
+// ArtifactReadCommand requests a bounded, authorized range from one artifact generation.
+message ArtifactReadCommand {
+  // artifact identifies the requested immutable artifact.
+  ArtifactRef artifact = 1 [(buf.validate.field).required = true];
+  // generation selects a complete immutable generation.
+  uint64 generation = 2 [(buf.validate.field).uint64.gt = 0];
+  // offset is the zero-based byte position.
+  uint64 offset = 3;
+  // length is bounded before hydration and must be enforced by the vault.
+  uint64 length = 4 [
+    (buf.validate.field).uint64.gt = 0,
+    (buf.validate.field).uint64.lte = 16777216
+  ];
+}
+
+// ArtifactDeleteCommand requests immediate tombstone and subsequent purge work.
+message ArtifactDeleteCommand {
+  // artifact identifies the scoped immutable artifact to tombstone.
+  ArtifactRef artifact = 1 [(buf.validate.field).required = true];
+  // expected_generation prevents deletion against an unintended generation.
+  uint64 expected_generation = 2 [(buf.validate.field).uint64.gt = 0];
+  // purge_after_tombstone requests physical-purge scheduling, not an immediate guarantee.
+  bool purge_after_tombstone = 3;
+}
+
+// ExecuteAuthorityCommandRequest carries one bounded typed artifact command.
+message ExecuteAuthorityCommandRequest {
+  // command preserves canonical idempotency, actor, causal, and payload-digest framing.
+  CommandEnvelope command = 1 [(buf.validate.field).required = true];
+  // grant is rechecked against current policy before any artifact effect.
+  CapabilityGrant grant = 2 [(buf.validate.field).required = true];
+  // artifact_command selects exactly one bounded authority operation.
+  oneof artifact_command {
+    option (buf.validate.oneof).required = true;
+    // artifact_admit is selected for immutable artifact admission.
+    ArtifactAdmitCommand artifact_admit = 3;
+    // artifact_read is selected for bounded artifact hydration.
+    ArtifactReadCommand artifact_read = 4;
+    // artifact_delete is selected for tombstone/purge scheduling.
+    ArtifactDeleteCommand artifact_delete = 5;
+  }
+}
+
+// ExecuteAuthorityCommandResponse returns typed bounded artifact results and receipts.
+message ExecuteAuthorityCommandResponse {
+  // receipt records the authoritative command outcome.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // authorization records the current policy decision when evaluated.
+  AuthorizationReceipt authorization = 2;
+  // artifact is the admitted/read/deleted artifact reference when available.
+  ArtifactRef artifact = 3;
+  // generation is the resulting or read immutable generation.
+  uint64 generation = 4;
+  // frame_digest binds a returned bounded frame range without embedding artifact bytes.
+  Digest frame_digest = 5;
+  // next_cursor continues bounded result framing where applicable.
+  Cursor next_cursor = 6;
+  // error is a static non-disclosing denial or validation render model.
+  PublicError error = 7;
+}
+
+// ReadStatusRequest requests bounded status for the authenticated local session.
+message ReadStatusRequest {
+  // requested_session is untrusted and must match the authenticated session context.
+  Identifier requested_session = 1 [(buf.validate.field).required = true];
+  // after limits status/event summaries to a bounded ordered cursor.
+  Cursor after = 2;
+}
+
+// ReadStatusResponse exposes only non-sensitive current authority state.
+message ReadStatusResponse {
+  // session identifies the authenticated session whose status was evaluated.
+  AuthenticatedPrincipalRef session = 1;
+  // watermark identifies the current canonical observation point.
+  uint64 watermark = 2;
+  // revocation_epoch identifies the current deny-overlay epoch.
+  uint64 revocation_epoch = 3;
+  // observed_at records the authoritative status observation time.
+  google.protobuf.Timestamp observed_at = 4;
+  // receipt records the status-read decision and causal position.
+  Receipt receipt = 5 [(buf.validate.field).required = true];
+  // render is bounded, non-sensitive TUI status presentation.
+  RenderModel render = 6;
+  // error is a static non-disclosing denial or validation render model.
+  PublicError error = 7;
+}

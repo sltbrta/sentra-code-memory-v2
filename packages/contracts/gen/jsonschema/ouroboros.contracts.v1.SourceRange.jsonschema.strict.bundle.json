@@ -1,0 +1,51 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.SourceRange.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "SourceRange identifies a source-code range using one-based line and column values.",
+      "properties": {
+        "endColumn": {
+          "description": "end_column is a one-based exclusive column number.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "endLine": {
+          "description": "end_line is a one-based exclusive line number.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "path": {
+          "description": "path is a repository-relative source path.",
+          "type": "string"
+        },
+        "startColumn": {
+          "description": "start_column is a one-based inclusive column number.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "startLine": {
+          "description": "start_line is a one-based inclusive line number.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "startLine",
+        "startColumn",
+        "endLine",
+        "endColumn"
+      ],
+      "title": "Source Range",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.SourceRange.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.SourceRange.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

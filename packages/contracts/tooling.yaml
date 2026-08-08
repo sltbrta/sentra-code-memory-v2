@@ -1,0 +1,79 @@
+# Pinned package-local contract-tool provenance. Every source is an official
+# project release/tag or the verified Buf Schema Registry plugin namespace.
+tooling:
+  - name: buf
+    version: 1.71.0
+    source_url: https://github.com/bufbuild/buf
+    source_commit: 509563de095a72cf96fede0654d37e60a446505a
+    license: Apache-2.0
+    role: formatting, linting, descriptor builds, compatibility, and remote generation
+  - name: protoc-gen-go
+    registry_reference: buf.build/protocolbuffers/go:v1.36.6
+    registry_revision: 1
+    source_url: https://github.com/protocolbuffers/protobuf-go
+    source_commit: 3f79c52e7fe26f88843469913dcc34d0396be330
+    license: BSD-3-Clause
+    role: Go Protobuf message bindings
+  - name: google.golang.org/protobuf
+    version: v1.36.11
+    source_url: https://github.com/protocolbuffers/protobuf-go
+    source_commit: 96a179180f0ad6bba9b1e7b6e38d0affb0168e9a
+    license: BSD-3-Clause
+    role: Go generated-binding runtime
+  - name: protoc-gen-es
+    registry_reference: buf.build/bufbuild/es:v2.2.5
+    registry_revision: 1
+    source_url: https://github.com/bufbuild/protobuf-es
+    source_commit: 6a81dc6f398f44ba1c6f7fb7c48a0856ed07566d
+    license: Apache-2.0
+    role: TypeScript Protobuf message bindings
+  - name: '@bufbuild/protobuf'
+    version: 2.7.0
+    source_url: https://github.com/bufbuild/protobuf-es
+    source_commit: 92f8536d9872ef6e3f7f3bf86f03d8c07f8248b0
+    license: Apache-2.0
+    role: TypeScript generated-binding runtime
+  - name: protoc-gen-connect-go
+    registry_reference: buf.build/connectrpc/go:v1.20.0
+    registry_revision: 1
+    source_url: https://github.com/connectrpc/connect-go
+    source_commit: 1291a7dcac19b00490f935dce18f44f301fc58f6
+    license: Apache-2.0
+    role: Go Connect service bindings
+  - name: connectrpc.com/connect
+    version: v1.20.0
+    source_url: https://github.com/connectrpc/connect-go
+    source_commit: 1291a7dcac19b00490f935dce18f44f301fc58f6
+    license: Apache-2.0
+    role: Go Connect generated-binding runtime
+  - name: protoc-gen-jsonschema
+    registry_reference: buf.build/bufbuild/protoschema-jsonschema:v0.6.0
+    registry_revision: 1
+    source_url: https://github.com/bufbuild/protoschema-plugins
+    source_commit: 2ae5aad82d506caf3c8dd8c70ed4fdb55992710a
+    license: Apache-2.0
+    role: Draft 2020-12 JSON Schema projections
+  - name: protovalidate schema module
+    registry_reference: buf.build/bufbuild/protovalidate:6c6e0d3c608e4549802254a2eee81bc8
+    registry_digest: b5:a7ca081f38656fc0f5aaa685cc111d3342876723851b47ca6b80cbb810cbb2380f8c444115c495ada58fa1f85eff44e68dc54a445761c195acdb5e8d9af675b6
+    source_url: https://github.com/bufbuild/protovalidate
+    license: Apache-2.0
+    role: field-presence, string-bound, numeric-bound, and enum validation annotations
+  - name: protovalidate-go
+    version: v1.2.0
+    source_url: https://github.com/bufbuild/protovalidate-go
+    source_commit: 50eb290ec3acabea2ff245413c514529483f269d
+    license: Apache-2.0
+    role: execute frozen Stage 03, Stage 04, Stage 05, Stage 06, and Stage 11 protobuf and CEL contract conformance tests
+  - name: ajv
+    version: 8.17.1
+    source_url: https://github.com/ajv-validator/ajv
+    source_commit: 9050ba1359fb87cd7c143f3c79513ea7624ea443
+    license: MIT
+    role: execute generated Draft 2020-12 boundary schemas
+  - name: ajv-formats
+    version: 3.0.1
+    source_url: https://github.com/ajv-validator/ajv-formats
+    source_commit: 1fb3fa7d967f919ff924bb34aef73a2f39ab0de3
+    license: MIT
+    role: enforce timestamp and other standard formats in schema fixtures

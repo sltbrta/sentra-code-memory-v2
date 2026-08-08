@@ -1,0 +1,296 @@
+{
+  "$defs": {
+    "google.protobuf.Timestamp.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    },
+    "ouroboros.contracts.v1.CausalContext.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "CausalContext binds messages to an ordered, fenced causal history.",
+      "properties": {
+        "causationId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "causation_id names the immediate triggering event or command."
+        },
+        "correlationId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "correlation_id groups one user-visible operation."
+        },
+        "fence": {
+          "description": "fence prevents an expired lease holder from committing.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sequence": {
+          "description": "sequence is monotonically assigned by the canonical ledger.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "traceId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "trace_id identifies a separately authorized trace stream."
+        },
+        "watermark": {
+          "description": "watermark records the complete source position observed by a projection.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "correlationId",
+        "causationId",
+        "traceId",
+        "sequence",
+        "fence",
+        "watermark"
+      ],
+      "title": "Causal Context",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.Digest.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Digest identifies immutable bytes using a named digest algorithm.",
+      "properties": {
+        "algorithm": {
+          "description": "algorithm identifies the canonical digest algorithm, for example sha256.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hex": {
+          "description": "hex is the lower-case encoded digest value.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[0-9a-f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "hex"
+      ],
+      "title": "Digest",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.EvidenceRef.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "EvidenceRef identifies evidence metadata and optionally one precise anchor.",
+      "properties": {
+        "anchorDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "anchor_digest identifies an optional canonical anchor serialization."
+        },
+        "evidenceId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "evidence_id is an opaque evidence identity."
+        },
+        "sourceRevisionId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "source_revision_id identifies the immutable source revision."
+        }
+      },
+      "required": [
+        "evidenceId",
+        "sourceRevisionId"
+      ],
+      "title": "Evidence Ref",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.Identifier.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Identifier is an opaque, stable identifier within a declared namespace.",
+      "properties": {
+        "namespace": {
+          "description": "namespace prevents an identifier string from crossing a domain boundary.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "description": "value is opaque to consumers and must be non-empty after boundary validation.",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "value"
+      ],
+      "title": "Identifier",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.PublicError.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "PublicError exposes a static public error code with an optional safe render model.",
+      "properties": {
+        "code": {
+          "description": "code is a stable, non-sensitive machine-readable public error code.",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "render": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.RenderModel.jsonschema.strict.json",
+          "description": "render supplies presentation-safe text for the TUI."
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "Public Error",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.Receipt.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Receipt records the authoritative outcome of an admitted operation.",
+      "properties": {
+        "causal": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.CausalContext.jsonschema.strict.json",
+          "description": "causal binds the outcome to replayable ordering and fencing state."
+        },
+        "configurationDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "configuration_digest pins the effective configuration without secret plaintext."
+        },
+        "evidence": {
+          "description": "evidence records immutable inputs and outputs supporting this outcome.",
+          "items": {
+            "$ref": "#/$defs/ouroboros.contracts.v1.EvidenceRef.jsonschema.strict.json"
+          },
+          "type": "array"
+        },
+        "operationId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "operation_id identifies the command, run, or effect being receipted."
+        },
+        "reasonCode": {
+          "description": "reason_code is a non-sensitive stable reason, never an upstream error body.",
+          "type": "string"
+        },
+        "receiptId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "receipt_id is a globally unique opaque receipt identifier."
+        },
+        "recordedAt": {
+          "$ref": "#/$defs/google.protobuf.Timestamp.jsonschema.strict.json",
+          "description": "recorded_at is when the receipt became canonical."
+        },
+        "status": {
+          "description": "status is a stable, machine-readable outcome.",
+          "enum": [
+            "RECEIPT_STATUS_ACCEPTED",
+            "RECEIPT_STATUS_REJECTED",
+            "RECEIPT_STATUS_DEFERRED",
+            "RECEIPT_STATUS_COMPLETED",
+            "RECEIPT_STATUS_PARTIAL"
+          ],
+          "title": "Receipt Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "receiptId",
+        "status",
+        "reasonCode",
+        "operationId",
+        "causal",
+        "recordedAt",
+        "configurationDigest"
+      ],
+      "title": "Receipt",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.RenderModel.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "RenderModel is a bounded non-sensitive presentation model for the thin TUI.",
+      "properties": {
+        "actionLabel": {
+          "description": "action_label suggests the next local action without implying authority.",
+          "maxLength": 80,
+          "type": "string"
+        },
+        "detail": {
+          "description": "detail is bounded static explanatory text and never an upstream error body.",
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "description": "title is a stable short heading suitable for a terminal status line.",
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "detail",
+        "actionLabel"
+      ],
+      "title": "Render Model",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.RevokeConnectorResponse.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "RevokeConnectorResponse returns revoke confirmation or non-disclosing denial.",
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.PublicError.jsonschema.strict.json",
+          "description": "error uses the same static model for absent, denied, and already-purged."
+        },
+        "receipt": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Receipt.jsonschema.strict.json",
+          "description": "receipt records the authorized revoke decision."
+        },
+        "success": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.RevokeConnectorSuccess.jsonschema.strict.json",
+          "description": "success confirms revocation."
+        }
+      },
+      "required": [
+        "receipt"
+      ],
+      "title": "Revoke Connector Response",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.RevokeConnectorSuccess.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "RevokeConnectorSuccess confirms the connection is revoked.",
+      "properties": {
+        "connectionId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "connection_id is the opaque revoked connection identity."
+        },
+        "state": {
+          "description": "state is always REVOKED on success.",
+          "enum": [
+            "CONNECTOR_LIFECYCLE_STATE_REVOKED"
+          ],
+          "title": "Connector Lifecycle State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "connectionId",
+        "state"
+      ],
+      "title": "Revoke Connector Success",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.RevokeConnectorResponse.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.RevokeConnectorResponse.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

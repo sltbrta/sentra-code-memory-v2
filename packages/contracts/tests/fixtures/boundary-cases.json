@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "ouroboros.contracts.boundary.v1",
+  "cases": [
+    {
+      "id": "missing-command-id",
+      "category": "missing",
+      "targetType": "CommandEnvelope",
+      "request": {},
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "invalid_argument" }
+    },
+    {
+      "id": "empty-idempotency-key",
+      "category": "empty",
+      "targetType": "CommandEnvelope",
+      "request": { "idempotencyKey": "" },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "invalid_argument" }
+    },
+    {
+      "id": "malformed-capability-grant",
+      "category": "malformed",
+      "targetType": "CapabilityGrant",
+      "request": { "grantId": "not-an-identifier" },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "invalid_argument" }
+    },
+    {
+      "id": "wrong-type-fence",
+      "category": "wrong_type",
+      "targetType": "Lease",
+      "request": { "fence": { "unexpected": true } },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "invalid_argument" }
+    },
+    {
+      "id": "oversized-query",
+      "category": "oversized",
+      "targetType": "BrainQuery",
+      "request": { "query": "fixture_uses_a_declared_runtime_limit" },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "resource_exhausted" }
+    },
+    {
+      "id": "conflicting-duplicate-command",
+      "category": "duplicate",
+      "targetType": "CommandEnvelope",
+      "request": { "idempotencyKey": "already-used-with-different-authenticated-digest" },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "idempotency_conflict" }
+    },
+    {
+      "id": "concurrent-stale-fence",
+      "category": "concurrent",
+      "targetType": "ChangeSet",
+      "request": { "baseGitOid": "different-current-base" },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "fence_conflict" }
+    },
+    {
+      "id": "expired-schedule-lease",
+      "category": "stale",
+      "targetType": "ScheduleRun",
+      "request": { "lease": { "expiresAt": "1970-01-01T00:00:00Z" } },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "stale_lease" }
+    },
+    {
+      "id": "revoked-egress-grant",
+      "category": "revoked",
+      "targetType": "EgressManifest",
+      "request": { "destination": "revoked-provider" },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "authorization_denied" }
+    },
+    {
+      "id": "principal-tenant-mismatch",
+      "category": "principal_mismatch",
+      "targetType": "BrainQuery",
+      "request": { "requestedPrincipal": { "principalId": { "namespace": "principal", "value": "other-user" } } },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "not_found_or_denied" }
+    },
+    {
+      "id": "capability-empty-actions",
+      "category": "empty",
+      "targetType": "CapabilityGrant",
+      "request": { "actions": [] },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "invalid_argument" }
+    },
+    {
+      "id": "capability-wildcard-action",
+      "category": "malformed",
+      "targetType": "CapabilityGrant",
+      "request": { "actions": ["*"] },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "invalid_argument" }
+    },
+    {
+      "id": "capability-expired",
+      "category": "stale",
+      "targetType": "CapabilityGrant",
+      "request": { "expiresAt": "1970-01-01T00:00:00Z" },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "stale_grant" }
+    },
+    {
+      "id": "capability-wrong-principal",
+      "category": "principal_mismatch",
+      "targetType": "CapabilityGrant",
+      "request": { "initiator": { "principalId": { "namespace": "principal", "value": "other-user" } } },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "not_found_or_denied" }
+    },
+    {
+      "id": "capability-oversized-nonce",
+      "category": "oversized",
+      "targetType": "CapabilityGrant",
+      "request": { "nonce": "fixture_uses_declared_128_byte_limit_plus_one" },
+      "expected": { "admitted": false, "receiptStatus": "RECEIPT_STATUS_REJECTED", "reasonCode": "resource_exhausted" }
+    }
+  ]
+}

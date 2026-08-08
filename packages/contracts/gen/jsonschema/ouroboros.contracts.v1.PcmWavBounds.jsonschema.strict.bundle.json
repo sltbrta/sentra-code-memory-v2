@@ -1,0 +1,46 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.PcmWavBounds.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "PcmWavBounds freezes the Stage 11 PCM WAV admission limits.",
+      "properties": {
+        "byteLength": {
+          "description": "byte_length is the declared WAV size and must be \u003c=250 MiB.",
+          "exclusiveMinimum": 0,
+          "maximum": 262144000,
+          "type": "integer"
+        },
+        "channels": {
+          "description": "channels is the channel count (mono or stereo in v1).",
+          "maximum": 2,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "durationMillis": {
+          "description": "duration_millis is the declared audio duration and must be \u003c=60 minutes.",
+          "exclusiveMinimum": 0,
+          "maximum": 3600000,
+          "type": "integer"
+        },
+        "sampleRateHz": {
+          "description": "sample_rate_hz is a positive PCM sample rate.",
+          "exclusiveMinimum": 0,
+          "maximum": 192000,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "byteLength",
+        "durationMillis",
+        "sampleRateHz",
+        "channels"
+      ],
+      "title": "Pcm Wav Bounds",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.PcmWavBounds.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.PcmWavBounds.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

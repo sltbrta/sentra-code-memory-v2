@@ -1,0 +1,22 @@
+"""Bazel targets for implementation-free Stage 02 authority ports."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "contracts",
+    srcs = ["contracts.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/internal/contracts",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "contracts_test",
+    srcs = ["contracts_test.go"],
+    embed = [":contracts"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    visibility = ["//tools/stage-02:__pkg__"],
+)

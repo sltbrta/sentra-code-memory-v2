@@ -1,0 +1,193 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.ByteInterval.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "ByteInterval is a half-open raw-byte interval [start_byte, end_byte).",
+      "properties": {
+        "endByte": {
+          "description": "end_byte is exclusive and must be \u003e= start_byte.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "startByte": {
+          "description": "start_byte is inclusive.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "startByte",
+        "endByte"
+      ],
+      "title": "Byte Interval",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.Digest.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Digest identifies immutable bytes using a named digest algorithm.",
+      "properties": {
+        "algorithm": {
+          "description": "algorithm identifies the canonical digest algorithm, for example sha256.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hex": {
+          "description": "hex is the lower-case encoded digest value.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[0-9a-f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "hex"
+      ],
+      "title": "Digest",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.LineInterval.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "LineInterval is a half-open one-based line interval [start_line, end_line).",
+      "properties": {
+        "endLine": {
+          "description": "end_line is exclusive and must be \u003e= start_line.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "startLine": {
+          "description": "start_line is inclusive and one-based when non-zero.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "startLine",
+        "endLine"
+      ],
+      "title": "Line Interval",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.VerifyTracerEvidenceShardV1Input.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "VerifyTracerEvidenceShardV1Input is the sole Stage 06 Modal operation input.\n Operation name is fixed; no clock, random, network, model, provider, database,\n or Git credential is admitted. Source bytes may be referenced by digest for\n large fixtures; inline bytes are for the bounded shard only.",
+      "properties": {
+        "configurationDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "configuration_digest pins non-secret configuration for the shard."
+        },
+        "expectedAnchorDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "expected_anchor_digest is the expected canonical anchor digest."
+        },
+        "imageDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "image_digest pins the OCI image used for Modal execution."
+        },
+        "inputBundleDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "input_bundle_digest binds the full immutable input bundle."
+        },
+        "operation": {
+          "description": "operation is the fixed operation name.",
+          "enum": [
+            "VERIFY_TRACER_EVIDENCE_SHARD_V1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "operationDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "operation_digest pins the registered operation implementation."
+        },
+        "operationVersion": {
+          "description": "operation_version pins the deterministic operation implementation version.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schemaVersion": {
+          "description": "schema_version echoes the manifest schema version.",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^tracer-001/v1$",
+          "type": "string"
+        },
+        "shardId": {
+          "description": "shard_id is the fixed shard identity.",
+          "enum": [
+            "tracer-001/evidence/0001"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "sourceArtifactDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "source_artifact_digest pins the immutable source artifact bytes."
+        },
+        "sourceByteLength": {
+          "description": "source_byte_length is the exact source byte count.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sourceRevisionDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "source_revision_digest pins the source revision metadata."
+        },
+        "sourceUtf8Bytes": {
+          "description": "source_utf8_bytes carries inline source when the shard is small enough.",
+          "maxLength": 1398104,
+          "pattern": "^[A-Za-z0-9+/]*={0,2}$",
+          "type": "string"
+        },
+        "spanByteInterval": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.ByteInterval.jsonschema.strict.json",
+          "description": "span_byte_interval is the expected supporting-span byte interval."
+        },
+        "spanLineInterval": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.LineInterval.jsonschema.strict.json",
+          "description": "span_line_interval is the expected supporting-span line interval."
+        },
+        "toolchainDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "toolchain_digest pins the toolchain used for both local and Modal runs."
+        },
+        "tracerManifestDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "tracer_manifest_digest binds the input to one TracerManifest."
+        }
+      },
+      "required": [
+        "operation",
+        "operationVersion",
+        "tracerManifestDigest",
+        "schemaVersion",
+        "shardId",
+        "sourceArtifactDigest",
+        "sourceByteLength",
+        "sourceUtf8Bytes",
+        "sourceRevisionDigest",
+        "spanByteInterval",
+        "spanLineInterval",
+        "expectedAnchorDigest",
+        "operationDigest",
+        "imageDigest",
+        "toolchainDigest",
+        "configurationDigest",
+        "inputBundleDigest"
+      ],
+      "title": "Verify Tracer Evidence Shard V1 Input",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.VerifyTracerEvidenceShardV1Input.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.VerifyTracerEvidenceShardV1Input.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

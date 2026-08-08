@@ -1,0 +1,70 @@
+// Canonical configuration snapshot, layer, secret-reference, and application-mode messages.
+//
+// Config values are represented by immutable digests and secret references only;
+// this package intentionally has no plaintext-secret or ambient-env authority.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/common.proto";
+
+// ConfigOrigin identifies the permitted precedence layer for one setting value.
+enum ConfigOrigin {
+  CONFIG_ORIGIN_UNSPECIFIED = 0;
+  CONFIG_ORIGIN_COMPANY = 1;
+  CONFIG_ORIGIN_TEAM = 2;
+  CONFIG_ORIGIN_USER = 3;
+  CONFIG_ORIGIN_RUN_OVERRIDE = 4;
+}
+
+// ApplicationMode defines when a validated setting may take effect.
+enum ApplicationMode {
+  APPLICATION_MODE_UNSPECIFIED = 0;
+  APPLICATION_MODE_APPLY_NOW = 1;
+  APPLICATION_MODE_NEXT_RUN = 2;
+  APPLICATION_MODE_RESTART_DAEMON = 3;
+  APPLICATION_MODE_REINDEX = 4;
+}
+
+// SecretReference is an opaque Keychain or KMS reference, never secret plaintext.
+message SecretReference {
+  // reference_id is an opaque provider-managed secret reference.
+  Identifier reference_id = 1;
+  // provider identifies keychain, KMS, or another approved secret authority.
+  string provider = 2;
+  // expires_at bounds a resolved short-lived handle, not the secret itself.
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+// ConfigValue records one policy-bounded layer value by digest only.
+message ConfigValue {
+  // key is the registered configuration definition key.
+  string key = 1;
+  // origin identifies the layer that supplied the value.
+  ConfigOrigin origin = 2;
+  // value_digest identifies non-secret canonical serialized value bytes.
+  Digest value_digest = 3;
+  // secret_reference is present only when the registered field is secret-backed.
+  SecretReference secret_reference = 4;
+  // application_mode defines the declared lifecycle boundary.
+  ApplicationMode application_mode = 5;
+}
+
+// ConfigSnapshot is an immutable effective configuration view for replay and receipts.
+message ConfigSnapshot {
+  // snapshot_id is an opaque immutable snapshot identity.
+  Identifier snapshot_id = 1;
+  // tenant_id identifies the scope's tenant.
+  Identifier tenant_id = 2;
+  // values lists resolved setting values and their origins.
+  repeated ConfigValue values = 3;
+  // configuration_digest binds the fully resolved non-secret snapshot.
+  Digest configuration_digest = 4;
+  // policy_digest pins the policy bounds applied during resolution.
+  Digest policy_digest = 5;
+  // created_at records effective-resolution time.
+  google.protobuf.Timestamp created_at = 6;
+  // receipt records validation, CAS, and effective application obligations.
+  Receipt receipt = 7;
+}

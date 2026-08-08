@@ -1,0 +1,35 @@
+"""Public Stage 02 local identity and authorization facade."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "localauthority",
+    srcs = [
+        "facade.go",
+        "factory.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/broker/localauthority",
+    visibility = ["//services:__subpackages__"],
+    deps = [
+        "//services/broker/internal/authz",
+        "//services/broker/internal/capability",
+        "//services/broker/internal/factory/changeset",
+        "//services/broker/internal/factory/effects",
+        "//services/broker/internal/factory/gitcandidate",
+        "//services/broker/internal/factory/runner",
+        "//services/broker/internal/identity",
+        "//services/internal/contracts",
+    ],
+)
+
+go_test(
+    name = "localauthority_test",
+    srcs = [
+        "facade_test.go",
+        "factory_test.go",
+    ],
+    embed = [":localauthority"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+    visibility = ["//tools/stage-02:__pkg__"],
+    deps = ["//services/internal/contracts"],
+)

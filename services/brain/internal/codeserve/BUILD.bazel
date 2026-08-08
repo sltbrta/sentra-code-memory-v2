@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "codeserve",
+    srcs = [
+        "catalog.go",
+        "doc.go",
+        "handle.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeserve",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "//services/brain/internal/codecrawl",
+        "//services/brain/internal/hosted",
+        "//services/brain/internal/productsearch",
+    ],
+)
+
+go_test(
+    name = "codeserve_test",
+    srcs = ["handle_test.go"],
+    embed = [":codeserve"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

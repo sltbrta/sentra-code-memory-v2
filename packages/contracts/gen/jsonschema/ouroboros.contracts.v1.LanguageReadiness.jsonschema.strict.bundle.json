@@ -1,0 +1,48 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.LanguageReadiness.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "LanguageReadiness reports one P5 lane's syntax-aware or degraded state.",
+      "properties": {
+        "coverage": {
+          "description": "coverage distinguishes bounded syntax awareness from lexical degradation.",
+          "enum": [
+            "COVERAGE_STATE_PENDING",
+            "COVERAGE_STATE_SYNTAX_AWARE",
+            "COVERAGE_STATE_LEXICAL_DEGRADED"
+          ],
+          "title": "Coverage State",
+          "type": "string"
+        },
+        "language": {
+          "description": "language identifies exactly one P5 language.",
+          "enum": [
+            "CODE_LANGUAGE_GO",
+            "CODE_LANGUAGE_TYPESCRIPT",
+            "CODE_LANGUAGE_PYTHON",
+            "CODE_LANGUAGE_RUST",
+            "CODE_LANGUAGE_JAVA"
+          ],
+          "title": "Code Language",
+          "type": "string"
+        },
+        "reasonCode": {
+          "description": "reason_code is a stable non-sensitive explanation for degraded coverage.",
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "coverage",
+        "reasonCode"
+      ],
+      "title": "Language Readiness",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.LanguageReadiness.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.LanguageReadiness.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

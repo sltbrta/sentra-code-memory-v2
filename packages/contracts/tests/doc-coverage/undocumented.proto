@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package ouroboros.contracts.test.v1;
+
+// DocumentedContainer owns this comment.
+message DocumentedContainer {
+  string value = 1;
+} // This closing-brace comment must not document the next declaration.
+
+message UndocumentedMessage {
+  string value = 1;
+}
+
+enum UndocumentedState {
+  UNDOCUMENTED_STATE_UNSPECIFIED = 0;
+}

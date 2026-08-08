@@ -1,0 +1,11 @@
+"""Public re-export of brain/internal/factory/tracer001 for gateway composition."""
+
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "factorytracer",
+    srcs = ["export.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/factorytracer",
+    visibility = ["//visibility:public"],
+    deps = ["//services/brain/internal/factory/tracer001"],
+)

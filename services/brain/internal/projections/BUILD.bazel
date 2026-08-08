@@ -1,0 +1,52 @@
+"""Rebuildable projections plus offline propagation SLO receipts and drills."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "projections",
+    srcs = [
+        "blob.go",
+        "dense_store.go",
+        "doc.go",
+        "ontology_store.go",
+        "slo.go",
+        "slo_receipt.go",
+        "sqlite.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/projections",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "//services/brain/internal/dense",
+        "//services/brain/internal/ontology",
+        "@org_modernc_sqlite//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "projections_test",
+    srcs = ["projections_test.go"],
+    embed = [":projections"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    deps = [
+        "//services/brain/internal/dense",
+        "//services/brain/internal/ontology",
+    ],
+)
+
+go_test(
+    name = "projection_slo_receipts_test",
+    srcs = [
+        "slo_receipt_test.go",
+        "slo_test.go",
+    ],
+    embed = [":projections"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

@@ -1,0 +1,157 @@
+version: v2
+clean: true
+managed:
+  enabled: true
+  disable:
+    - file_option: go_package_prefix
+      module: buf.build/bufbuild/protovalidate
+  override:
+    - file_option: go_package_prefix
+      value: github.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go
+plugins:
+  - remote: buf.build/protocolbuffers/go:v1.36.6
+    revision: 1
+    out: gen/go
+    opt: paths=source_relative
+  - remote: buf.build/bufbuild/es:v2.2.5
+    revision: 1
+    out: gen/ts
+    include_imports: true
+    opt:
+      - target=ts
+      - import_extension=js
+  - remote: buf.build/connectrpc/go:v1.20.0
+    revision: 1
+    out: gen/go
+    opt: paths=source_relative
+  - remote: buf.build/bufbuild/protoschema-jsonschema:v0.6.0
+    revision: 1
+    out: gen/jsonschema
+    opt: target=json-strict-bundle
+    types:
+      - ouroboros.contracts.v1.EventEnvelope
+      - ouroboros.contracts.v1.CommandEnvelope
+      - ouroboros.contracts.v1.BrainQuery
+      - ouroboros.contracts.v1.GroundedAnswer
+      - ouroboros.contracts.v1.FactualConsistencyProvenance
+      - ouroboros.contracts.v1.FactualConsistencyScore
+      - ouroboros.contracts.v1.ChangeIntent
+      - ouroboros.contracts.v1.ChangeSet
+      - ouroboros.contracts.v1.ChannelDelivery
+      - ouroboros.contracts.v1.OpenLocalSessionRequest
+      - ouroboros.contracts.v1.OpenLocalSessionResponse
+      - ouroboros.contracts.v1.ExecuteAuthorityCommandRequest
+      - ouroboros.contracts.v1.ExecuteAuthorityCommandResponse
+      - ouroboros.contracts.v1.ReadStatusRequest
+      - ouroboros.contracts.v1.ReadStatusResponse
+      - ouroboros.contracts.v1.AddSourceRequest
+      - ouroboros.contracts.v1.AddSourceResponse
+      - ouroboros.contracts.v1.GetSourceStatusRequest
+      - ouroboros.contracts.v1.GetSourceStatusResponse
+      - ouroboros.contracts.v1.SearchCodeRequest
+      - ouroboros.contracts.v1.SearchCodeResponse
+      - ouroboros.contracts.v1.ReconcileSourceRequest
+      - ouroboros.contracts.v1.ReconcileSourceResponse
+      - ouroboros.contracts.v1.RevokeSourceRequest
+      - ouroboros.contracts.v1.RevokeSourceResponse
+      - ouroboros.contracts.v1.AskRequest
+      - ouroboros.contracts.v1.AskResponse
+      - ouroboros.contracts.v1.ListSourcesRequest
+      - ouroboros.contracts.v1.ListSourcesResponse
+      - ouroboros.contracts.v1.GetHistoryRequest
+      - ouroboros.contracts.v1.GetHistoryResponse
+      - ouroboros.contracts.v1.GetStatusRequest
+      - ouroboros.contracts.v1.GetStatusResponse
+      - ouroboros.contracts.v1.UntrustedFactoryCaller
+      - ouroboros.contracts.v1.AdmitChangeIntentRequest
+      - ouroboros.contracts.v1.AdmitChangeIntentResponse
+      - ouroboros.contracts.v1.AdmitChangeIntentSuccess
+      - ouroboros.contracts.v1.GetChangePlanRequest
+      - ouroboros.contracts.v1.GetChangePlanResponse
+      - ouroboros.contracts.v1.GetChangePlanSuccess
+      - ouroboros.contracts.v1.PreviewChangeSetRequest
+      - ouroboros.contracts.v1.PreviewChangeSetResponse
+      - ouroboros.contracts.v1.PreviewChangeSetSuccess
+      - ouroboros.contracts.v1.GetReviewFindingsRequest
+      - ouroboros.contracts.v1.GetReviewFindingsResponse
+      - ouroboros.contracts.v1.GetReviewFindingsSuccess
+      - ouroboros.contracts.v1.CancelChangeRunRequest
+      - ouroboros.contracts.v1.CancelChangeRunResponse
+      - ouroboros.contracts.v1.CancelChangeRunSuccess
+      - ouroboros.contracts.v1.ChangePlan
+      - ouroboros.contracts.v1.ChangeSetPreview
+      - ouroboros.contracts.v1.ReviewFinding
+      - ouroboros.contracts.v1.TracerManifest
+      - ouroboros.contracts.v1.TracerVariant
+      - ouroboros.contracts.v1.TracerRun
+      - ouroboros.contracts.v1.TracerStepReceipt
+      - ouroboros.contracts.v1.ReviewDisposition
+      - ouroboros.contracts.v1.DraftPrReceipt
+      - ouroboros.contracts.v1.OutcomeFact
+      - ouroboros.contracts.v1.VerifyTracerEvidenceShardV1Input
+      - ouroboros.contracts.v1.TracerShardReceipt
+      - ouroboros.contracts.v1.TracerLogicalParityProjection
+      - ouroboros.contracts.v1.TracerConfigSurface
+      - ouroboros.contracts.v1.UntrustedMeetingCaller
+      - ouroboros.contracts.v1.ImportTranscriptRequest
+      - ouroboros.contracts.v1.ImportTranscriptResponse
+      - ouroboros.contracts.v1.ImportTranscriptSuccess
+      - ouroboros.contracts.v1.GetMeetingStatusRequest
+      - ouroboros.contracts.v1.GetMeetingStatusResponse
+      - ouroboros.contracts.v1.GetMeetingStatusSuccess
+      - ouroboros.contracts.v1.QueryMeetingRequest
+      - ouroboros.contracts.v1.QueryMeetingResponse
+      - ouroboros.contracts.v1.QueryMeetingSuccess
+      - ouroboros.contracts.v1.RevokeMeetingRequest
+      - ouroboros.contracts.v1.RevokeMeetingResponse
+      - ouroboros.contracts.v1.RevokeMeetingSuccess
+      - ouroboros.contracts.v1.PurgeMeetingRequest
+      - ouroboros.contracts.v1.PurgeMeetingResponse
+      - ouroboros.contracts.v1.PurgeMeetingSuccess
+      - ouroboros.contracts.v1.MeetingAnswer
+      - ouroboros.contracts.v1.MeetingTemporalCitation
+      - ouroboros.contracts.v1.UntrustedConnectorCaller
+      - ouroboros.contracts.v1.ConnectGitHubSourceRequest
+      - ouroboros.contracts.v1.ConnectGitHubSourceResponse
+      - ouroboros.contracts.v1.ConnectGitHubSourceSuccess
+      - ouroboros.contracts.v1.GetConnectorStatusRequest
+      - ouroboros.contracts.v1.GetConnectorStatusResponse
+      - ouroboros.contracts.v1.GetConnectorStatusSuccess
+      - ouroboros.contracts.v1.ReconcileConnectorRequest
+      - ouroboros.contracts.v1.ReconcileConnectorResponse
+      - ouroboros.contracts.v1.ReconcileConnectorSuccess
+      - ouroboros.contracts.v1.QueryConnectorEvidenceRequest
+      - ouroboros.contracts.v1.QueryConnectorEvidenceResponse
+      - ouroboros.contracts.v1.QueryConnectorEvidenceSuccess
+      - ouroboros.contracts.v1.RevokeConnectorRequest
+      - ouroboros.contracts.v1.RevokeConnectorResponse
+      - ouroboros.contracts.v1.RevokeConnectorSuccess
+      - ouroboros.contracts.v1.PurgeConnectorRequest
+      - ouroboros.contracts.v1.PurgeConnectorResponse
+      - ouroboros.contracts.v1.PurgeConnectorSuccess
+      - ouroboros.contracts.v1.ConnectorAnswer
+      - ouroboros.contracts.v1.GitHubNativeAnchor
+      - ouroboros.contracts.v1.UntrustedMultimodalCaller
+      - ouroboros.contracts.v1.MultimodalSourceEnvelope
+      - ouroboros.contracts.v1.MultimodalSourceStatus
+      - ouroboros.contracts.v1.MultimodalEvidenceItem
+      - ouroboros.contracts.v1.MultimodalLaneCoverage
+      - ouroboros.contracts.v1.TextMarkdownBounds
+      - ouroboros.contracts.v1.PdfBounds
+      - ouroboros.contracts.v1.PngBounds
+      - ouroboros.contracts.v1.PcmWavBounds
+      - ouroboros.contracts.v1.AdmitMultimodalSourceRequest
+      - ouroboros.contracts.v1.AdmitMultimodalSourceResponse
+      - ouroboros.contracts.v1.AdmitMultimodalSourceSuccess
+      - ouroboros.contracts.v1.GetMultimodalStatusRequest
+      - ouroboros.contracts.v1.GetMultimodalStatusResponse
+      - ouroboros.contracts.v1.GetMultimodalStatusSuccess
+      - ouroboros.contracts.v1.GetMultimodalEvidenceRequest
+      - ouroboros.contracts.v1.GetMultimodalEvidenceResponse
+      - ouroboros.contracts.v1.GetMultimodalEvidenceSuccess
+      - ouroboros.contracts.v1.RevokeMultimodalSourceRequest
+      - ouroboros.contracts.v1.RevokeMultimodalSourceResponse
+      - ouroboros.contracts.v1.RevokeMultimodalSourceSuccess
+      - ouroboros.contracts.v1.PurgeMultimodalSourceRequest
+      - ouroboros.contracts.v1.PurgeMultimodalSourceResponse
+      - ouroboros.contracts.v1.PurgeMultimodalSourceSuccess

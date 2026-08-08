@@ -1,0 +1,34 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.PlanEdge.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "PlanEdge describes one typed one-layer dependency inside a ChangePlan.",
+      "properties": {
+        "fromNodeId": {
+          "description": "from_node_id is the producing orchestrator node identifier.",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9-]{0,63}$",
+          "type": "string"
+        },
+        "toNodeId": {
+          "description": "to_node_id is the consuming leaf or review node identifier.",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9-]{0,63}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fromNodeId",
+        "toNodeId"
+      ],
+      "title": "Plan Edge",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.PlanEdge.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.PlanEdge.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

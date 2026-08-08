@@ -1,0 +1,1106 @@
+// Canonical workflow, scheduling, roster, mailbox, and ChangeSet descriptions,
+// plus the bounded Stage 05 factory boundary.
+//
+// These messages make orchestration state inspectable. The deterministic kernel
+// remains responsible for all transition, lease, budget, and approval checks.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/common.proto";
+import "ouroboros/contracts/v1/ingestion.proto";
+import "ouroboros/contracts/v1/local_authority.proto";
+import "ouroboros/contracts/v1/security.proto";
+
+// FactoryService provides the five bounded Stage 05 factory operations used by
+// the thin TUI. Unknown, unauthorized, stale, and revoked runs share the
+// static `not_found_or_denied` response shape and disclose no existence
+// detail. No schedule, pull-request, cross-realm handover, or workflow
+// composition operation is part of this bounded surface; the preexisting
+// Schedule, Handover, WorkflowIR, and DraftPullRequestAction descriptions
+// above remain canonical state with no Stage 05 behavior.
+service FactoryService {
+  // AdmitChangeIntent admits one approved ChangeIntent and opens its run.
+  rpc AdmitChangeIntent(AdmitChangeIntentRequest) returns (AdmitChangeIntentResponse);
+  // GetChangePlan reads the typed one-layer DAG for one admitted run.
+  rpc GetChangePlan(GetChangePlanRequest) returns (GetChangePlanResponse);
+  // PreviewChangeSet reads the atomic candidate preview with per-language
+  // impact, documentation, and test obligations plus rollback facts.
+  rpc PreviewChangeSet(PreviewChangeSetRequest) returns (PreviewChangeSetResponse);
+  // GetReviewFindings pages typed fresh-review findings for one run.
+  rpc GetReviewFindings(GetReviewFindingsRequest) returns (GetReviewFindingsResponse);
+  // CancelChangeRun revokes one run at a safe point and denies pending effects.
+  rpc CancelChangeRun(CancelChangeRunRequest) returns (CancelChangeRunResponse);
+}
+
+// ChangeRunState is the bounded v1 lifecycle of one admitted factory run.
+enum ChangeRunState {
+  // CHANGE_RUN_STATE_UNSPECIFIED is invalid in a served response.
+  CHANGE_RUN_STATE_UNSPECIFIED = 0;
+  // CHANGE_RUN_STATE_PLANNING decomposes the admitted intent into the DAG.
+  CHANGE_RUN_STATE_PLANNING = 1;
+  // CHANGE_RUN_STATE_READY has a validated plan awaiting execution.
+  CHANGE_RUN_STATE_READY = 2;
+  // CHANGE_RUN_STATE_RUNNING executes leased leaves.
+  CHANGE_RUN_STATE_RUNNING = 3;
+  // CHANGE_RUN_STATE_REVIEW runs the fresh typed review.
+  CHANGE_RUN_STATE_REVIEW = 4;
+  // CHANGE_RUN_STATE_CANDIDATE_READY holds a verified atomic candidate.
+  CHANGE_RUN_STATE_CANDIDATE_READY = 5;
+  // CHANGE_RUN_STATE_COMPLETED is the terminal retained-candidate state.
+  CHANGE_RUN_STATE_COMPLETED = 6;
+  // CHANGE_RUN_STATE_FAILED is the terminal bounded-failure state.
+  CHANGE_RUN_STATE_FAILED = 7;
+  // CHANGE_RUN_STATE_CANCELLED is the terminal revoked or cancelled state.
+  CHANGE_RUN_STATE_CANCELLED = 8;
+}
+
+// PlanNodeKind distinguishes the orchestrator root from terminal workers.
+enum PlanNodeKind {
+  // PLAN_NODE_KIND_UNSPECIFIED is invalid in a served plan.
+  PLAN_NODE_KIND_UNSPECIFIED = 0;
+  // PLAN_NODE_KIND_ORCHESTRATOR is the single one-layer root.
+  PLAN_NODE_KIND_ORCHESTRATOR = 1;
+  // PLAN_NODE_KIND_LEAF is a terminal non-recursive implementation leaf.
+  PLAN_NODE_KIND_LEAF = 2;
+  // PLAN_NODE_KIND_REVIEW is the optional fresh read-only review node.
+  PLAN_NODE_KIND_REVIEW = 3;
+}
+
+// FactoryGateKind is the bounded non-removable Stage 05 gate vocabulary.
+enum FactoryGateKind {
+  // FACTORY_GATE_KIND_UNSPECIFIED is invalid in a gate roster.
+  FACTORY_GATE_KIND_UNSPECIFIED = 0;
+  // FACTORY_GATE_KIND_BUILD is the deterministic build gate.
+  FACTORY_GATE_KIND_BUILD = 1;
+  // FACTORY_GATE_KIND_TEST is the deterministic test gate.
+  FACTORY_GATE_KIND_TEST = 2;
+  // FACTORY_GATE_KIND_DOCS is the documentation-obligation gate.
+  FACTORY_GATE_KIND_DOCS = 3;
+  // FACTORY_GATE_KIND_SECURITY is the security and escape gate.
+  FACTORY_GATE_KIND_SECURITY = 4;
+}
+
+// FactoryGateStatus is the bounded lifecycle of one gate evaluation.
+enum FactoryGateStatus {
+  // FACTORY_GATE_STATUS_UNSPECIFIED is invalid in a served roster.
+  FACTORY_GATE_STATUS_UNSPECIFIED = 0;
+  // FACTORY_GATE_STATUS_PENDING has not run on the candidate.
+  FACTORY_GATE_STATUS_PENDING = 1;
+  // FACTORY_GATE_STATUS_RUNNING is evaluating the isolated candidate.
+  FACTORY_GATE_STATUS_RUNNING = 2;
+  // FACTORY_GATE_STATUS_PASSED satisfied the gate on the candidate.
+  FACTORY_GATE_STATUS_PASSED = 3;
+  // FACTORY_GATE_STATUS_FAILED failed the gate on the candidate.
+  FACTORY_GATE_STATUS_FAILED = 4;
+}
+
+// CandidateState is the bounded all-or-nothing atomic-candidate lifecycle.
+enum CandidateState {
+  // CANDIDATE_STATE_UNSPECIFIED is invalid in a served preview.
+  CANDIDATE_STATE_UNSPECIFIED = 0;
+  // CANDIDATE_STATE_PROPOSED is a normalized edit set not yet applied.
+  CANDIDATE_STATE_PROPOSED = 1;
+  // CANDIDATE_STATE_APPLIED is fully applied in the isolated candidate.
+  CANDIDATE_STATE_APPLIED = 2;
+  // CANDIDATE_STATE_VERIFIED passed every required gate on the candidate.
+  CANDIDATE_STATE_VERIFIED = 3;
+  // CANDIDATE_STATE_REVIEWED completed the fresh typed review.
+  CANDIDATE_STATE_REVIEWED = 4;
+  // CANDIDATE_STATE_RETAINED is the terminal approved-candidate state.
+  CANDIDATE_STATE_RETAINED = 5;
+  // CANDIDATE_STATE_REJECTED is the terminal discarded-candidate state.
+  CANDIDATE_STATE_REJECTED = 6;
+}
+
+// PreviewEditOperation is the bounded per-file candidate edit vocabulary.
+enum PreviewEditOperation {
+  // PREVIEW_EDIT_OPERATION_UNSPECIFIED is invalid in a preview.
+  PREVIEW_EDIT_OPERATION_UNSPECIFIED = 0;
+  // PREVIEW_EDIT_OPERATION_ADD creates one new repository-relative file.
+  PREVIEW_EDIT_OPERATION_ADD = 1;
+  // PREVIEW_EDIT_OPERATION_MODIFY edits one existing file in place.
+  PREVIEW_EDIT_OPERATION_MODIFY = 2;
+  // PREVIEW_EDIT_OPERATION_DELETE removes one existing file.
+  PREVIEW_EDIT_OPERATION_DELETE = 3;
+  // PREVIEW_EDIT_OPERATION_RENAME moves one existing file.
+  PREVIEW_EDIT_OPERATION_RENAME = 4;
+}
+
+// ReviewSeverity is the bounded typed finding severity vocabulary.
+enum ReviewSeverity {
+  // REVIEW_SEVERITY_UNSPECIFIED is invalid in a served finding.
+  REVIEW_SEVERITY_UNSPECIFIED = 0;
+  // REVIEW_SEVERITY_INFO is advisory and never blocks.
+  REVIEW_SEVERITY_INFO = 1;
+  // REVIEW_SEVERITY_MINOR is a bounded local defect.
+  REVIEW_SEVERITY_MINOR = 2;
+  // REVIEW_SEVERITY_MAJOR is a material correctness defect.
+  REVIEW_SEVERITY_MAJOR = 3;
+  // REVIEW_SEVERITY_BLOCKER prevents candidate retention.
+  REVIEW_SEVERITY_BLOCKER = 4;
+}
+
+// ReviewCategory is the bounded typed finding category vocabulary.
+enum ReviewCategory {
+  // REVIEW_CATEGORY_UNSPECIFIED is invalid in a served finding.
+  REVIEW_CATEGORY_UNSPECIFIED = 0;
+  // REVIEW_CATEGORY_CORRECTNESS covers logic and contract defects.
+  REVIEW_CATEGORY_CORRECTNESS = 1;
+  // REVIEW_CATEGORY_SECURITY covers authorization, escape, and secret defects.
+  REVIEW_CATEGORY_SECURITY = 2;
+  // REVIEW_CATEGORY_DATA_INTEGRITY covers atomicity and durability defects.
+  REVIEW_CATEGORY_DATA_INTEGRITY = 3;
+  // REVIEW_CATEGORY_DOCS covers documentation-obligation defects.
+  REVIEW_CATEGORY_DOCS = 4;
+  // REVIEW_CATEGORY_TESTS covers test-obligation defects.
+  REVIEW_CATEGORY_TESTS = 5;
+}
+
+// FindingDisposition is the bounded typed finding outcome vocabulary.
+enum FindingDisposition {
+  // FINDING_DISPOSITION_UNSPECIFIED is invalid in a served finding.
+  FINDING_DISPOSITION_UNSPECIFIED = 0;
+  // FINDING_DISPOSITION_OPEN awaits orchestrator disposition.
+  FINDING_DISPOSITION_OPEN = 1;
+  // FINDING_DISPOSITION_FIXED was corrected inside the candidate.
+  FINDING_DISPOSITION_FIXED = 2;
+  // FINDING_DISPOSITION_DISMISSED_WITH_EVIDENCE was dismissed with citations.
+  FINDING_DISPOSITION_DISMISSED_WITH_EVIDENCE = 3;
+  // FINDING_DISPOSITION_DEFERRED was moved to a tracked follow-up.
+  FINDING_DISPOSITION_DEFERRED = 4;
+  // FINDING_DISPOSITION_BLOCKING prevents candidate retention.
+  FINDING_DISPOSITION_BLOCKING = 5;
+}
+
+// UntrustedFactoryCaller carries body identity only for authenticated-context
+// checks; the authenticated gateway session remains the sole authority.
+message UntrustedFactoryCaller {
+  // requested_principal must match the authenticated peer principal and tenant.
+  AuthenticatedPrincipalRef requested_principal = 1 [(buf.validate.field).required = true];
+  // requested_session must match the authenticated gateway session.
+  Identifier requested_session = 2 [(buf.validate.field).required = true];
+}
+
+// ModelRoute records the deterministic provider-neutral routing decision for
+// one leaf; escalation outside the routed profile is explicit and budgeted.
+message ModelRoute {
+  // profile_digest pins the certified runner/model/profile selection policy.
+  Digest profile_digest = 1 [(buf.validate.field).required = true];
+  // model_identity names the selected provider-neutral model identity.
+  string model_identity = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 128
+      pattern: "^[a-z0-9][a-z0-9._:-]{0,127}$"
+    }
+  ];
+  // rationale_code is a stable non-sensitive routing rationale under policy.
+  string rationale_code = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^[a-z][a-z0-9_]*$"
+    }
+  ];
+  // limits bounds leaf tokens, cost, wall time, and retries.
+  repeated ResourceLimit limits = 4 [(buf.validate.field).repeated.max_items = 8];
+}
+
+// GateSpec binds one required or declared deterministic gate to its result.
+message GateSpec {
+  // gate_id is an opaque gate evaluation identity.
+  Identifier gate_id = 1 [(buf.validate.field).required = true];
+  // kind is the bounded gate vocabulary kind.
+  FactoryGateKind kind = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // required marks the non-removable build, test, docs, and security gates.
+  bool required = 3;
+  // status is the bounded evaluation state on the isolated candidate.
+  FactoryGateStatus status = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+// PlanEdge describes one typed one-layer dependency inside a ChangePlan.
+message PlanEdge {
+  // from_node_id is the producing orchestrator node identifier.
+  string from_node_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^[a-z][a-z0-9-]{0,63}$"
+    }
+  ];
+  // to_node_id is the consuming leaf or review node identifier.
+  string to_node_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^[a-z][a-z0-9-]{0,63}$"
+    }
+  ];
+}
+
+// PlanNode is one typed node of the bounded one-layer ChangePlan DAG.
+message PlanNode {
+  option (buf.validate.message).cel = {
+    id: "plan_node.leaf_shape"
+    message: "leaf nodes carry scope, lease, grant, and route; other nodes carry none"
+    expression: "this.kind == 2 ? (this.owned_paths.size() > 0 && has(this.lease) && has(this.capability_grant) && has(this.route)) : (this.owned_paths.size() == 0 && this.forbidden_paths.size() == 0 && !has(this.lease) && !has(this.capability_grant) && !has(this.route))"
+  };
+  option (buf.validate.message).cel = {
+    id: "plan_node.no_redispatch"
+    message: "leaf grants never carry dispatch or task-creation authority"
+    expression: "this.kind != 2 || !this.capability_grant.actions.exists(a, a in ['factory.dispatch', 'factory.task.create'])"
+  };
+  option (buf.validate.message).cel = {
+    id: "plan_node.safe_paths"
+    message: "owned and forbidden paths are normalized repository-relative paths"
+    expression: "this.owned_paths.all(p, p.size() <= 4096 && p.matches('^[^/\\\\\\x00-\\x1f\\x7f](?:[^\\\\\\x00-\\x1f\\x7f]*[^/\\\\\\x00-\\x1f\\x7f])?$') && p.split('/').all(s, s != '' && s != '.' && s != '..')) && this.forbidden_paths.all(p, p.size() <= 4096 && p.matches('^[^/\\\\\\x00-\\x1f\\x7f](?:[^\\\\\\x00-\\x1f\\x7f]*[^/\\\\\\x00-\\x1f\\x7f])?$') && p.split('/').all(s, s != '' && s != '.' && s != '..'))"
+  };
+  // node_id is stable within one plan revision.
+  string node_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^[a-z][a-z0-9-]{0,63}$"
+    }
+  ];
+  // kind distinguishes orchestrator, leaf, and review nodes.
+  PlanNodeKind kind = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // goal_digest binds the exact node goal stored as an immutable artifact.
+  Digest goal_digest = 3 [(buf.validate.field).required = true];
+  // owned_paths lists the exact exclusive write scope for leaf nodes.
+  repeated string owned_paths = 4 [(buf.validate.field).repeated.max_items = 64];
+  // forbidden_paths lists explicit protected non-goal write boundaries.
+  repeated string forbidden_paths = 5 [(buf.validate.field).repeated.max_items = 64];
+  // route records the deterministic leaf model routing decision.
+  ModelRoute route = 6;
+  // lease records the sole fenced leaf owner.
+  Lease lease = 7;
+  // capability_grant pins the attenuated leaf execution authority.
+  CapabilityGrant capability_grant = 8;
+}
+
+// ChangePlan is the frozen typed one-layer DAG compiled from one approved
+// ChangeIntent: one orchestrator, at most three non-recursive leaves with
+// disjoint write scopes, at most one fresh review node, and the non-removable
+// gate roster.
+message ChangePlan {
+  option (buf.validate.message).cel = {
+    id: "change_plan.single_orchestrator"
+    message: "a change plan has exactly one orchestrator root"
+    expression: "this.nodes.filter(n, n.kind == 1).size() == 1"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_plan.bounded_leaves"
+    message: "a change plan delegates at least one and at most three leaves"
+    expression: "this.nodes.filter(n, n.kind == 2).size() >= 1 && this.nodes.filter(n, n.kind == 2).size() <= 3"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_plan.bounded_review"
+    message: "a change plan carries at most one fresh review node"
+    expression: "this.nodes.filter(n, n.kind == 3).size() <= 1"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_plan.one_layer"
+    message: "every edge originates at the orchestrator root"
+    expression: "this.edges.all(e, this.nodes.exists(n, n.node_id == e.from_node_id && n.kind == 1))"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_plan.edge_endpoints"
+    message: "every edge endpoint resolves to a declared node"
+    expression: "this.edges.all(e, this.nodes.exists(n, n.node_id == e.from_node_id) && this.nodes.exists(n, n.node_id == e.to_node_id))"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_plan.no_root_loop"
+    message: "no edge may target the orchestrator root"
+    expression: "this.edges.all(e, !this.nodes.exists(n, n.node_id == e.to_node_id && n.kind == 1))"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_plan.no_orphan_nodes"
+    message: "every non-orchestrator node has at least one incoming edge"
+    expression: "this.nodes.filter(n, n.kind != 1).all(n, this.edges.exists(e, e.to_node_id == n.node_id))"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_plan.disjoint_write_scopes"
+    message: "leaf write scopes are pairwise prefix-disjoint"
+    expression: "this.nodes.filter(n, n.kind == 2).all(a, this.nodes.filter(n, n.kind == 2).all(b, a.node_id == b.node_id || !a.owned_paths.exists(p, b.owned_paths.exists(q, p == q || q.startsWith(p + '/') || p.startsWith(q + '/')))))"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_plan.unique_node_ids"
+    message: "node identifiers are unique within one plan"
+    expression: "this.nodes.all(a, this.nodes.filter(b, b.node_id == a.node_id).size() == 1)"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_plan.unique_gate_ids"
+    message: "gate identifiers are unique within one plan roster"
+    expression: "this.gates.all(a, this.gates.filter(b, b.gate_id.namespace == a.gate_id.namespace && b.gate_id.value == a.gate_id.value).size() == 1)"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_plan.required_gates"
+    message: "the non-removable build, test, docs, and security gates are required"
+    expression: "[1, 2, 3, 4].all(k, this.gates.exists(g, g.kind == k && g.required))"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_plan.leaf_base_binding"
+    message: "leaf grants pin the exact intent Git base"
+    expression: "this.nodes.filter(n, n.kind == 2).all(n, n.capability_grant.repository_git_oid == this.intent.repository_git_oid)"
+  };
+  // plan_id is an opaque immutable plan revision identity.
+  Identifier plan_id = 1 [(buf.validate.field).required = true];
+  // run_id identifies the admitted run owning this plan.
+  Identifier run_id = 2 [(buf.validate.field).required = true];
+  // intent is the admitted approved change intent.
+  ChangeIntent intent = 3 [(buf.validate.field).required = true];
+  // state is the bounded run lifecycle state.
+  ChangeRunState state = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // nodes is the complete bounded one-layer node set.
+  repeated PlanNode nodes = 5 [(buf.validate.field).repeated = {
+    min_items: 2
+    max_items: 5
+  }];
+  // edges is the complete bounded one-layer dependency set.
+  repeated PlanEdge edges = 6 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 4
+  }];
+  // gates is the bounded roster including the non-removable required gates.
+  repeated GateSpec gates = 7 [(buf.validate.field).repeated = {
+    min_items: 4
+    max_items: 8
+  }];
+}
+
+// PreviewEdit is one normalized per-file candidate edit tied to one P5 lane.
+message PreviewEdit {
+  option (buf.validate.message).cel = {
+    id: "preview_edit.safe_paths"
+    message: "preview edit paths are normalized repository-relative paths"
+    expression: "this.path.size() <= 4096 && this.path.matches('^[^/\\\\\\x00-\\x1f\\x7f](?:[^\\\\\\x00-\\x1f\\x7f]*[^/\\\\\\x00-\\x1f\\x7f])?$') && this.path.split('/').all(s, s != '' && s != '.' && s != '..') && (!has(this.old_path) || (this.old_path.size() <= 4096 && this.old_path.matches('^[^/\\\\\\x00-\\x1f\\x7f](?:[^\\\\\\x00-\\x1f\\x7f]*[^/\\\\\\x00-\\x1f\\x7f])?$') && this.old_path.split('/').all(s, s != '' && s != '.' && s != '..')))"
+  };
+  option (buf.validate.message).cel = {
+    id: "preview_edit.rename_shape"
+    message: "only rename edits carry an old path distinct from the new path"
+    expression: "this.operation == 4 ? (has(this.old_path) && this.old_path != this.path) : !has(this.old_path)"
+  };
+  option (buf.validate.message).cel = {
+    id: "preview_edit.operation_digests"
+    message: "add, delete, modify, and rename edits carry exact before and after digests"
+    expression: "(this.operation == 1 && !has(this.before_digest) && has(this.after_digest)) || (this.operation == 3 && has(this.before_digest) && !has(this.after_digest)) || ((this.operation == 2 || this.operation == 4) && has(this.before_digest) && has(this.after_digest))"
+  };
+  // path is the normalized post-image repository-relative path.
+  string path = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 4096
+  ];
+  // old_path is the normalized pre-image path for rename edits only.
+  optional string old_path = 2 [(buf.validate.field).string.max_len = 4096];
+  // operation is the bounded per-file edit vocabulary.
+  PreviewEditOperation operation = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // language binds the edit to exactly one P5 language lane.
+  CodeLanguage language = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // before_digest pins the exact pre-image file bytes when they exist.
+  Digest before_digest = 5;
+  // after_digest pins the exact post-image file bytes when they exist.
+  Digest after_digest = 6;
+}
+
+// LanguageObligation freezes the impact, documentation, and test obligations
+// owed for one touched P5 language before a candidate may verify.
+message LanguageObligation {
+  // language identifies the touched P5 language lane.
+  CodeLanguage language = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // impact is the graph-derived impact analysis for this lane.
+  ImpactReceipt impact = 2 [(buf.validate.field).required = true];
+  // docs_required records the documentation obligation for this lane.
+  bool docs_required = 3;
+  // tests_required records the test obligation for this lane.
+  bool tests_required = 4;
+}
+
+// ChangeSetPreview is the served atomic multi-file candidate preview: one
+// exact-base ChangeSet bound to the admitted run's approved Git base, its
+// normalized per-file edits, per-language obligations, the gate roster, and
+// rollback facts. Application is all-or-nothing; a rejected candidate carries
+// a rollback receipt and canonical source is never mutated by this boundary.
+message ChangeSetPreview {
+  option (buf.validate.message).cel = {
+    id: "change_set_preview.unique_paths"
+    message: "post-image edit paths are unique within one preview"
+    expression: "this.edits.all(a, this.edits.filter(b, b.path == a.path).size() == 1)"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_set_preview.unique_preimages"
+    message: "pre-image edit paths are unique within one preview"
+    expression: "this.edits.all(a, a.operation == 1 || this.edits.filter(b, (b.operation == 4 ? b.old_path : (b.operation == 1 ? '' : b.path)) == (a.operation == 4 ? a.old_path : a.path)).size() == 1)"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_set_preview.obligation_per_language"
+    message: "every touched language has exactly one obligation and obligations touch only edited languages"
+    expression: "this.edits.map(e, e.language).all(l, this.obligations.exists(o, o.language == l)) && this.obligations.all(o, this.edits.exists(e, e.language == o.language)) && this.obligations.all(a, this.obligations.filter(b, b.language == a.language).size() == 1)"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_set_preview.atomic_gates"
+    message: "verified, reviewed, and retained candidates require every required gate passed"
+    expression: "(this.candidate_state == 3 || this.candidate_state == 4 || this.candidate_state == 5) ? this.gates.filter(g, g.required).all(g, g.status == 3) : true"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_set_preview.rollback_binding"
+    message: "a rejected candidate carries its rollback receipt"
+    expression: "this.candidate_state == 6 ? has(this.rollback_receipt) : true"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_set_preview.base_binding"
+    message: "the candidate base must equal the admitted intent's approved Git base"
+    expression: "this.change_set.base_git_oid == this.expected_base_git_oid"
+  };
+  option (buf.validate.message).cel = {
+    id: "change_set_preview.unique_gate_ids"
+    message: "gate identifiers are unique within one preview roster"
+    expression: "this.gates.all(a, this.gates.filter(b, b.gate_id.namespace == a.gate_id.namespace && b.gate_id.value == a.gate_id.value).size() == 1)"
+  };
+  // change_set is the immutable exact-base atomic candidate.
+  ChangeSet change_set = 1 [(buf.validate.field).required = true];
+  // candidate_state is the bounded all-or-nothing lifecycle state.
+  CandidateState candidate_state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // edits is the normalized per-file candidate edit set.
+  repeated PreviewEdit edits = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 64
+  }];
+  // obligations carries exactly one obligation per touched P5 language.
+  repeated LanguageObligation obligations = 4 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 5
+  }];
+  // gates is the bounded roster evaluated on the isolated candidate.
+  repeated GateSpec gates = 5 [(buf.validate.field).repeated = {
+    min_items: 4
+    max_items: 8
+  }];
+  // rollback_receipt records the deterministic discard of a rejected candidate.
+  Receipt rollback_receipt = 6;
+  // expected_base_git_oid echoes the admitted run's approved intent base; the
+  // candidate base must equal it, so no preview can describe another commit.
+  string expected_base_git_oid = 7 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^[0-9a-f]{40}([0-9a-f]{24})?$"
+    }
+  ];
+}
+
+// ReviewFinding is one typed fresh-review observation. The reviewer identity
+// is always distinct from every leaf grant initiator; dismissal requires
+// evidence, and no finding may be dropped silently.
+message ReviewFinding {
+  option (buf.validate.message).cel = {
+    id: "review_finding.dismissed_with_evidence"
+    message: "dismissed findings require supporting evidence"
+    expression: "this.disposition == 3 ? this.evidence.size() > 0 : true"
+  };
+  option (buf.validate.message).cel = {
+    id: "review_finding.disposition_receipt"
+    message: "exactly the dispositioned findings carry a disposition receipt"
+    expression: "this.disposition == 1 ? !has(this.disposition_receipt) : has(this.disposition_receipt)"
+  };
+  // finding_id is an opaque finding identity.
+  Identifier finding_id = 1 [(buf.validate.field).required = true];
+  // run_id identifies the admitted run under review.
+  Identifier run_id = 2 [(buf.validate.field).required = true];
+  // severity is the bounded typed severity.
+  ReviewSeverity severity = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // category is the bounded typed category.
+  ReviewCategory category = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // disposition is the bounded typed outcome.
+  FindingDisposition disposition = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // summary is a bounded non-sensitive description.
+  string summary = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // evidence supports the finding or its dismissal.
+  repeated EvidenceRef evidence = 7 [(buf.validate.field).repeated.max_items = 16];
+  // reviewer is the authenticated reviewer identity, never a leaf initiator.
+  AuthenticatedPrincipalRef reviewer = 8 [(buf.validate.field).required = true];
+  // reviewer_family records the certified reviewer family metadata.
+  string reviewer_family = 9 [(buf.validate.field).string = {
+    max_len: 64
+    pattern: "^[a-z0-9][a-z0-9._-]{0,63}$"
+  }];
+  // disposition_receipt records the orchestrator disposition decision.
+  Receipt disposition_receipt = 10;
+}
+
+// AdmitChangeIntentRequest admits one approved ChangeIntent under the
+// authenticated session; body identity remains an untrusted cross-check.
+message AdmitChangeIntentRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedFactoryCaller caller = 1 [(buf.validate.field).required = true];
+  // intent is the approved change intent pinned to an exact Git base.
+  ChangeIntent intent = 2 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// AdmitChangeIntentSuccess returns the opened run identity and its state.
+message AdmitChangeIntentSuccess {
+  option (buf.validate.message).cel = {
+    id: "admit_change_intent_response.admitted_state"
+    message: "an admitted run opens in planning or ready state"
+    expression: "this.state == 1 || this.state == 2"
+  };
+  // run_id is the server-authored admitted run identity.
+  Identifier run_id = 1 [(buf.validate.field).required = true];
+  // state is the bounded initial run lifecycle state.
+  ChangeRunState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+// AdmitChangeIntentResponse returns exactly one admission or static denial.
+message AdmitChangeIntentResponse {
+  option (buf.validate.message).cel = {
+    id: "admit_change_intent_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the admission decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents admission facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the admitted run identity after authorization.
+    AdmitChangeIntentSuccess success = 2;
+    // error uses the same static model for absent, denied, stale, and revoked runs.
+    PublicError error = 3;
+  }
+}
+
+// GetChangePlanRequest reads the typed one-layer DAG for one admitted run.
+message GetChangePlanRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedFactoryCaller caller = 1 [(buf.validate.field).required = true];
+  // run_id selects the admitted run under authenticated scope.
+  Identifier run_id = 2 [(buf.validate.field).required = true];
+}
+
+// GetChangePlanSuccess contains the current typed plan for one run.
+message GetChangePlanSuccess {
+  // plan is the current bounded one-layer DAG and gate roster.
+  ChangePlan plan = 1 [(buf.validate.field).required = true];
+}
+
+// GetChangePlanResponse returns exactly one plan or non-disclosing denial.
+message GetChangePlanResponse {
+  option (buf.validate.message).cel = {
+    id: "get_change_plan_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the plan read decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents plan facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the authorized typed plan.
+    GetChangePlanSuccess success = 2;
+    // error uses the same static model for absent, denied, and revoked runs.
+    PublicError error = 3;
+  }
+}
+
+// PreviewChangeSetRequest reads the atomic candidate preview for one run.
+message PreviewChangeSetRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedFactoryCaller caller = 1 [(buf.validate.field).required = true];
+  // run_id selects the admitted run under authenticated scope.
+  Identifier run_id = 2 [(buf.validate.field).required = true];
+}
+
+// PreviewChangeSetSuccess contains the atomic candidate preview.
+message PreviewChangeSetSuccess {
+  // preview is the exact-base candidate with obligations and rollback facts.
+  ChangeSetPreview preview = 1 [(buf.validate.field).required = true];
+}
+
+// PreviewChangeSetResponse returns exactly one preview or static denial.
+message PreviewChangeSetResponse {
+  option (buf.validate.message).cel = {
+    id: "preview_change_set_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the preview read decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents candidate facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the authorized candidate preview.
+    PreviewChangeSetSuccess success = 2;
+    // error uses the same static model for absent, denied, and revoked runs.
+    PublicError error = 3;
+  }
+}
+
+// GetReviewFindingsRequest pages typed findings for one admitted run.
+message GetReviewFindingsRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedFactoryCaller caller = 1 [(buf.validate.field).required = true];
+  // run_id selects the admitted run under authenticated scope.
+  Identifier run_id = 2 [(buf.validate.field).required = true];
+  // page_size is bounded before lookup or allocation.
+  uint32 page_size = 3 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 100
+  ];
+  // after is an opaque continuation within the same finding listing.
+  Cursor after = 4;
+}
+
+// GetReviewFindingsSuccess contains one authorized page of typed findings.
+message GetReviewFindingsSuccess {
+  // findings lists only findings owned by the authorized run.
+  repeated ReviewFinding findings = 1 [(buf.validate.field).repeated.max_items = 100];
+  // next_cursor continues within the same bounded listing.
+  Cursor next_cursor = 2;
+}
+
+// GetReviewFindingsResponse returns exactly one findings page or denial.
+message GetReviewFindingsResponse {
+  option (buf.validate.message).cel = {
+    id: "get_review_findings_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the finding read decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents finding facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the authorized typed finding page.
+    GetReviewFindingsSuccess success = 2;
+    // error uses the same static model for absent, denied, and revoked runs.
+    PublicError error = 3;
+  }
+}
+
+// CancelChangeRunRequest revokes one admitted run at a safe point.
+message CancelChangeRunRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedFactoryCaller caller = 1 [(buf.validate.field).required = true];
+  // run_id selects the admitted run under authenticated scope.
+  Identifier run_id = 2 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// CancelChangeRunSuccess confirms the terminal cancelled run state.
+message CancelChangeRunSuccess {
+  option (buf.validate.message).cel = {
+    id: "cancel_change_run_response.cancelled_state"
+    message: "a cancelled run confirms only the terminal cancelled state"
+    expression: "this.state == 8"
+  };
+  // run_id echoes the cancelled run identity.
+  Identifier run_id = 1 [(buf.validate.field).required = true];
+  // state is always the terminal cancelled state.
+  ChangeRunState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+// CancelChangeRunResponse returns exactly one cancellation or static denial.
+message CancelChangeRunResponse {
+  option (buf.validate.message).cel = {
+    id: "cancel_change_run_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the cancellation decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents cancellation facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the terminal cancelled run state.
+    CancelChangeRunSuccess success = 2;
+    // error uses the same static model for absent, denied, and revoked runs.
+    PublicError error = 3;
+  }
+}
+
+// MisfirePolicy defines behavior when a scheduled occurrence is missed.
+enum MisfirePolicy {
+  MISFIRE_POLICY_UNSPECIFIED = 0;
+  MISFIRE_POLICY_COALESCE_ONE = 1;
+  MISFIRE_POLICY_SKIP_AND_NOTIFY = 2;
+  MISFIRE_POLICY_BOUNDED_CATCH_UP = 3;
+}
+
+// TaskState is the canonical roster state, not a runner-native task-list status.
+enum TaskState {
+  TASK_STATE_UNSPECIFIED = 0;
+  TASK_STATE_PENDING = 1;
+  TASK_STATE_READY = 2;
+  TASK_STATE_LEASED = 3;
+  TASK_STATE_RUNNING = 4;
+  TASK_STATE_BLOCKED = 5;
+  TASK_STATE_REVIEW = 6;
+  TASK_STATE_COMPLETED = 7;
+  TASK_STATE_CANCELLED = 8;
+  TASK_STATE_FAILED = 9;
+}
+
+// ProgressStatus is the stable lifecycle state disclosed by a progress event.
+enum ProgressStatus {
+  PROGRESS_STATUS_UNSPECIFIED = 0;
+  PROGRESS_STATUS_QUEUED = 1;
+  PROGRESS_STATUS_STARTED = 2;
+  PROGRESS_STATUS_ADVANCING = 3;
+  PROGRESS_STATUS_WAITING = 4;
+  PROGRESS_STATUS_COMPLETED = 5;
+  PROGRESS_STATUS_FAILED = 6;
+  PROGRESS_STATUS_CANCELLED = 7;
+}
+
+// WorkflowNode describes one typed, versioned execution node.
+message WorkflowNode {
+  // node_id is stable within its workflow revision.
+  string node_id = 1;
+  // node_type names a certified native node type.
+  string node_type = 2;
+  // input_contract_digest pins the typed input contract.
+  Digest input_contract_digest = 3;
+  // output_contract_digest pins the typed output contract.
+  Digest output_contract_digest = 4;
+  // capability_requirements lists exact required action/resource capabilities.
+  repeated string capability_requirements = 5;
+  // budget_limits constrains node-specific resource consumption.
+  repeated ResourceLimit budget_limits = 6;
+  // requires_human_gate prevents autonomous execution until approved.
+  bool requires_human_gate = 7;
+}
+
+// WorkflowEdge describes one typed dependency between workflow nodes.
+message WorkflowEdge {
+  // from_node_id is the producing node identifier.
+  string from_node_id = 1;
+  // to_node_id is the consuming node identifier.
+  string to_node_id = 2;
+  // state_contract_digest pins the state carried across the edge.
+  Digest state_contract_digest = 3;
+  // required is false only for explicitly optional edges.
+  bool required = 4;
+}
+
+// WorkflowIR is the immutable typed graph compiled from an approved workflow draft.
+message WorkflowIR {
+  // workflow_id is an opaque immutable workflow revision identity.
+  Identifier workflow_id = 1;
+  // version is a monotonic human-readable revision label.
+  string version = 2;
+  // nodes is the complete typed node set.
+  repeated WorkflowNode nodes = 3;
+  // edges is the complete typed dependency set.
+  repeated WorkflowEdge edges = 4;
+  // evaluator_digest pins deterministic evaluation and promotion behavior.
+  Digest evaluator_digest = 5;
+  // workflow_digest binds the canonical compiled graph bytes.
+  Digest workflow_digest = 6;
+}
+
+// Schedule defines a durable one-shot, recurring, or event-triggered run plan.
+message Schedule {
+  // schedule_id is an opaque schedule identity.
+  Identifier schedule_id = 1;
+  // workflow_id identifies the immutable workflow revision to invoke.
+  Identifier workflow_id = 2;
+  // trigger_kind is one_shot, cron, interval, or event.
+  string trigger_kind = 3;
+  // trigger_spec is a typed canonical trigger serialization digest, not arbitrary code.
+  Digest trigger_spec_digest = 4;
+  // time_zone identifies the IANA timezone used for calendar schedules.
+  string time_zone = 5;
+  // misfire_policy controls safe missed-occurrence behavior.
+  MisfirePolicy misfire_policy = 6;
+  // max_catch_up bounds any explicitly approved catch-up work.
+  uint32 max_catch_up = 7;
+  // standing_approval is required before effectful repeated execution.
+  Approval standing_approval = 8;
+  // paused prevents new occurrences without deleting immutable history.
+  bool paused = 9;
+}
+
+// ScheduleRun records one fenced schedule occurrence and its result receipt.
+message ScheduleRun {
+  // run_id is an opaque occurrence identity.
+  Identifier run_id = 1;
+  // schedule_id identifies the durable schedule.
+  Identifier schedule_id = 2;
+  // scheduled_for records the intended occurrence time.
+  google.protobuf.Timestamp scheduled_for = 3;
+  // lease identifies the single fenced run owner.
+  Lease lease = 4;
+  // result records completion, retry, skip, or failure.
+  Receipt result = 5;
+}
+
+// Task defines bounded work owned by the canonical shared roster.
+message Task {
+  // task_id is an opaque roster task identity.
+  Identifier task_id = 1;
+  // workflow_id identifies the parent immutable workflow revision.
+  Identifier workflow_id = 2;
+  // parent_task_id identifies an optional parent task without enabling redispatch.
+  Identifier parent_task_id = 3;
+  // goal_digest binds exact goal/specification inputs stored as immutable artifacts.
+  Digest goal_digest = 4;
+  // dependency_task_ids lists roster dependencies.
+  repeated Identifier dependency_task_ids = 5;
+  // owned_paths lists exact repository/module ownership boundaries.
+  repeated string owned_paths = 6;
+  // forbidden_paths lists explicit non-goals and protected write boundaries.
+  repeated string forbidden_paths = 7;
+  // state is the canonical task state.
+  TaskState state = 8;
+  // lease records the sole current fenced owner when leased.
+  Lease lease = 9;
+  // capability_grant pins authorized execution scope.
+  CapabilityGrant capability_grant = 10;
+  // budget_limits bounds task-level tokens, cost, time, and retries.
+  repeated ResourceLimit budget_limits = 11;
+  // acceptance_digest binds the required acceptance criteria.
+  Digest acceptance_digest = 12;
+}
+
+// Roster is a durable snapshot reference for task ownership and progress.
+message Roster {
+  // roster_id is an opaque roster identity.
+  Identifier roster_id = 1;
+  // tasks contains the currently materialized task states.
+  repeated Task tasks = 2;
+  // watermark identifies the canonical ledger position represented by this roster.
+  uint64 watermark = 3;
+}
+
+// MailboxKind constrains durable inter-agent communication semantics.
+enum MailboxKind {
+  MAILBOX_KIND_UNSPECIFIED = 0;
+  MAILBOX_KIND_QUESTION = 1;
+  MAILBOX_KIND_ANSWER = 2;
+  MAILBOX_KIND_FINDING = 3;
+  MAILBOX_KIND_EVIDENCE = 4;
+  MAILBOX_KIND_DEPENDENCY_READY = 5;
+  MAILBOX_KIND_BLOCKED = 6;
+  MAILBOX_KIND_HANDOVER = 7;
+  MAILBOX_KIND_REVIEW_REQUEST = 8;
+  MAILBOX_KIND_REVIEW_RESULT = 9;
+  MAILBOX_KIND_CORRECTION = 10;
+  MAILBOX_KIND_CANCELLATION = 11;
+}
+
+// MailboxMessage is one ordered, durable, acknowledged task message.
+message MailboxMessage {
+  // message_id is an opaque durable message identity.
+  Identifier message_id = 1;
+  // kind identifies the typed communication purpose.
+  MailboxKind kind = 2;
+  // sender identifies the authenticated sending worker or human.
+  AuthenticatedPrincipalRef sender = 3;
+  // recipient_task_ids contains explicit targeted recipients.
+  repeated Identifier recipient_task_ids = 4;
+  // task_id identifies the related roster task.
+  Identifier task_id = 5;
+  // causal records sequence, correlation, and causation.
+  CausalContext causal = 6;
+  // payload_artifact holds encrypted, bounded message content.
+  ArtifactRef payload_artifact = 7;
+  // expires_at prevents stale guidance from becoming authority.
+  google.protobuf.Timestamp expires_at = 8;
+  // acknowledged_at records durable recipient acknowledgement.
+  google.protobuf.Timestamp acknowledged_at = 9;
+}
+
+// Handover records a safe-point transfer request without moving the active fence itself.
+message Handover {
+  // task_id identifies the portable task.
+  Identifier task_id = 1;
+  // source_lease identifies the current holder requesting safe-point handover.
+  Lease source_lease = 2;
+  // checkpoint_artifact is the immutable portable checkpoint bundle.
+  ArtifactRef checkpoint_artifact = 3;
+  // target_realm_kind is the requested certified realm class.
+  string target_realm_kind = 4;
+  // requested_at records the handover request time.
+  google.protobuf.Timestamp requested_at = 5;
+}
+
+// Finding records a bounded review, validation, or operational observation.
+message Finding {
+  // finding_id is an opaque finding identity.
+  Identifier finding_id = 1;
+  // task_id identifies the affected task.
+  Identifier task_id = 2;
+  // severity is a stable severity name under team policy.
+  string severity = 3;
+  // summary is a non-sensitive bounded description.
+  string summary = 4;
+  // evidence supports the finding.
+  repeated EvidenceRef evidence = 5;
+  // disposition_receipt records fixed, dismissed, deferred, or blocking state.
+  Receipt disposition_receipt = 6;
+}
+
+// Notification records receipt-backed progress for a user-visible inbox.
+message Notification {
+  // notification_id is an opaque notification identity.
+  Identifier notification_id = 1;
+  // recipient is the authenticated intended recipient.
+  AuthenticatedPrincipalRef recipient = 2;
+  // task_id identifies optional related work.
+  Identifier task_id = 3;
+  // level is a stable information, warning, error, or approval-needed level.
+  string level = 4;
+  // receipt supports the disclosed progress or disposition.
+  Receipt receipt = 5;
+}
+
+// ProgressEvent is one ordered, receipt-backed task update for user surfaces.
+//
+// The causal sequence is authoritative for ordering. Human-readable message
+// text is bounded display data and never becomes task state or authority.
+message ProgressEvent {
+  // progress_event_id is an opaque event identity used for replay deduplication.
+  Identifier progress_event_id = 1 [(buf.validate.field).required = true];
+  // task_id identifies the roster task whose progress changed.
+  Identifier task_id = 2 [(buf.validate.field).required = true];
+  // run_id identifies an optional workflow or schedule run.
+  Identifier run_id = 3;
+  // node_id identifies an optional Workflow IR node within that run.
+  optional string node_id = 4 [(buf.validate.field).string.max_len = 256];
+  // status is the stable disclosed lifecycle state.
+  ProgressStatus status = 5 [(buf.validate.field).required = true];
+  // message is optional, bounded, non-sensitive display text.
+  optional string message = 6 [(buf.validate.field).string.max_len = 2048];
+  // progress_per_mille is an optional measured completion value in [0, 1000].
+  optional uint32 progress_per_mille = 7 [(buf.validate.field).uint32.lte = 1000];
+  // causal supplies the canonical sequence, correlation, fence, and watermark.
+  CausalContext causal = 8 [(buf.validate.field).required = true];
+  // receipt supports the disclosed transition without exposing raw failures.
+  Receipt receipt = 9 [(buf.validate.field).required = true];
+  // evidence links progress to immutable outputs or validation artifacts.
+  repeated EvidenceRef evidence = 10;
+  // occurred_at records when this ordered progress transition became canonical.
+  google.protobuf.Timestamp occurred_at = 11 [(buf.validate.field).required = true];
+}
+
+// ChangeIntent requests a scoped, reviewable change but cannot mutate source itself.
+message ChangeIntent {
+  // intent_id is an opaque change-intent identity.
+  Identifier intent_id = 1 [(buf.validate.field).required = true];
+  // requested_by identifies the authenticated human or authorized policy actor.
+  AuthenticatedPrincipalRef requested_by = 2 [(buf.validate.field).required = true];
+  // repository_git_oid pins the exact source base.
+  string repository_git_oid = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^[0-9a-f]{40}([0-9a-f]{24})?$"
+    }
+  ];
+  // scope_digest binds approved paths, behaviors, and constraints.
+  Digest scope_digest = 4 [(buf.validate.field).required = true];
+  // supporting_evidence anchors the requested change to authorized evidence.
+  repeated EvidenceRef supporting_evidence = 5 [(buf.validate.field).repeated.min_items = 1];
+  // approval is required before implementation scheduling under policy.
+  Approval approval = 6 [(buf.validate.field).required = true];
+}
+
+// ImpactReceipt records graph-derived obligations before source mutation is offered.
+message ImpactReceipt {
+  // receipt is the canonical impact-analysis result.
+  Receipt receipt = 1;
+  // base_git_oid is the exact source snapshot analyzed.
+  string base_git_oid = 2;
+  // affected_artifacts identify code, docs, config, and deployment obligations.
+  repeated ArtifactRef affected_artifacts = 3;
+  // uncertainty_reasons disclose incomplete graph or index coverage.
+  repeated string uncertainty_reasons = 4;
+}
+
+// ChangeSet is an atomic candidate edit set tied to one exact Git base.
+message ChangeSet {
+  // change_set_id is an opaque candidate identity.
+  Identifier change_set_id = 1 [(buf.validate.field).required = true];
+  // base_git_oid is the exact Git tree or commit expected at application time.
+  string base_git_oid = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^[0-9a-f]{40}([0-9a-f]{24})?$"
+    }
+  ];
+  // patch_artifact contains the immutable multi-file candidate patch.
+  ArtifactRef patch_artifact = 3 [(buf.validate.field).required = true];
+  // change_set_digest binds candidate edits, base, and metadata.
+  Digest change_set_digest = 4 [(buf.validate.field).required = true];
+  // validation_receipts record deterministic gates run on the isolated candidate.
+  repeated Receipt validation_receipts = 5 [(buf.validate.field).repeated.min_items = 1];
+  // rollback_artifact identifies the deterministic candidate rollback representation.
+  ArtifactRef rollback_artifact = 6 [(buf.validate.field).required = true];
+}
+
+// DraftPullRequestAction requests one separately authorized idempotent draft PR effect.
+message DraftPullRequestAction {
+  // action_id is an opaque draft-PR action identity.
+  Identifier action_id = 1;
+  // change_set identifies the validated candidate offered for a draft PR.
+  ChangeSet change_set = 2;
+  // effect_approval supplies current authorization and idempotency binding.
+  EffectApproval effect_approval = 3;
+  // target_branch is the exact destination branch under repository policy.
+  string target_branch = 4;
+}

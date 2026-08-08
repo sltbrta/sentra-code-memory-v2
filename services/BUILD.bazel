@@ -1,0 +1,3 @@
+"""Stage 02 Go module boundary for rules_go dependency resolution."""
+
+exports_files(["go.mod", "go.sum"])

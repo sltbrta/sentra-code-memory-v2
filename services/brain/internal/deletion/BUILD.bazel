@@ -1,0 +1,10 @@
+"""Immediate-deny Stage 02 deletion-state target."""
+
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "deletion",
+    srcs = ["state.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/deletion",
+    visibility = ["//services/brain:__subpackages__"],
+)

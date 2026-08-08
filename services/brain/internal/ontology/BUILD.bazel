@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "ontology",
+    srcs = [
+        "doc.go",
+        "extract.go",
+        "graph.go",
+        "hopper.go",
+        "policy.go",
+        "store.go",
+        "types.go",
+    ],
+    embedsrcs = ["packs/default.yaml"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/ontology",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "ontology_test",
+    srcs = [
+        "extract_test.go",
+        "graph_test.go",
+        "policy_test.go",
+    ],
+    embed = [":ontology"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

@@ -1,0 +1,46 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.NormalizedBox.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "NormalizedBox identifies a bounded rectangle using normalized integer coordinates.",
+      "properties": {
+        "bottomPerMille": {
+          "description": "bottom_per_mille is the exclusive bottom coordinate in [0, 1000].",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "leftPerMille": {
+          "description": "left_per_mille is the inclusive left coordinate in [0, 1000].",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rightPerMille": {
+          "description": "right_per_mille is the exclusive right coordinate in [0, 1000].",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "topPerMille": {
+          "description": "top_per_mille is the inclusive top coordinate in [0, 1000].",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "leftPerMille",
+        "topPerMille",
+        "rightPerMille",
+        "bottomPerMille"
+      ],
+      "title": "Normalized Box",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.NormalizedBox.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.NormalizedBox.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

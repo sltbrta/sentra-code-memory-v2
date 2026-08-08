@@ -1,0 +1,31 @@
+"""Stage 08 GitHub source-connector provider surface."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "github",
+    srcs = [
+        "doc.go",
+        "fake.go",
+        "live.go",
+        "types.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/broker/internal/connectors/github",
+    visibility = [
+        "//services/brain:__subpackages__",
+        "//services/broker:__subpackages__",
+        "//services/gateway:__subpackages__",
+        "//tests/conformance/connectors:__subpackages__",
+    ],
+)
+
+go_test(
+    name = "github_test",
+    srcs = ["fake_test.go"],
+    embed = [":github"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

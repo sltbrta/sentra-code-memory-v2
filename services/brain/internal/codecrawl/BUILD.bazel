@@ -1,0 +1,41 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "codecrawl",
+    srcs = [
+        "crawl.go",
+        "delta.go",
+        "doc.go",
+        "persist.go",
+        "search.go",
+        "symbol.go",
+        "tokenize.go",
+        "types.go",
+        "verbs.go",
+        "watch.go",
+        "watch_fs.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "@com_github_fsnotify_fsnotify//:fsnotify",
+    ],
+)
+
+go_test(
+    name = "codecrawl_test",
+    srcs = [
+        "crawl_test.go",
+        "persist_test.go",
+        "route_test.go",
+        "symbol_test.go",
+        "verbs_test.go",
+        "watch_test.go",
+    ],
+    embed = [":codecrawl"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

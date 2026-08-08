@@ -1,0 +1,30 @@
+{
+  "schema_version": "ouroboros.factual_consistency.product_shaped_tradeoff.v1",
+  "dataset_id": "fc-product-shaped-tradeoff-v1",
+  "provenance": {
+    "origin": "repository-authored product-shaped grounded-answer stress fixtures",
+    "official_benchmark": false,
+    "customer_data": false,
+    "live_gold": false,
+    "used_for_fit_or_threshold_selection": false,
+    "purpose": "report-only false-answer and false-abstention tradeoffs"
+  },
+  "cases": [
+    {"id":"grounded-01","statement":"Audit logs are retained for 90 days.","supports":["The retention policy keeps audit logs for 90 days."],"grounded":true},
+    {"id":"grounded-02","statement":"Gold tier failover RPO is 15 minutes.","supports":["Gold tier failover has an RPO of 15 minutes."],"grounded":true},
+    {"id":"grounded-03","statement":"Requests require manager approval.","supports":["Manager approval is required for requests."],"grounded":true},
+    {"id":"grounded-04","statement":"Exports are encrypted at rest.","supports":["All exports use encryption while stored."],"grounded":true},
+    {"id":"grounded-05","statement":"The service region is us-east-1.","supports":["The service runs in us-east-1."],"grounded":true},
+    {"id":"grounded-06","statement":"Backups run every six hours.","supports":["Backups are scheduled each six hours."],"grounded":true},
+    {"id":"grounded-07","statement":"Retention applies to deleted accounts.","supports":["Deleted accounts remain subject to the retention policy."],"grounded":true},
+    {"id":"grounded-08","statement":"Support tickets are encrypted in storage.","supports":["Stored support tickets use encryption."],"grounded":true},
+    {"id":"false-01","statement":"Audit logs are retained forever.","supports":["The retention policy keeps audit logs for 90 days."],"grounded":false},
+    {"id":"false-02","statement":"Gold tier failover RPO is 60 minutes.","supports":["Gold tier failover has an RPO of 15 minutes."],"grounded":false},
+    {"id":"false-03","statement":"Requests never require approval.","supports":["Manager approval is required for requests."],"grounded":false},
+    {"id":"false-04","statement":"Exports are encrypted in transit.","supports":["All exports use encryption while stored."],"grounded":false},
+    {"id":"false-05","statement":"The service region is eu-west-1.","supports":["The service runs in us-east-1."],"grounded":false},
+    {"id":"false-06","statement":"Backups run every hour.","supports":["Backups are scheduled each six hours."],"grounded":false},
+    {"id":"false-07","statement":"Deleted accounts are immediately removed from retention.","supports":["Deleted accounts remain subject to the retention policy."],"grounded":false},
+    {"id":"false-08","statement":"Support tickets are public.","supports":["Stored support tickets use encryption."],"grounded":false}
+  ]
+}

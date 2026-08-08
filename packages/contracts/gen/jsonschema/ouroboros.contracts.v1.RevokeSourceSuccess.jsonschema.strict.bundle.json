@@ -1,0 +1,15 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.RevokeSourceSuccess.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "RevokeSourceSuccess is present only after the deny transition commits.",
+      "properties": {},
+      "title": "Revoke Source Success",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.RevokeSourceSuccess.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.RevokeSourceSuccess.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -1,0 +1,19 @@
+"""Peer-authenticated Stage 02 identity targets."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "identity",
+    srcs = ["identity.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/broker/internal/identity",
+    visibility = ["//services:__subpackages__"],
+    deps = ["//services/internal/contracts"],
+)
+
+go_test(
+    name = "identity_test",
+    srcs = ["identity_test.go"],
+    embed = [":identity"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+    visibility = ["//tools/stage-02:__pkg__"],
+)

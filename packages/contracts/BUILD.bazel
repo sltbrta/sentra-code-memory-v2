@@ -1,0 +1,72 @@
+"""Self-registering Bazel metadata for the canonical contract package.
+
+The root build facade discovers semantic tags rather than a central registry.
+This package intentionally uses native rules only; a hermetic Buf toolchain is
+an integration concern and is not implied by this metadata.
+"""
+
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "contract_sources",
+    srcs = glob([
+        "buf.gen.yaml",
+        "buf.yaml",
+        "generated-manifest.json",
+        "proto/**/*.proto",
+        "tooling.yaml",
+    ]),
+    tags = ["ouroboros_affected"],
+)
+
+sh_test(
+    name = "contracts_verify",
+    srcs = ["tools/bazel-verify.sh"],
+    data = glob([
+        "baseline/**",
+        "gen/**",
+        "proto/**",
+        "tests/**",
+        "tools/**",
+        "buf.gen.yaml",
+        "buf.lock",
+        "buf.yaml",
+        "generated-manifest.json",
+        "package.json",
+        "pnpm-lock.yaml",
+        "tooling.yaml",
+        "tsconfig.json",
+    ]) + [
+        "//packages/contracts/gen/go/ouroboros/contracts/v1:BUILD.bazel",
+        "//packages/contracts/gen/go/ouroboros/contracts/v1:generated_outputs",
+    ],
+    tags = [
+        "local",
+        "ouroboros_check",
+        "ouroboros_docs",
+        "ouroboros_test",
+    ],
+)
+
+sh_binary(
+    name = "contracts_generate",
+    srcs = ["tools/bazel-generate.sh"],
+    data = glob([
+        "proto/**",
+        "tools/generated-manifest.rb",
+        "tools/generate.sh",
+        "tools/normalize-generated-go.rb",
+        "tools/normalize-generated-ts.rb",
+        "tools/templates/**",
+        "buf.gen.yaml",
+        "buf.lock",
+        "buf.yaml",
+    ]),
+    tags = [
+        "local",
+        "ouroboros_generate",
+    ],
+)

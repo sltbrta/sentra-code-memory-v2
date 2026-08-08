@@ -1,0 +1,32 @@
+"""Stage 06 sanitized outcome admission and raw-trace separation."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "outcomes",
+    srcs = [
+        "admit.go",
+        "doc.go",
+        "errors.go",
+        "types.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/outcomes",
+    visibility = [
+        "//services/brain:__subpackages__",
+        "//services/gateway:__subpackages__",
+    ],
+    deps = ["//services/internal/contracts"],
+)
+
+go_test(
+    name = "outcomes_test",
+    srcs = ["admit_test.go"],
+    embed = [":outcomes"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    visibility = ["//tools/stage-06:__pkg__"],
+    deps = ["//services/internal/contracts"],
+)

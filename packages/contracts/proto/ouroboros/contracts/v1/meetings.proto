@@ -1,0 +1,610 @@
+// Canonical meeting capture, temporal media, transcription, and provider-artifact
+// messages, plus the bounded Stage 07 TUI-only transcript-import service.
+//
+// Domain messages encode consent/retention choices and evidence linkage. They do
+// not claim capture, ASR, diarization, or video understanding is implemented.
+// The Stage 07 service freezes one fixture transcript import/query/revoke/purge
+// path; live capture APIs, calendar automation, provider SDK capture, signing,
+// notarization, and updater remain deferred (DEF-002).
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/common.proto";
+import "ouroboros/contracts/v1/evidence.proto";
+import "ouroboros/contracts/v1/local_authority.proto";
+
+// RetentionPolicy declares selected raw-media and derivative retention behavior.
+message RetentionPolicy {
+  // raw_media_retention is the stable selected raw-media retention policy.
+  string raw_media_retention = 1;
+  // screenshot_retention is the stable selected screenshot retention policy.
+  string screenshot_retention = 2;
+  // derivative_retention is the stable selected derivative retention policy.
+  string derivative_retention = 3;
+}
+
+// MediaSegment records one crash-safe encrypted temporal media segment.
+message MediaSegment {
+  // segment_id is an opaque media-segment identity.
+  Identifier segment_id = 1;
+  // artifact identifies immutable encrypted media bytes.
+  ArtifactRef artifact = 2;
+  // track_kind is system_audio, microphone_audio, or video.
+  string track_kind = 3;
+  // started_at is the exact segment start timestamp.
+  google.protobuf.Timestamp started_at = 4;
+  // ended_at is the exact segment end timestamp.
+  google.protobuf.Timestamp ended_at = 5;
+  // sealed records whether the segment was finalized after interruption or normal close.
+  bool sealed = 6;
+}
+
+// Utterance records one time-bounded transcription span with evidence linkage.
+message Utterance {
+  // utterance_id is an opaque utterance identity.
+  Identifier utterance_id = 1;
+  // start_millis is inclusive within the meeting timeline.
+  uint64 start_millis = 2;
+  // end_millis is exclusive within the meeting timeline.
+  uint64 end_millis = 3;
+  // speaker_cluster_id is anonymous unless supported roster evidence resolves it.
+  Identifier speaker_cluster_id = 4;
+  // transcript_artifact holds encrypted transcript bytes.
+  ArtifactRef transcript_artifact = 5;
+  // evidence anchors the utterance to exact recorded media.
+  EvidenceRef evidence = 6;
+}
+
+// Screenshot records an opt-in selected-window or application screenshot.
+message Screenshot {
+  // screenshot_id is an opaque screenshot identity.
+  Identifier screenshot_id = 1;
+  // artifact identifies immutable encrypted screenshot bytes.
+  ArtifactRef artifact = 2;
+  // captured_at records timestamp alignment with the media timeline.
+  google.protobuf.Timestamp captured_at = 3;
+  // capture_scope is the selected window or application identity, not a browser tab.
+  string capture_scope = 4;
+  // ocr_rendition identifies optional local OCR output.
+  Rendition ocr_rendition = 5;
+}
+
+// ProviderMeetingArtifact references an authorized provider-side meeting artifact.
+message ProviderMeetingArtifact {
+  // provider identifies the meeting provider.
+  string provider = 1;
+  // provider_artifact_id is the opaque provider-side identifier.
+  string provider_artifact_id = 2;
+  // artifact identifies immutable admitted artifact bytes when fetched.
+  ArtifactRef artifact = 3;
+  // receipt records connector authorization and admission.
+  Receipt receipt = 4;
+}
+
+// MeetingSession captures one authorized local or provider-enriched meeting timeline.
+message MeetingSession {
+  // meeting_session_id is an opaque meeting-session identity.
+  Identifier meeting_session_id = 1;
+  // organizer identifies the authenticated user who authorized capture.
+  AuthenticatedPrincipalRef organizer = 2;
+  // calendar_event_id identifies the calendar entry when available.
+  Identifier calendar_event_id = 3;
+  // started_at is the visible capture start.
+  google.protobuf.Timestamp started_at = 4;
+  // ended_at is the final known capture end.
+  google.protobuf.Timestamp ended_at = 5;
+  // consent_receipt records the explicit capture authorization input.
+  Receipt consent_receipt = 6;
+  // retention_policy records required choices selected before capture.
+  RetentionPolicy retention_policy = 7;
+  // media_segments is the ordered crash-safe capture timeline.
+  repeated MediaSegment media_segments = 8;
+  // utterances is the time-aligned local or provider-transcript projection.
+  repeated Utterance utterances = 9;
+  // screenshots is empty unless separately opted in.
+  repeated Screenshot screenshots = 10;
+  // provider_artifacts records authorized calendar, roster, or recording evidence.
+  repeated ProviderMeetingArtifact provider_artifacts = 11;
+}
+
+// MeetingService is the five one-shot Stage 07 TUI commands for fixture
+// transcript import, temporal query, revoke, and purge. Unknown, unauthorized,
+// revoked, and purged meetings share the static `not_found_or_denied` response
+// shape and disclose no existence detail. Live capture and Spotlight remain
+// outside this surface.
+service MeetingService {
+  // ImportTranscript admits one timestamped fixture transcript under explicit
+  // retention and a participant-notification reminder acknowledgement.
+  rpc ImportTranscript(ImportTranscriptRequest) returns (ImportTranscriptResponse);
+  // GetMeetingStatus reads temporal readiness and retention for one meeting.
+  rpc GetMeetingStatus(GetMeetingStatusRequest) returns (GetMeetingStatusResponse);
+  // QueryMeeting answers from admitted transcript segments with time-range anchors.
+  rpc QueryMeeting(QueryMeetingRequest) returns (QueryMeetingResponse);
+  // RevokeMeeting denies hydration and query immediately.
+  rpc RevokeMeeting(RevokeMeetingRequest) returns (RevokeMeetingResponse);
+  // PurgeMeeting tombstones lineage and purges encrypted transcript artifacts.
+  rpc PurgeMeeting(PurgeMeetingRequest) returns (PurgeMeetingResponse);
+}
+
+// MeetingLifecycleState is the bounded Stage 07 meeting lifecycle.
+enum MeetingLifecycleState {
+  // MEETING_LIFECYCLE_STATE_UNSPECIFIED is invalid for a known meeting.
+  MEETING_LIFECYCLE_STATE_UNSPECIFIED = 0;
+  // MEETING_LIFECYCLE_STATE_READY has a complete admitted transcript generation.
+  MEETING_LIFECYCLE_STATE_READY = 1;
+  // MEETING_LIFECYCLE_STATE_PARTIAL has usable segments with explicit gaps.
+  MEETING_LIFECYCLE_STATE_PARTIAL = 2;
+  // MEETING_LIFECYCLE_STATE_REVOKED denies hydration and query.
+  MEETING_LIFECYCLE_STATE_REVOKED = 3;
+  // MEETING_LIFECYCLE_STATE_PURGED has completed lineage purge.
+  MEETING_LIFECYCLE_STATE_PURGED = 4;
+}
+
+// MeetingAnswerStatus is the bounded Stage 07 query answer vocabulary.
+enum MeetingAnswerStatus {
+  // MEETING_ANSWER_STATUS_UNSPECIFIED is invalid in a served answer.
+  MEETING_ANSWER_STATUS_UNSPECIFIED = 0;
+  // MEETING_ANSWER_STATUS_ANSWERED has prose and at least one timed citation.
+  MEETING_ANSWER_STATUS_ANSWERED = 1;
+  // MEETING_ANSWER_STATUS_PARTIAL has prose with explicit partial coverage.
+  MEETING_ANSWER_STATUS_PARTIAL = 2;
+  // MEETING_ANSWER_STATUS_ABSTAINED has no prose and at least one reason.
+  MEETING_ANSWER_STATUS_ABSTAINED = 3;
+}
+
+// UntrustedMeetingCaller carries body identity only for authenticated-context checks.
+message UntrustedMeetingCaller {
+  // requested_principal must match the authenticated peer principal and tenant.
+  AuthenticatedPrincipalRef requested_principal = 1 [(buf.validate.field).required = true];
+  // requested_session must match the authenticated gateway session.
+  Identifier requested_session = 2 [(buf.validate.field).required = true];
+}
+
+// ImportRetentionPolicy is the Stage 07 required retention selection. Every
+// class must be chosen before import; missing retention fails closed at the
+// boundary and never defaults raw media silently.
+message ImportRetentionPolicy {
+  option (buf.validate.message).cel = {
+    id: "import_retention.raw_vocab"
+    message: "raw media retention must be an allowed Stage 07 value"
+    expression: "this.raw_media_retention in ['PROCESSING_PLUS_24H', '7D', '30D', '90D']"
+  };
+  option (buf.validate.message).cel = {
+    id: "import_retention.screenshot_vocab"
+    message: "screenshot retention must be an allowed Stage 07 value"
+    expression: "this.screenshot_retention in ['OFF', 'PROCESSING_PLUS_24H', '7D', '30D']"
+  };
+  option (buf.validate.message).cel = {
+    id: "import_retention.derivative_vocab"
+    message: "derivative retention must be an allowed Stage 07 value"
+    expression: "this.derivative_retention in ['30D', '90D', '365D', 'UNTIL_DELETED']"
+  };
+  // raw_media_retention is the selected raw-media retention policy.
+  string raw_media_retention = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 32
+  ];
+  // screenshot_retention is the selected screenshot retention policy.
+  string screenshot_retention = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 32
+  ];
+  // derivative_retention is the selected transcript/notes retention policy.
+  string derivative_retention = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 32
+  ];
+}
+
+// TranscriptSegmentInput is one client-supplied time-bounded transcript span.
+message TranscriptSegmentInput {
+  option (buf.validate.message).cel = {
+    id: "transcript_segment.forward_range"
+    message: "segment end must be strictly after start"
+    expression: "this.end_millis > this.start_millis"
+  };
+  // start_millis is inclusive within the meeting timeline.
+  uint64 start_millis = 1;
+  // end_millis is exclusive within the meeting timeline.
+  uint64 end_millis = 2 [(buf.validate.field).uint64.gt = 0];
+  // text is the bounded transcript prose for the span.
+  string text = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 8192
+  ];
+  // speaker_label is an anonymous cluster label when present; it never asserts identity.
+  string speaker_label = 4 [(buf.validate.field).string.max_len = 64];
+}
+
+// MeetingTimeRange bounds one half-open query interval on the meeting timeline.
+message MeetingTimeRange {
+  option (buf.validate.message).cel = {
+    id: "meeting_time_range.forward"
+    message: "time range end must be strictly after start"
+    expression: "this.end_millis > this.start_millis"
+  };
+  // start_millis is inclusive.
+  uint64 start_millis = 1;
+  // end_millis is exclusive.
+  uint64 end_millis = 2 [(buf.validate.field).uint64.gt = 0];
+}
+
+// MeetingTemporalCitation binds one claim to an exact authorized time range.
+message MeetingTemporalCitation {
+  option (buf.validate.message).cel = {
+    id: "meeting_temporal_citation.forward_range"
+    message: "citation end must be strictly after start"
+    expression: "this.end_millis > this.start_millis"
+  };
+  option (buf.validate.message).cel = {
+    id: "meeting_temporal_citation.sha256"
+    message: "supporting text digest must be canonical SHA-256"
+    expression: "this.supporting_text_digest.algorithm == 'sha256' && this.supporting_text_digest.hex.matches('^[0-9a-f]{64}$')"
+  };
+  // evidence identifies the cited immutable evidence and source revision.
+  EvidenceRef evidence = 1 [(buf.validate.field).required = true];
+  // start_millis is inclusive within the meeting timeline.
+  uint64 start_millis = 2;
+  // end_millis is exclusive within the meeting timeline.
+  uint64 end_millis = 3 [(buf.validate.field).uint64.gt = 0];
+  // supporting_text_digest binds the hydrated supporting bytes without prose.
+  Digest supporting_text_digest = 4 [(buf.validate.field).required = true];
+}
+
+// MeetingAnswerClaim is one bounded material assertion with timed support.
+message MeetingAnswerClaim {
+  option (buf.validate.message).cel = {
+    id: "meeting_answer_claim.proposal_authority"
+    message: "answer claims are model proposals and never promote themselves"
+    expression: "this.authority_class == 6"
+  };
+  // claim_id is an opaque claim identity within one answer.
+  Identifier claim_id = 1 [(buf.validate.field).required = true];
+  // statement is the bounded material assertion text.
+  string statement = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 4096
+  ];
+  // citations are one to sixteen exact temporal anchors.
+  repeated MeetingTemporalCitation citations = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 16
+  }];
+  // authority_class is always model proposal for Stage 07 claims.
+  AuthorityClass authority_class = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // confidence_per_mille is a calibrated [0, 1000] confidence.
+  uint32 confidence_per_mille = 5 [(buf.validate.field).uint32.lte = 1000];
+}
+
+// MeetingAnswer is one answered, partial, or abstained meeting query result.
+message MeetingAnswer {
+  option (buf.validate.message).cel = {
+    id: "meeting_answer.status_shape"
+    message: "answered and partial require prose and claims; abstained requires empty prose, zero claims, and at least one reason"
+    expression: "(this.status == 1 && this.prose != '' && this.claims.size() > 0 && this.degraded_reasons.size() == 0 && this.factual_consistency.status in [1, 3] && this.factual_consistency.total_claim_count == uint(this.claims.size())) || (this.status == 2 && this.prose != '' && this.claims.size() > 0 && this.degraded_reasons.size() > 0 && this.factual_consistency.status in [1, 3] && this.factual_consistency.total_claim_count == uint(this.claims.size())) || (this.status == 3 && this.prose == '' && this.claims.size() == 0 && this.degraded_reasons.size() > 0 && this.factual_consistency.status == 2)"
+  };
+  // status is the bounded answer outcome.
+  MeetingAnswerStatus status = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // prose is empty only for abstained answers.
+  string prose = 2 [(buf.validate.field).string.max_len = 8192];
+  // claims carry timed citations for answered and partial outcomes.
+  repeated MeetingAnswerClaim claims = 3 [(buf.validate.field).repeated.max_items = 16];
+  // degraded_reasons use only the bounded Stage 07 vocabulary.
+  repeated string degraded_reasons = 4 [(buf.validate.field).repeated = {
+    max_items: 8
+    items: {
+      string: {
+        max_len: 64
+        pattern: "^(absent_support|partial_coverage|stale_support|retrieval_unavailable)$"
+      }
+    }
+  }];
+  // factual_consistency discloses a calibrated score or explicit non-score.
+  FactualConsistencyScore factual_consistency = 5 [(buf.validate.field).required = true];
+}
+
+// ImportTranscriptRequest admits one timestamped fixture transcript.
+message ImportTranscriptRequest {
+  option (buf.validate.message).cel = {
+    id: "import_transcript.notify_required"
+    message: "participant notification reminder must be acknowledged before import"
+    expression: "this.participant_notify_acknowledged == true"
+  };
+  option (buf.validate.message).cel = {
+    id: "import_transcript.time_forward"
+    message: "meeting end must be at or after start"
+    expression: "this.ended_at >= this.started_at"
+  };
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedMeetingCaller caller = 1 [(buf.validate.field).required = true];
+  // title is the bounded meeting title metadata.
+  string title = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // source_scope is the explicit authorized import scope (fixture or grant label).
+  string source_scope = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 128
+      pattern: "^[a-z][a-z0-9._-]{0,127}$"
+    }
+  ];
+  // started_at is the visible meeting start.
+  google.protobuf.Timestamp started_at = 4 [(buf.validate.field).required = true];
+  // ended_at is the visible meeting end.
+  google.protobuf.Timestamp ended_at = 5 [(buf.validate.field).required = true];
+  // retention is the required pre-import retention selection.
+  ImportRetentionPolicy retention = 6 [(buf.validate.field).required = true];
+  // participant_notify_acknowledged records the notify-participants reminder.
+  bool participant_notify_acknowledged = 7;
+  // segments is the ordered timestamped transcript body; empty is partial only when marked.
+  repeated TranscriptSegmentInput segments = 8 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 500
+  }];
+  // partial marks an intentionally incomplete import with usable segments.
+  bool partial = 9;
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 10 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// ImportTranscriptSuccess returns the admitted meeting identity and readiness.
+message ImportTranscriptSuccess {
+  // meeting_session_id is the opaque admitted meeting identity.
+  Identifier meeting_session_id = 1 [(buf.validate.field).required = true];
+  // state is READY or PARTIAL for a successful import.
+  MeetingLifecycleState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [
+      1,
+      2
+    ]
+  }];
+  // segment_count is the admitted segment count.
+  uint32 segment_count = 3 [(buf.validate.field).uint32.gt = 0];
+  // retention echoes the selected retention policy.
+  ImportRetentionPolicy retention = 4 [(buf.validate.field).required = true];
+  // notify_reminder_recorded confirms the participant-notification reminder.
+  bool notify_reminder_recorded = 5;
+  // source_scope echoes the explicit authorized import scope.
+  string source_scope = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 128
+  ];
+}
+
+// ImportTranscriptResponse returns exactly one admission or non-disclosing denial.
+message ImportTranscriptResponse {
+  option (buf.validate.message).cel = {
+    id: "import_transcript_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized import decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents admission facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the admitted meeting facts.
+    ImportTranscriptSuccess success = 2;
+    // error uses the same static model for absent, denied, and revoked paths.
+    PublicError error = 3;
+  }
+}
+
+// GetMeetingStatusRequest reads one meeting's temporal readiness.
+message GetMeetingStatusRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedMeetingCaller caller = 1 [(buf.validate.field).required = true];
+  // meeting_session_id selects the opaque meeting under authenticated scope.
+  Identifier meeting_session_id = 2 [(buf.validate.field).required = true];
+}
+
+// GetMeetingStatusSuccess discloses non-sensitive readiness for one meeting.
+message GetMeetingStatusSuccess {
+  // meeting_session_id echoes the opaque meeting identity.
+  Identifier meeting_session_id = 1 [(buf.validate.field).required = true];
+  // state is a present defined lifecycle state other than PURGED for status reads.
+  MeetingLifecycleState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [
+      1,
+      2
+    ]
+  }];
+  // segment_count is the admitted segment count.
+  uint32 segment_count = 3 [(buf.validate.field).uint32.gt = 0];
+  // timeline_start_millis is the earliest segment start.
+  uint64 timeline_start_millis = 4;
+  // timeline_end_millis is the latest segment end.
+  uint64 timeline_end_millis = 5 [(buf.validate.field).uint64.gt = 0];
+  // retention echoes the selected retention policy.
+  ImportRetentionPolicy retention = 6 [(buf.validate.field).required = true];
+  // notify_reminder_recorded confirms the participant-notification reminder.
+  bool notify_reminder_recorded = 7;
+  // source_scope is the explicit authorized import scope.
+  string source_scope = 8 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // title is the admitted meeting title metadata.
+  string title = 9 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 256
+  ];
+}
+
+// GetMeetingStatusResponse returns readiness or non-disclosing denial.
+message GetMeetingStatusResponse {
+  option (buf.validate.message).cel = {
+    id: "get_meeting_status_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized status decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents readiness facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the readiness facts.
+    GetMeetingStatusSuccess success = 2;
+    // error uses the same static model for absent, denied, revoked, and purged.
+    PublicError error = 3;
+  }
+}
+
+// QueryMeetingRequest asks one bounded question against one admitted meeting.
+message QueryMeetingRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedMeetingCaller caller = 1 [(buf.validate.field).required = true];
+  // meeting_session_id selects the opaque meeting under authenticated scope.
+  Identifier meeting_session_id = 2 [(buf.validate.field).required = true];
+  // query is the bounded natural-language question.
+  string query = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 8192
+  ];
+  // time_range optionally restricts retrieval to one half-open interval.
+  MeetingTimeRange time_range = 4;
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// QueryMeetingSuccess contains one grounded meeting answer with temporal anchors.
+message QueryMeetingSuccess {
+  // answer is the bounded answered, partial, or abstained result.
+  MeetingAnswer answer = 1 [(buf.validate.field).required = true];
+  // meeting_session_id echoes the opaque meeting identity.
+  Identifier meeting_session_id = 2 [(buf.validate.field).required = true];
+  // state is READY or PARTIAL for a queryable meeting.
+  MeetingLifecycleState state = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [
+      1,
+      2
+    ]
+  }];
+}
+
+// QueryMeetingResponse returns exactly one answer or non-disclosing denial.
+message QueryMeetingResponse {
+  option (buf.validate.message).cel = {
+    id: "query_meeting_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized query decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents grounded facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the grounded answer.
+    QueryMeetingSuccess success = 2;
+    // error uses the same static model for absent, denied, revoked, and purged.
+    PublicError error = 3;
+  }
+}
+
+// RevokeMeetingRequest denies hydration and query for one meeting immediately.
+message RevokeMeetingRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedMeetingCaller caller = 1 [(buf.validate.field).required = true];
+  // meeting_session_id selects the opaque meeting under authenticated scope.
+  Identifier meeting_session_id = 2 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// RevokeMeetingSuccess confirms the meeting is revoked.
+message RevokeMeetingSuccess {
+  // meeting_session_id is the opaque revoked meeting identity.
+  Identifier meeting_session_id = 1 [(buf.validate.field).required = true];
+  // state is always REVOKED on success.
+  MeetingLifecycleState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [3]
+  }];
+}
+
+// RevokeMeetingResponse returns revoke confirmation or non-disclosing denial.
+message RevokeMeetingResponse {
+  option (buf.validate.message).cel = {
+    id: "revoke_meeting_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized revoke decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents revoke facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success confirms revocation.
+    RevokeMeetingSuccess success = 2;
+    // error uses the same static model for absent, denied, and already-purged.
+    PublicError error = 3;
+  }
+}
+
+// PurgeMeetingRequest tombstones lineage and purges encrypted artifacts.
+message PurgeMeetingRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedMeetingCaller caller = 1 [(buf.validate.field).required = true];
+  // meeting_session_id selects the opaque meeting under authenticated scope.
+  Identifier meeting_session_id = 2 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// PurgeMeetingSuccess confirms purge completion.
+message PurgeMeetingSuccess {
+  // meeting_session_id is the opaque purged meeting identity.
+  Identifier meeting_session_id = 1 [(buf.validate.field).required = true];
+  // state is always PURGED on success.
+  MeetingLifecycleState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [4]
+  }];
+  // purged_artifact_count is the number of encrypted transcript artifacts purged.
+  uint32 purged_artifact_count = 3;
+}
+
+// PurgeMeetingResponse returns purge confirmation or non-disclosing denial.
+message PurgeMeetingResponse {
+  option (buf.validate.message).cel = {
+    id: "purge_meeting_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized purge decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents purge facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success confirms purge.
+    PurgeMeetingSuccess success = 2;
+    // error uses the same static model for absent and unauthorized paths.
+    PublicError error = 3;
+  }
+}

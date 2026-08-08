@@ -1,0 +1,197 @@
+{
+  "$defs": {
+    "google.protobuf.Timestamp.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    },
+    "ouroboros.contracts.v1.Digest.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Digest identifies immutable bytes using a named digest algorithm.",
+      "properties": {
+        "algorithm": {
+          "description": "algorithm identifies the canonical digest algorithm, for example sha256.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hex": {
+          "description": "hex is the lower-case encoded digest value.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[0-9a-f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "hex"
+      ],
+      "title": "Digest",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.Identifier.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Identifier is an opaque, stable identifier within a declared namespace.",
+      "properties": {
+        "namespace": {
+          "description": "namespace prevents an identifier string from crossing a domain boundary.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "description": "value is opaque to consumers and must be non-empty after boundary validation.",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "value"
+      ],
+      "title": "Identifier",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.MultimodalLaneCoverage.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "MultimodalLaneCoverage discloses one readiness lane without hiding failure.",
+      "properties": {
+        "coveragePerMille": {
+          "description": "coverage_per_mille is complete denominator coverage in [0, 1000].",
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lane": {
+          "description": "lane identifies the readiness lane.",
+          "enum": [
+            "MULTIMODAL_READINESS_LANE_ORIGINAL",
+            "MULTIMODAL_READINESS_LANE_TEXT",
+            "MULTIMODAL_READINESS_LANE_PAGE",
+            "MULTIMODAL_READINESS_LANE_REGION",
+            "MULTIMODAL_READINESS_LANE_TRANSCRIPT"
+          ],
+          "title": "Multimodal Readiness Lane",
+          "type": "string"
+        },
+        "required": {
+          "description": "required marks lanes that block complete readiness when absent or failed.",
+          "type": "boolean"
+        },
+        "state": {
+          "description": "state is the bounded lane lifecycle.",
+          "enum": [
+            "MULTIMODAL_LANE_STATE_PENDING",
+            "MULTIMODAL_LANE_STATE_READY",
+            "MULTIMODAL_LANE_STATE_FAILED",
+            "MULTIMODAL_LANE_STATE_ABSENT"
+          ],
+          "title": "Multimodal Lane State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lane",
+        "state",
+        "required",
+        "coveragePerMille"
+      ],
+      "title": "Multimodal Lane Coverage",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.MultimodalSourceStatus.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "MultimodalSourceStatus is server-authored status for one admitted source.",
+      "properties": {
+        "aclEpoch": {
+          "description": "acl_epoch invalidates stale grants and projections.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "deletionState": {
+          "description": "deletion_state is the shared deletion vocabulary.",
+          "enum": [
+            "DELETION_STATE_ACTIVE",
+            "DELETION_STATE_TOMBSTONED",
+            "DELETION_STATE_PURGED"
+          ],
+          "title": "Deletion State",
+          "type": "string"
+        },
+        "extractorIdentity": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "extractor_identity pins the certified extractor used for derived work."
+        },
+        "kind": {
+          "description": "kind echoes the admitted modality family.",
+          "enum": [
+            "MULTIMODAL_SOURCE_KIND_TEXT_MARKDOWN",
+            "MULTIMODAL_SOURCE_KIND_PDF",
+            "MULTIMODAL_SOURCE_KIND_PNG",
+            "MULTIMODAL_SOURCE_KIND_PCM_WAV"
+          ],
+          "title": "Multimodal Source Kind",
+          "type": "string"
+        },
+        "lanes": {
+          "description": "lanes disclose per-lane readiness honestly.",
+          "items": {
+            "$ref": "#/$defs/ouroboros.contracts.v1.MultimodalLaneCoverage.jsonschema.strict.json"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array"
+        },
+        "observedAt": {
+          "$ref": "#/$defs/google.protobuf.Timestamp.jsonschema.strict.json",
+          "description": "observed_at records when the source was admitted or last advanced."
+        },
+        "sourceId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "source_id is the opaque server-authored source identity."
+        },
+        "sourceRevisionId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "source_revision_id is the immutable admitted revision identity."
+        },
+        "state": {
+          "description": "state is the bounded source lifecycle excluding unspecified.",
+          "enum": [
+            "MULTIMODAL_SOURCE_STATE_ADMITTED",
+            "MULTIMODAL_SOURCE_STATE_EXTRACTING",
+            "MULTIMODAL_SOURCE_STATE_PARTIAL_READY",
+            "MULTIMODAL_SOURCE_STATE_READY",
+            "MULTIMODAL_SOURCE_STATE_FAILED",
+            "MULTIMODAL_SOURCE_STATE_QUARANTINED",
+            "MULTIMODAL_SOURCE_STATE_REVOKED",
+            "MULTIMODAL_SOURCE_STATE_PURGED"
+          ],
+          "title": "Multimodal Source State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceId",
+        "sourceRevisionId",
+        "kind",
+        "state",
+        "deletionState",
+        "aclEpoch",
+        "extractorIdentity",
+        "observedAt"
+      ],
+      "title": "Multimodal Source Status",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.MultimodalSourceStatus.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.MultimodalSourceStatus.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -1,0 +1,47 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "gardener",
+    srcs = [
+        "daemon.go",
+        "doc.go",
+        "generation.go",
+        "lifecycle.go",
+        "memory_queue.go",
+        "plan.go",
+        "postgres_queue.go",
+        "scheduler.go",
+        "sqlite_queue.go",
+        "types.go",
+        "workers_context.go",
+        "workers_dense.go",
+        "workers_deterministic.go",
+        "workers_edges.go",
+        "workers_llm.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/gardener",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "//services/brain/internal/ontology",
+        "@com_github_jackc_pgx_v5//stdlib",
+        "@org_modernc_sqlite//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "gardener_test",
+    srcs = [
+        "generation_test.go",
+        "lifecycle_test.go",
+        "plan_test.go",
+        "scheduler_test.go",
+        "sqlite_queue_test.go",
+        "workers_edges_test.go",
+    ],
+    embed = [":gardener"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

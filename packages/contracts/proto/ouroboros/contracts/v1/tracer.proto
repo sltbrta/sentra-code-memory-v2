@@ -1,0 +1,674 @@
+// Stage 06 Tracer 001 public boundary freeze.
+//
+// These messages freeze the typed records for one causal loop over one pinned
+// fixture with two principals. They introduce no product RPC surface and no
+// merge/deploy effect messages. Stages 03–05 services remain the product
+// surface; tracer messages compose their receipts and digests. Body identity
+// is an untrusted cross-check against authenticated context. Unknown,
+// unauthorized, stale, and revoked runs share the static not_found_or_denied
+// external shape: inaccessible ≡ absent.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/common.proto";
+import "ouroboros/contracts/v1/evidence.proto";
+import "ouroboros/contracts/v1/security.proto";
+
+// TracerVariantKind enumerates the co-equal positive and negative fixture arms.
+enum TracerVariantKind {
+  // TRACER_VARIANT_KIND_UNSPECIFIED is invalid in a served manifest or run.
+  TRACER_VARIANT_KIND_UNSPECIFIED = 0;
+  // TRACER_VARIANT_KIND_AUTHORIZED is the positive cited-answer path for A.
+  TRACER_VARIANT_KIND_AUTHORIZED = 1;
+  // TRACER_VARIANT_KIND_ABSENT abstains when the supporting span is missing.
+  TRACER_VARIANT_KIND_ABSENT = 2;
+  // TRACER_VARIANT_KIND_STALE abstains when the supporting span is stale.
+  TRACER_VARIANT_KIND_STALE = 3;
+  // TRACER_VARIANT_KIND_UNAUTHORIZED abstains for principal B (denied).
+  TRACER_VARIANT_KIND_UNAUTHORIZED = 4;
+  // TRACER_VARIANT_KIND_REVOKED abstains after revocation of previously granted access.
+  TRACER_VARIANT_KIND_REVOKED = 5;
+}
+
+// TracerRunState is the bounded v1 lifecycle of one tracer run.
+enum TracerRunState {
+  // TRACER_RUN_STATE_UNSPECIFIED is invalid in a served run.
+  TRACER_RUN_STATE_UNSPECIFIED = 0;
+  // TRACER_RUN_STATE_MANIFEST_PINNED has validated immutable digests.
+  TRACER_RUN_STATE_MANIFEST_PINNED = 1;
+  // TRACER_RUN_STATE_INGESTING admits the pinned fixture under principal A.
+  TRACER_RUN_STATE_INGESTING = 2;
+  // TRACER_RUN_STATE_READY has a complete pinned generation.
+  TRACER_RUN_STATE_READY = 3;
+  // TRACER_RUN_STATE_QUERYING evaluates the bounded ask under current ACL.
+  TRACER_RUN_STATE_QUERYING = 4;
+  // TRACER_RUN_STATE_ANSWERED holds one verified claim and citation.
+  TRACER_RUN_STATE_ANSWERED = 5;
+  // TRACER_RUN_STATE_ABSTAINED holds a stable non-disclosing abstention.
+  TRACER_RUN_STATE_ABSTAINED = 6;
+  // TRACER_RUN_STATE_INTENT_PENDING holds a scope-limited ChangeIntent draft.
+  TRACER_RUN_STATE_INTENT_PENDING = 7;
+  // TRACER_RUN_STATE_INTENT_APPROVED has current approval and exact base.
+  TRACER_RUN_STATE_INTENT_APPROVED = 8;
+  // TRACER_RUN_STATE_PLANNED has a valid one-layer WorkflowIR and dynamic-N roster.
+  TRACER_RUN_STATE_PLANNED = 9;
+  // TRACER_RUN_STATE_EXECUTING runs sealed leaves under fenced grants.
+  TRACER_RUN_STATE_EXECUTING = 10;
+  // TRACER_RUN_STATE_VALIDATING runs the required deterministic gates.
+  TRACER_RUN_STATE_VALIDATING = 11;
+  // TRACER_RUN_STATE_REVIEWING records fresh different-family review.
+  TRACER_RUN_STATE_REVIEWING = 12;
+  // TRACER_RUN_STATE_EFFECT_PENDING awaits separate current effect approval.
+  TRACER_RUN_STATE_EFFECT_PENDING = 13;
+  // TRACER_RUN_STATE_BRANCH_PUBLICATION_PENDING reconciles the deterministic head ref.
+  TRACER_RUN_STATE_BRANCH_PUBLICATION_PENDING = 14;
+  // TRACER_RUN_STATE_BRANCH_PUBLISHED has provider ref equal to candidate head OID.
+  TRACER_RUN_STATE_BRANCH_PUBLISHED = 15;
+  // TRACER_RUN_STATE_PR_CREATION_PENDING creates or reconciles the draft PR.
+  TRACER_RUN_STATE_PR_CREATION_PENDING = 16;
+  // TRACER_RUN_STATE_DRAFT_PR_CREATED holds exactly one draft PR receipt.
+  TRACER_RUN_STATE_DRAFT_PR_CREATED = 17;
+  // TRACER_RUN_STATE_REINGESTING admits sanitized outcome facts.
+  TRACER_RUN_STATE_REINGESTING = 18;
+  // TRACER_RUN_STATE_COMPLETE is the positive terminal state.
+  TRACER_RUN_STATE_COMPLETE = 19;
+  // TRACER_RUN_STATE_COMPLETE_NEGATIVE is a valid negative terminal (not stage exit).
+  TRACER_RUN_STATE_COMPLETE_NEGATIVE = 20;
+  // TRACER_RUN_STATE_FAILED is a terminal failure with a stable receipt.
+  TRACER_RUN_STATE_FAILED = 21;
+  // TRACER_RUN_STATE_CANCELLED is a terminal cancellation (not stage exit).
+  TRACER_RUN_STATE_CANCELLED = 22;
+}
+
+// TracerStep enumerates the ten fixed Tracer 001 causal steps.
+enum TracerStep {
+  // TRACER_STEP_UNSPECIFIED is invalid in a served step receipt.
+  TRACER_STEP_UNSPECIFIED = 0;
+  // TRACER_STEP_PIN_FIXTURE pins the fixture and issue-evidence bundle.
+  TRACER_STEP_PIN_FIXTURE = 1;
+  // TRACER_STEP_INGEST admits the fixture as principal A and checks readiness.
+  TRACER_STEP_INGEST = 2;
+  // TRACER_STEP_ASK issues the bounded ask for one cited supporting span.
+  TRACER_STEP_ASK = 3;
+  // TRACER_STEP_ABSTAIN_VARIANTS exercises absent/stale/unauthorized/revoked.
+  TRACER_STEP_ABSTAIN_VARIANTS = 4;
+  // TRACER_STEP_ADMIT_INTENT admits one approved scope-limited ChangeIntent.
+  TRACER_STEP_ADMIT_INTENT = 5;
+  // TRACER_STEP_PLAN_DAG materializes the typed one-layer dynamic-N DAG.
+  TRACER_STEP_PLAN_DAG = 6;
+  // TRACER_STEP_VALIDATE_GATES runs build/test/docs/security gates on the candidate.
+  TRACER_STEP_VALIDATE_GATES = 7;
+  // TRACER_STEP_MODAL_SHARD runs VERIFY_TRACER_EVIDENCE_SHARD_V1 once with local parity.
+  TRACER_STEP_MODAL_SHARD = 8;
+  // TRACER_STEP_REVIEW_AND_DRAFT_PR records fresh review then one draft PR.
+  TRACER_STEP_REVIEW_AND_DRAFT_PR = 9;
+  // TRACER_STEP_OUTCOME_REINGEST reingests sanitized outcomes for follow-up citation.
+  TRACER_STEP_OUTCOME_REINGEST = 10;
+}
+
+// TracerReviewDispositionKind is the overall reviewer disposition for the candidate.
+enum TracerReviewDispositionKind {
+  // TRACER_REVIEW_DISPOSITION_KIND_UNSPECIFIED is invalid in a served disposition.
+  TRACER_REVIEW_DISPOSITION_KIND_UNSPECIFIED = 0;
+  // TRACER_REVIEW_DISPOSITION_KIND_APPROVE permits the separately authorized effect.
+  TRACER_REVIEW_DISPOSITION_KIND_APPROVE = 1;
+  // TRACER_REVIEW_DISPOSITION_KIND_BLOCK stops the effect (REVIEW_BLOCKED).
+  TRACER_REVIEW_DISPOSITION_KIND_BLOCK = 2;
+  // TRACER_REVIEW_DISPOSITION_KIND_REQUEST_CHANGES returns the run to a safe prior state.
+  TRACER_REVIEW_DISPOSITION_KIND_REQUEST_CHANGES = 3;
+}
+
+// DraftPrPhase is the two-phase GitHub publication progress.
+enum DraftPrPhase {
+  // DRAFT_PR_PHASE_UNSPECIFIED is invalid in a served draft-PR receipt.
+  DRAFT_PR_PHASE_UNSPECIFIED = 0;
+  // DRAFT_PR_PHASE_BRANCH is phase 1 head-ref publication/reconciliation.
+  DRAFT_PR_PHASE_BRANCH = 1;
+  // DRAFT_PR_PHASE_PR is phase 2 draft-PR create/reconcile.
+  DRAFT_PR_PHASE_PR = 2;
+}
+
+// TracerShardResultCode is the deterministic VERIFY_TRACER_EVIDENCE_SHARD_V1 result.
+enum TracerShardResultCode {
+  // TRACER_SHARD_RESULT_CODE_UNSPECIFIED is invalid in a served shard receipt.
+  TRACER_SHARD_RESULT_CODE_UNSPECIFIED = 0;
+  // TRACER_SHARD_RESULT_CODE_OK validated bounds, UTF-8, and span digests.
+  TRACER_SHARD_RESULT_CODE_OK = 1;
+  // TRACER_SHARD_RESULT_CODE_BOUNDS_INVALID rejected span or length bounds.
+  TRACER_SHARD_RESULT_CODE_BOUNDS_INVALID = 2;
+  // TRACER_SHARD_RESULT_CODE_UTF8_INVALID rejected non-UTF-8 source bytes.
+  TRACER_SHARD_RESULT_CODE_UTF8_INVALID = 3;
+  // TRACER_SHARD_RESULT_CODE_DIGEST_MISMATCH rejected source or input digests.
+  TRACER_SHARD_RESULT_CODE_DIGEST_MISMATCH = 4;
+  // TRACER_SHARD_RESULT_CODE_SPAN_MISMATCH rejected span or anchor digests.
+  TRACER_SHARD_RESULT_CODE_SPAN_MISMATCH = 5;
+}
+
+// ByteInterval is a half-open raw-byte interval [start_byte, end_byte).
+message ByteInterval {
+  // start_byte is inclusive.
+  uint64 start_byte = 1;
+  // end_byte is exclusive and must be >= start_byte.
+  uint64 end_byte = 2 [(buf.validate.field).uint64 = {gte: 0}];
+
+  option (buf.validate.message).cel = {
+    id: "byte_interval.ordered"
+    message: "end_byte must be greater than or equal to start_byte"
+    expression: "this.end_byte >= this.start_byte"
+  };
+}
+
+// LineInterval is a half-open one-based line interval [start_line, end_line).
+message LineInterval {
+  // start_line is inclusive and one-based when non-zero.
+  uint32 start_line = 1;
+  // end_line is exclusive and must be >= start_line.
+  uint32 end_line = 2;
+
+  option (buf.validate.message).cel = {
+    id: "line_interval.ordered"
+    message: "end_line must be greater than or equal to start_line"
+    expression: "this.end_line >= this.start_line"
+  };
+}
+
+// TracerConfigSurface freezes the non-secret dogfood configuration slots that
+// resolve into ConfigSnapshot digests. Secret plaintext never appears here;
+// values are Keychain or secret-store references and digests only.
+message TracerConfigSurface {
+  // modal_auth_secret_ref is a Keychain or secret-store reference name.
+  string modal_auth_secret_ref = 1 [(buf.validate.field).string.max_len = 256];
+  // github_effect_identity_kind is github_app, fine_grained_pat, or tbd.
+  string github_effect_identity_kind = 2 [(buf.validate.field).string = {
+    max_len: 64
+    pattern: "^(github_app|fine_grained_pat|tbd)?$"
+  }];
+  // github_identity_secret_ref is a Keychain or secret-store reference name.
+  string github_identity_secret_ref = 3 [(buf.validate.field).string.max_len = 256];
+  // implementer_model_family is the live implement path family (for example openai).
+  string implementer_model_family = 4 [(buf.validate.field).string.max_len = 64];
+  // reviewer_model_family is the fresh review family and must differ at runtime.
+  string reviewer_model_family = 5 [(buf.validate.field).string.max_len = 64];
+  // openai_secret_ref is a Keychain reference for the OpenAI route.
+  string openai_secret_ref = 6 [(buf.validate.field).string.max_len = 256];
+  // gemini_secret_ref is a Keychain reference for the Gemini route.
+  string gemini_secret_ref = 7 [(buf.validate.field).string.max_len = 256];
+  // modal_ttl_seconds is the hard Modal lifetime ceiling (default 1800).
+  uint32 modal_ttl_seconds = 8;
+  // budgets_digest pins non-secret budget ceilings from ConfigSnapshot.
+  Digest budgets_digest = 9;
+  // retention_digest pins retention policy without secret plaintext.
+  Digest retention_digest = 10;
+  // configuration_digest echoes the resolved ConfigSnapshot.configuration_digest.
+  Digest configuration_digest = 11;
+}
+
+// TracerVariant is one derived arm of the pinned manifest (positive or negative).
+message TracerVariant {
+  // kind identifies the arm.
+  TracerVariantKind kind = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // variant_digest binds the independent expected digests for this arm.
+  Digest variant_digest = 2 [(buf.validate.field).required = true];
+  // expected_public_reason is the external non-disclosing reason when abstaining.
+  // Positive authorized path may leave this empty; negatives use not_found_or_denied
+  // externally while recording the internal SPAN_* code in reason_code.
+  string expected_public_reason = 3 [(buf.validate.field).string.max_len = 128];
+  // reason_code is the stable internal Tracer 001 reason for this arm.
+  string reason_code = 4 [(buf.validate.field).string.max_len = 128];
+}
+
+// TracerManifest pins the immutable identity of one Tracer 001 fixture run.
+// Changing any element of the identity tuple creates a new run.
+message TracerManifest {
+  // schema_version is the frozen manifest schema identity (tracer-001/v1).
+  string schema_version = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^tracer-001/v1$"
+    }
+  ];
+  // tracer_id is the fixed tracer identity.
+  string tracer_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^tracer-001$"
+    }
+  ];
+  // tenant_id is an opaque test tenant identity.
+  Identifier tenant_id = 3 [(buf.validate.field).required = true];
+  // authorized_principal_id is principal A with minimum required grants.
+  Identifier authorized_principal_id = 4 [(buf.validate.field).required = true];
+  // denied_principal_id is principal B (denied and post-revoke).
+  Identifier denied_principal_id = 5 [(buf.validate.field).required = true];
+  // sfs_snapshot_digest pins the reconstructed SFS source snapshot bytes.
+  Digest sfs_snapshot_digest = 6 [(buf.validate.field).required = true];
+  // issue_bundle_digest pins the issue-evidence bundle bytes.
+  Digest issue_bundle_digest = 7 [(buf.validate.field).required = true];
+  // acl_epoch pins the ACL epoch for authorized reads.
+  uint64 acl_epoch = 8;
+  // source_revision_digest pins the immutable source revision metadata.
+  Digest source_revision_digest = 9 [(buf.validate.field).required = true];
+  // base_git_oid is the exact repository base commit OID (40 or 64 hex).
+  string base_git_oid = 10 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^([0-9a-f]{40}|[0-9a-f]{64}|0{40}|PLACEHOLDER_BASE_GIT_OID)$"
+    }
+  ];
+  // workflow_digest pins the expected WorkflowIR / plan shape digest.
+  Digest workflow_digest = 11 [(buf.validate.field).required = true];
+  // config_digest pins the resolved non-secret ConfigSnapshot.
+  Digest config_digest = 12 [(buf.validate.field).required = true];
+  // policy_digest pins the policy bounds applied to the run.
+  Digest policy_digest = 13 [(buf.validate.field).required = true];
+  // manifest_digest binds the canonical identity tuple of this manifest.
+  Digest manifest_digest = 14 [(buf.validate.field).required = true];
+  // supporting_span_path is the repository-relative path of the one supporting span.
+  string supporting_span_path = 15 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+  // supporting_span_bytes is the expected raw-byte interval of the supporting span.
+  ByteInterval supporting_span_bytes = 16 [(buf.validate.field).required = true];
+  // supporting_span_lines is the expected line interval of the supporting span.
+  LineInterval supporting_span_lines = 17 [(buf.validate.field).required = true];
+  // supporting_span_digest pins the extracted span bytes without normalization.
+  Digest supporting_span_digest = 18 [(buf.validate.field).required = true];
+  // supporting_anchor_digest pins the canonical anchor serialization.
+  Digest supporting_anchor_digest = 19 [(buf.validate.field).required = true];
+  // pin_status is unpinned until Sammy resolves the fixture pin checklist.
+  string pin_status = 20 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 32
+      pattern: "^(unpinned|pinned)$"
+    }
+  ];
+  // variants lists the five co-equal arms derived from this manifest.
+  repeated TracerVariant variants = 21 [(buf.validate.field).repeated = {
+    min_items: 5
+    max_items: 5
+  }];
+  // config_surface freezes non-secret dogfood slots (secrets stay out of git).
+  TracerConfigSurface config_surface = 22;
+  // dynamic_leaf_min is the inclusive lower bound on dynamic-N (always 1).
+  uint32 dynamic_leaf_min = 23 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 3
+  }];
+  // dynamic_leaf_max is the inclusive upper bound on dynamic-N (always 3).
+  uint32 dynamic_leaf_max = 24 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 3
+  }];
+
+  option (buf.validate.message).cel = {
+    id: "tracer_manifest.dynamic_n_bounds"
+    message: "dynamic leaf bounds must satisfy 1 <= min <= max <= 3"
+    expression: "this.dynamic_leaf_min >= 1u && this.dynamic_leaf_max <= 3u && this.dynamic_leaf_min <= this.dynamic_leaf_max"
+  };
+  option (buf.validate.message).cel = {
+    id: "tracer_manifest.principals_distinct"
+    message: "authorized and denied principals must be distinct"
+    expression: "this.authorized_principal_id.value != this.denied_principal_id.value || this.authorized_principal_id.namespace != this.denied_principal_id.namespace"
+  };
+}
+
+// TracerStepReceipt records one of the ten fixed tracer steps.
+message TracerStepReceipt {
+  // step identifies which fixed step this receipt covers.
+  TracerStep step = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // receipt is the non-sensitive authoritative outcome of the step.
+  Receipt receipt = 2 [(buf.validate.field).required = true];
+  // reason_code is a public-stable Tracer 001 reason or empty on success.
+  // Required codes: SPAN_ABSENT, SPAN_STALE, SPAN_UNAUTHORIZED, SPAN_REVOKED,
+  // GENERATION_INCOMPLETE, BASE_STALE, FENCE_STALE, GATE_FAILED, REVIEW_BLOCKED,
+  // EFFECT_NOT_AUTHORIZED, EFFECT_DUPLICATE, OUTCOME_SANITIZATION_FAILED,
+  // REMOTE_RECEIPT_MISMATCH. External inaccessible shape remains not_found_or_denied.
+  string reason_code = 3 [(buf.validate.field).string.max_len = 128];
+  // input_digest binds the immutable inputs of this step.
+  Digest input_digest = 4;
+  // output_digest binds the immutable outputs of this step.
+  Digest output_digest = 5;
+}
+
+// ReviewDisposition is the overall fresh-review outcome for the candidate.
+// Reviewer principal/model family must differ from every leaf implementer.
+message ReviewDisposition {
+  // review_id is an opaque review identity.
+  Identifier review_id = 1 [(buf.validate.field).required = true];
+  // reviewer_principal_id is the authenticated reviewer (never a leaf implementer).
+  Identifier reviewer_principal_id = 2 [(buf.validate.field).required = true];
+  // reviewer_family is the model family used for review (for example gemini).
+  string reviewer_family = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // implementer_family is the model family used for implementation leaves.
+  string implementer_family = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // disposition is the overall review decision.
+  TracerReviewDispositionKind disposition = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // finding_ids references typed factory ReviewFinding identities.
+  repeated Identifier finding_ids = 6 [(buf.validate.field).repeated = {max_items: 64}];
+  // receipt records the review decision without raw prompts or traces.
+  Receipt receipt = 7 [(buf.validate.field).required = true];
+
+  option (buf.validate.message).cel = {
+    id: "review_disposition.families_distinct"
+    message: "reviewer_family must differ from implementer_family"
+    expression: "this.reviewer_family != this.implementer_family"
+  };
+}
+
+// DraftPrReceipt records the two-phase idempotent draft-PR publication.
+// No merge, deploy, release, force-push, or branch-delete fields are expressible.
+message DraftPrReceipt {
+  // action_id is an opaque draft-PR action identity.
+  Identifier action_id = 1 [(buf.validate.field).required = true];
+  // phase is the current two-phase progress.
+  DraftPrPhase phase = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // head_ref is the deterministic head:
+  // refs/heads/ouroboros/tracer-001/<first-24-hex-of-SHA256(canonical-tuple)>.
+  string head_ref = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 256
+      pattern: "^refs/heads/ouroboros/tracer-001/[0-9a-f]{24}$"
+    }
+  ];
+  // base_ref is the exact destination branch under repository policy.
+  string base_ref = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // base_commit_oid is the approved base commit OID.
+  string base_commit_oid = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^([0-9a-f]{40}|[0-9a-f]{64})$"
+    }
+  ];
+  // head_commit_oid is the candidate head commit OID.
+  string head_commit_oid = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^([0-9a-f]{40}|[0-9a-f]{64})$"
+    }
+  ];
+  // repository_full_name is owner/name for the target dogfood repository.
+  string repository_full_name = 7 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // provider_pr_id is the provider PR identity once created or reconciled.
+  string provider_pr_id = 8 [(buf.validate.field).string.max_len = 128];
+  // is_draft is always true for a successful Tracer 001 PR receipt.
+  bool is_draft = 9;
+  // publication_tuple_digest binds the immutable publication tuple.
+  Digest publication_tuple_digest = 10 [(buf.validate.field).required = true];
+  // content_digest binds the deterministic title/body projection.
+  Digest content_digest = 11 [(buf.validate.field).required = true];
+  // effect_approval_digest binds the separate current EffectApproval.
+  Digest effect_approval_digest = 12 [(buf.validate.field).required = true];
+  // change_set_digest binds the validated candidate ChangeSet.
+  Digest change_set_digest = 13 [(buf.validate.field).required = true];
+  // receipt records the broker/provider outcome without secrets.
+  Receipt receipt = 14 [(buf.validate.field).required = true];
+
+  option (buf.validate.message).cel = {
+    id: "draft_pr_receipt.draft_when_created"
+    message: "a PR-phase receipt with provider_pr_id must be draft"
+    expression: "this.phase != 2 || this.provider_pr_id == '' || this.is_draft"
+  };
+}
+
+// OutcomeFact is a sanitized machine observation admitted after the draft PR.
+// Raw traces remain under their original restricted scope and never elevate
+// model proposals into evidence.
+message OutcomeFact {
+  // fact_id is an opaque outcome-fact identity.
+  Identifier fact_id = 1 [(buf.validate.field).required = true];
+  // authority_class must be machine observation (never model proposal).
+  AuthorityClass authority_class = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [2]
+  }];
+  // outcome_bundle_digest pins the sanitized outcome bundle bytes.
+  Digest outcome_bundle_digest = 3 [(buf.validate.field).required = true];
+  // draft_pr_receipt_digest pins the admitted draft-PR receipt projection.
+  Digest draft_pr_receipt_digest = 4 [(buf.validate.field).required = true];
+  // evidence references sanitized observation evidence only.
+  repeated EvidenceRef evidence = 5 [(buf.validate.field).repeated = {max_items: 32}];
+  // raw_trace_separated is true when raw traces stay outside the admitted bundle.
+  bool raw_trace_separated = 6;
+  // receipt records admission without prompts, secrets, or raw source.
+  Receipt receipt = 7 [(buf.validate.field).required = true];
+
+  option (buf.validate.message).cel = {
+    id: "outcome_fact.raw_trace_separated"
+    message: "raw traces must remain separated from admitted outcome facts"
+    expression: "this.raw_trace_separated == true"
+  };
+}
+
+// TracerRun is one execution of the pinned manifest under one active variant.
+message TracerRun {
+  // run_id is an opaque tracer-run identity.
+  Identifier run_id = 1 [(buf.validate.field).required = true];
+  // manifest_digest binds the run to one immutable TracerManifest.
+  Digest manifest_digest = 2 [(buf.validate.field).required = true];
+  // state is the current bounded lifecycle state.
+  TracerRunState state = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // active_variant is the fixture arm under evaluation.
+  TracerVariantKind active_variant = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // actor_principal_id is body identity for authenticated-context cross-check only.
+  Identifier actor_principal_id = 5 [(buf.validate.field).required = true];
+  // config_digest pins the ConfigSnapshot used for this run.
+  Digest config_digest = 6 [(buf.validate.field).required = true];
+  // steps records per-step receipts in causal order.
+  repeated TracerStepReceipt steps = 7 [(buf.validate.field).repeated = {max_items: 10}];
+  // review is the overall fresh-review disposition when review has completed.
+  ReviewDisposition review = 8;
+  // draft_pr is the two-phase draft-PR receipt when publication has completed.
+  DraftPrReceipt draft_pr = 9;
+  // outcome is the sanitized outcome fact when reingestion has completed.
+  OutcomeFact outcome = 10;
+  // receipt is the run-level non-sensitive outcome.
+  Receipt receipt = 11 [(buf.validate.field).required = true];
+}
+
+// VerifyTracerEvidenceShardV1Input is the sole Stage 06 Modal operation input.
+// Operation name is fixed; no clock, random, network, model, provider, database,
+// or Git credential is admitted. Source bytes may be referenced by digest for
+// large fixtures; inline bytes are for the bounded shard only.
+message VerifyTracerEvidenceShardV1Input {
+  // operation is the fixed operation name.
+  string operation = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {const: "VERIFY_TRACER_EVIDENCE_SHARD_V1"}
+  ];
+  // operation_version pins the deterministic operation implementation version.
+  string operation_version = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // tracer_manifest_digest binds the input to one TracerManifest.
+  Digest tracer_manifest_digest = 3 [(buf.validate.field).required = true];
+  // schema_version echoes the manifest schema version.
+  string schema_version = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^tracer-001/v1$"
+    }
+  ];
+  // shard_id is the fixed shard identity.
+  string shard_id = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {const: "tracer-001/evidence/0001"}
+  ];
+  // source_artifact_digest pins the immutable source artifact bytes.
+  Digest source_artifact_digest = 6 [(buf.validate.field).required = true];
+  // source_byte_length is the exact source byte count.
+  uint64 source_byte_length = 7;
+  // source_utf8_bytes carries inline source when the shard is small enough.
+  bytes source_utf8_bytes = 8 [(buf.validate.field).bytes.max_len = 1048576];
+  // source_revision_digest pins the source revision metadata.
+  Digest source_revision_digest = 9 [(buf.validate.field).required = true];
+  // span_byte_interval is the expected supporting-span byte interval.
+  ByteInterval span_byte_interval = 10 [(buf.validate.field).required = true];
+  // span_line_interval is the expected supporting-span line interval.
+  LineInterval span_line_interval = 11 [(buf.validate.field).required = true];
+  // expected_anchor_digest is the expected canonical anchor digest.
+  Digest expected_anchor_digest = 12 [(buf.validate.field).required = true];
+  // operation_digest pins the registered operation implementation.
+  Digest operation_digest = 13 [(buf.validate.field).required = true];
+  // image_digest pins the OCI image used for Modal execution.
+  Digest image_digest = 14 [(buf.validate.field).required = true];
+  // toolchain_digest pins the toolchain used for both local and Modal runs.
+  Digest toolchain_digest = 15 [(buf.validate.field).required = true];
+  // configuration_digest pins non-secret configuration for the shard.
+  Digest configuration_digest = 16 [(buf.validate.field).required = true];
+  // input_bundle_digest binds the full immutable input bundle.
+  Digest input_bundle_digest = 17 [(buf.validate.field).required = true];
+}
+
+// TracerShardReceipt is the full VERIFY_TRACER_EVIDENCE_SHARD_V1 output.
+// Logical parity compares only the TracerLogicalParityProjection fields;
+// realm/runtime fields remain mandatory here but are excluded from equality.
+message TracerShardReceipt {
+  // operation_version pins the deterministic operation implementation version.
+  string operation_version = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // tracer_manifest_digest binds the receipt to one TracerManifest.
+  Digest tracer_manifest_digest = 2 [(buf.validate.field).required = true];
+  // shard_id is the fixed shard identity.
+  string shard_id = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {const: "tracer-001/evidence/0001"}
+  ];
+  // input_bundle_digest binds the full immutable input bundle.
+  Digest input_bundle_digest = 4 [(buf.validate.field).required = true];
+  // source_artifact_digest pins the validated source artifact.
+  Digest source_artifact_digest = 5 [(buf.validate.field).required = true];
+  // source_revision_digest pins the source revision metadata.
+  Digest source_revision_digest = 6 [(buf.validate.field).required = true];
+  // source_byte_length is the validated source byte count.
+  uint64 source_byte_length = 7;
+  // span_byte_interval is the validated supporting-span byte interval.
+  ByteInterval span_byte_interval = 8 [(buf.validate.field).required = true];
+  // span_line_interval is the validated supporting-span line interval.
+  LineInterval span_line_interval = 9 [(buf.validate.field).required = true];
+  // span_digest is the recomputed span digest without normalization.
+  Digest span_digest = 10 [(buf.validate.field).required = true];
+  // anchor_digest is the recomputed anchor digest.
+  Digest anchor_digest = 11 [(buf.validate.field).required = true];
+  // result_code is the deterministic shard result.
+  TracerShardResultCode result_code = 12 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // validated_file_count is the number of source files validated (exactly 1 for v1).
+  uint32 validated_file_count = 13;
+  // validated_span_count is the number of spans validated (exactly 1 for v1).
+  uint32 validated_span_count = 14;
+  // output_digest binds the full receipt payload without realm noise.
+  Digest output_digest = 15 [(buf.validate.field).required = true];
+  // realm is local or modal (excluded from logical parity).
+  string realm = 16 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 16
+      pattern: "^(local|modal)$"
+    }
+  ];
+  // run_id identifies the tracer run (excluded from logical parity).
+  Identifier run_id = 17 [(buf.validate.field).required = true];
+  // attempt_id identifies the execution attempt (excluded from logical parity).
+  Identifier attempt_id = 18 [(buf.validate.field).required = true];
+  // lease is the fenced execution lease when present (excluded from logical parity).
+  Lease lease = 19;
+  // fence is the current fence token (excluded from logical parity).
+  uint64 fence = 20;
+  // expires_at is the Modal/local TTL deadline (excluded from logical parity).
+  google.protobuf.Timestamp expires_at = 21;
+  // receipt is the non-sensitive authoritative outcome.
+  Receipt receipt = 22 [(buf.validate.field).required = true];
+}
+
+// TracerLogicalParityProjection is the canonical comparison tuple for local vs
+// Modal VERIFY_TRACER_EVIDENCE_SHARD_V1 receipts. Any difference is
+// REMOTE_RECEIPT_MISMATCH. Realm, run/attempt/lease/fence IDs, times, host
+// metrics, and cleanup receipts are intentionally excluded.
+message TracerLogicalParityProjection {
+  // operation_version pins the deterministic operation implementation version.
+  string operation_version = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // tracer_manifest_digest binds the projection to one TracerManifest.
+  Digest tracer_manifest_digest = 2 [(buf.validate.field).required = true];
+  // shard_id is the fixed shard identity.
+  string shard_id = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {const: "tracer-001/evidence/0001"}
+  ];
+  // input_bundle_digest binds the full immutable input bundle.
+  Digest input_bundle_digest = 4 [(buf.validate.field).required = true];
+  // source_artifact_digest pins the validated source artifact.
+  Digest source_artifact_digest = 5 [(buf.validate.field).required = true];
+  // source_revision is the source revision digest hex binding.
+  Digest source_revision = 6 [(buf.validate.field).required = true];
+  // source_byte_length is the validated source byte count.
+  uint64 source_byte_length = 7;
+  // span_byte_interval is the validated supporting-span byte interval.
+  ByteInterval span_byte_interval = 8 [(buf.validate.field).required = true];
+  // span_line_interval is the validated supporting-span line interval.
+  LineInterval span_line_interval = 9 [(buf.validate.field).required = true];
+  // span_digest is the recomputed span digest.
+  Digest span_digest = 10 [(buf.validate.field).required = true];
+  // anchor_digest is the recomputed anchor digest.
+  Digest anchor_digest = 11 [(buf.validate.field).required = true];
+  // result_code is the deterministic shard result.
+  TracerShardResultCode result_code = 12 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // validated_file_count is the number of source files validated.
+  uint32 validated_file_count = 13;
+  // validated_span_count is the number of spans validated.
+  uint32 validated_span_count = 14;
+  // output_digest binds the full logical output.
+  Digest output_digest = 15 [(buf.validate.field).required = true];
+}

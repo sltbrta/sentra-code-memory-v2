@@ -1,0 +1,43 @@
+"""Bounded calibrated factual-consistency scoring seam."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+exports_files([
+    "testdata/calibration-v1.json",
+    "testdata/product-shaped-tradeoff-v1.json",
+])
+
+go_library(
+    name = "factualconsistency",
+    srcs = [
+        "calibration.go",
+        "factualconsistency.go",
+        "lexical.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/factualconsistency",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "factualconsistency_test",
+    embedsrcs = [
+        "testdata/calibration-v1.json",
+        "testdata/product-shaped-tradeoff-v1.json",
+    ],
+    srcs = [
+        "calibration_test.go",
+        "factualconsistency_test.go",
+        "tradeoff_test.go",
+    ],
+    embed = [":factualconsistency"],
+    data = [
+        "//docs/stages/stage-09/evidence:factual-consistency-tradeoff-v1.json",
+        "//docs/stages/stage-09/evidence:factual-consistency-tradeoff-v1.schema.json",
+        "testdata/product-shaped-tradeoff-v1.json",
+    ],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

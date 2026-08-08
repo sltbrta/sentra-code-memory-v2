@@ -1,0 +1,70 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.Digest.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Digest identifies immutable bytes using a named digest algorithm.",
+      "properties": {
+        "algorithm": {
+          "description": "algorithm identifies the canonical digest algorithm, for example sha256.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hex": {
+          "description": "hex is the lower-case encoded digest value.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[0-9a-f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "hex"
+      ],
+      "title": "Digest",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.FactualConsistencyProvenance.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "FactualConsistencyProvenance pins the implementation and calibration bytes\n behind one numeric factual-consistency result. It never identifies evidence.",
+      "properties": {
+        "calibrationDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "calibration_digest binds the immutable calibration artifact bytes."
+        },
+        "calibrationId": {
+          "description": "calibration_id identifies the declared calibration population and method.",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "scorerId": {
+          "description": "scorer_id is a stable implementation family, not a floating provider alias.",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "scorerVersion": {
+          "description": "scorer_version pins the exact scoring behavior.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "scorerId",
+        "scorerVersion",
+        "calibrationId",
+        "calibrationDigest"
+      ],
+      "title": "Factual Consistency Provenance",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.FactualConsistencyProvenance.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.FactualConsistencyProvenance.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

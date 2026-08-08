@@ -1,0 +1,30 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.ByteInterval.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "ByteInterval is a half-open raw-byte interval [start_byte, end_byte).",
+      "properties": {
+        "endByte": {
+          "description": "end_byte is exclusive and must be \u003e= start_byte.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "startByte": {
+          "description": "start_byte is inclusive.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "startByte",
+        "endByte"
+      ],
+      "title": "Byte Interval",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.ByteInterval.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.ByteInterval.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

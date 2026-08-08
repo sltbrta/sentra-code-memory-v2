@@ -1,0 +1,20 @@
+"""Frozen Stage 05 atomic candidate edit-set validation."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "changeset",
+    srcs = ["changeset.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/broker/internal/factory/changeset",
+    visibility = ["//services/broker:__subpackages__"],
+    deps = ["//services/internal/contracts"],
+)
+
+go_test(
+    name = "changeset_test",
+    srcs = ["changeset_test.go"],
+    embed = [":changeset"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+    visibility = ["//tools/stage-05:__pkg__"],
+    deps = ["//services/internal/contracts"],
+)

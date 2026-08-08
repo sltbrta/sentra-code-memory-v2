@@ -1,0 +1,39 @@
+"""Bounded committed-Git ingestion authority."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "ingestion",
+    srcs = [
+        "authority.go",
+        "delta.go",
+        "doc.go",
+        "git.go",
+        "hydration.go",
+        "policy.go",
+        "state.go",
+        "types.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/ingestion",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "ingestion_test",
+    srcs = [
+        "authority_test.go",
+        "delta_test.go",
+        "fixture_test.go",
+        "hydration_internal_test.go",
+        "hydration_test.go",
+        "test_helpers_test.go",
+        "validation_test.go",
+    ],
+    data = ["//tests/fixtures/stage-03:mixed_p5_seed"],
+    embed = [":ingestion"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

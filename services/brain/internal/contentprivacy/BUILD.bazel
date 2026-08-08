@@ -1,0 +1,32 @@
+"""Bounded deterministic content-privacy policy boundary."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "contentprivacy",
+    srcs = [
+        "detector.go",
+        "doc.go",
+        "evaluation.go",
+        "guard.go",
+        "production.go",
+        "types.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/contentprivacy",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "contentprivacy_test",
+    srcs = [
+        "contentprivacy_test.go",
+        "evaluation_test.go",
+        "production_test.go",
+    ],
+    embed = [":contentprivacy"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

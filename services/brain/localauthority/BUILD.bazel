@@ -1,0 +1,80 @@
+"""Stage 02 local SQLite and encrypted-storage authority runtime."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "localauthority",
+    srcs = [
+        "darwin.go",
+        "darwin_stub.go",
+        "durable.go",
+        "enrichment.go",
+        "factory.go",
+        "ingestion_models.go",
+        "ingestion_runtime.go",
+        "ingestion_search.go",
+        "meeting.go",
+        "models.go",
+        "multimodal.go",
+        "query.go",
+        "query_corpus.go",
+        "runtime.go",
+        "storage.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/localauthority",
+    visibility = ["//services:__subpackages__"],
+    deps = [
+        "//services/brain/internal/artifactvault",
+        "//services/brain/internal/codeindex",
+        "//services/brain/internal/conversation",
+        "//services/brain/internal/factualconsistency",
+        "//services/brain/internal/evidenceledger",
+        "//services/brain/internal/factory",
+        "//services/brain/internal/factory/roster",
+        "//services/brain/internal/gardener",
+        "//services/brain/internal/ingestion",
+        "//services/brain/internal/keyring",
+        "//services/brain/internal/localstate",
+        "//services/brain/internal/localstate/schema",
+        "//services/brain/internal/localstorage",
+        "//services/brain/internal/meeting",
+        "//services/brain/internal/multimodal",
+        "//services/brain/internal/ontology",
+        "//services/brain/internal/projections",
+        "//services/brain/internal/query",
+        "//services/brain/internal/rerank",
+        "//services/internal/contracts",
+    ],
+)
+
+go_test(
+    name = "localauthority_test",
+    srcs = [
+        "durable_darwin_test.go",
+        "durable_test.go",
+        "factory_test.go",
+        "ingestion_runtime_test.go",
+        "query_test.go",
+        "runtime_test.go",
+    ],
+    data = [],
+    embed = [":localauthority"],
+    tags = ["no-sandbox", "ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+    visibility = ["//tools/stage-02:__pkg__"],
+    deps = [
+        "//packages/contracts/gen/go/ouroboros/contracts/v1:contracts",
+        "//services/brain/internal/artifactvault",
+        "//services/brain/internal/evidenceledger",
+        "//services/brain/internal/keyring",
+        "//services/internal/contracts",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+        "@org_modernc_sqlite//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "external_resolver_test",
+    srcs = ["external_resolver_test.go"],
+    deps = [":localauthority"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+)

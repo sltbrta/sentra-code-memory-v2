@@ -1,0 +1,32 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.ResourceLimit.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "ResourceLimit bounds one measurable resource a grant may consume.",
+      "properties": {
+        "maximum": {
+          "description": "maximum is an inclusive strictly positive ceiling.",
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "name": {
+          "description": "name is a stable resource dimension such as token, wall_time_ms, or bytes.",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "maximum"
+      ],
+      "title": "Resource Limit",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.ResourceLimit.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.ResourceLimit.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

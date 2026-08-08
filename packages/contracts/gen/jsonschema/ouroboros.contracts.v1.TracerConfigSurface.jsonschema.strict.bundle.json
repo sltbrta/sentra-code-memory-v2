@@ -1,0 +1,106 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.Digest.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Digest identifies immutable bytes using a named digest algorithm.",
+      "properties": {
+        "algorithm": {
+          "description": "algorithm identifies the canonical digest algorithm, for example sha256.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hex": {
+          "description": "hex is the lower-case encoded digest value.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[0-9a-f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "hex"
+      ],
+      "title": "Digest",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.TracerConfigSurface.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "TracerConfigSurface freezes the non-secret dogfood configuration slots that\n resolve into ConfigSnapshot digests. Secret plaintext never appears here;\n values are Keychain or secret-store references and digests only.",
+      "properties": {
+        "budgetsDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "budgets_digest pins non-secret budget ceilings from ConfigSnapshot."
+        },
+        "configurationDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "configuration_digest echoes the resolved ConfigSnapshot.configuration_digest."
+        },
+        "geminiSecretRef": {
+          "description": "gemini_secret_ref is a Keychain reference for the Gemini route.",
+          "maxLength": 256,
+          "type": "string"
+        },
+        "githubEffectIdentityKind": {
+          "description": "github_effect_identity_kind is github_app, fine_grained_pat, or tbd.",
+          "maxLength": 64,
+          "pattern": "^(github_app|fine_grained_pat|tbd)?$",
+          "type": "string"
+        },
+        "githubIdentitySecretRef": {
+          "description": "github_identity_secret_ref is a Keychain or secret-store reference name.",
+          "maxLength": 256,
+          "type": "string"
+        },
+        "implementerModelFamily": {
+          "description": "implementer_model_family is the live implement path family (for example openai).",
+          "maxLength": 64,
+          "type": "string"
+        },
+        "modalAuthSecretRef": {
+          "description": "modal_auth_secret_ref is a Keychain or secret-store reference name.",
+          "maxLength": 256,
+          "type": "string"
+        },
+        "modalTtlSeconds": {
+          "description": "modal_ttl_seconds is the hard Modal lifetime ceiling (default 1800).",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "openaiSecretRef": {
+          "description": "openai_secret_ref is a Keychain reference for the OpenAI route.",
+          "maxLength": 256,
+          "type": "string"
+        },
+        "retentionDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "retention_digest pins retention policy without secret plaintext."
+        },
+        "reviewerModelFamily": {
+          "description": "reviewer_model_family is the fresh review family and must differ at runtime.",
+          "maxLength": 64,
+          "type": "string"
+        }
+      },
+      "required": [
+        "modalAuthSecretRef",
+        "githubEffectIdentityKind",
+        "githubIdentitySecretRef",
+        "implementerModelFamily",
+        "reviewerModelFamily",
+        "openaiSecretRef",
+        "geminiSecretRef",
+        "modalTtlSeconds"
+      ],
+      "title": "Tracer Config Surface",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.TracerConfigSurface.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.TracerConfigSurface.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

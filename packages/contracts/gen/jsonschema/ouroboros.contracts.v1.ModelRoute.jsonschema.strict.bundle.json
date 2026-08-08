@@ -1,0 +1,98 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.Digest.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Digest identifies immutable bytes using a named digest algorithm.",
+      "properties": {
+        "algorithm": {
+          "description": "algorithm identifies the canonical digest algorithm, for example sha256.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hex": {
+          "description": "hex is the lower-case encoded digest value.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[0-9a-f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "hex"
+      ],
+      "title": "Digest",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.ModelRoute.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "ModelRoute records the deterministic provider-neutral routing decision for\n one leaf; escalation outside the routed profile is explicit and budgeted.",
+      "properties": {
+        "limits": {
+          "description": "limits bounds leaf tokens, cost, wall time, and retries.",
+          "items": {
+            "$ref": "#/$defs/ouroboros.contracts.v1.ResourceLimit.jsonschema.strict.json"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "modelIdentity": {
+          "description": "model_identity names the selected provider-neutral model identity.",
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "profile_digest pins the certified runner/model/profile selection policy."
+        },
+        "rationaleCode": {
+          "description": "rationale_code is a stable non-sensitive routing rationale under policy.",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profileDigest",
+        "modelIdentity",
+        "rationaleCode"
+      ],
+      "title": "Model Route",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.ResourceLimit.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "ResourceLimit bounds one measurable resource a grant may consume.",
+      "properties": {
+        "maximum": {
+          "description": "maximum is an inclusive strictly positive ceiling.",
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "name": {
+          "description": "name is a stable resource dimension such as token, wall_time_ms, or bytes.",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "maximum"
+      ],
+      "title": "Resource Limit",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.ModelRoute.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.ModelRoute.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

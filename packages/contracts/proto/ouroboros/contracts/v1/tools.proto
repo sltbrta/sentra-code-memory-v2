@@ -1,0 +1,77 @@
+// Canonical Tool Forge package, capability-profile, and certification messages.
+//
+// Tool packages describe immutable artifacts and promotion state. Registry and
+// broker implementations enforce signatures, sandboxing, and effect authority.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/common.proto";
+
+// ToolCertificationState records controlled promotion without self-certification.
+enum ToolCertificationState {
+  TOOL_CERTIFICATION_STATE_UNSPECIFIED = 0;
+  TOOL_CERTIFICATION_STATE_DRAFT = 1;
+  TOOL_CERTIFICATION_STATE_QUARANTINED = 2;
+  TOOL_CERTIFICATION_STATE_CERTIFIED_PERSONAL = 3;
+  TOOL_CERTIFICATION_STATE_CERTIFIED_TEAM = 4;
+  TOOL_CERTIFICATION_STATE_CANONICAL = 5;
+  TOOL_CERTIFICATION_STATE_SUSPENDED = 6;
+  TOOL_CERTIFICATION_STATE_REVOKED = 7;
+}
+
+// ToolFormat identifies the portable packaging substrate.
+enum ToolFormat {
+  TOOL_FORMAT_UNSPECIFIED = 0;
+  TOOL_FORMAT_WASI_COMPONENT = 1;
+  TOOL_FORMAT_OCI_IMAGE = 2;
+}
+
+// ObservedCapabilityProfile records measured, not self-asserted, tool behavior.
+message ObservedCapabilityProfile {
+  // profile_id is an opaque observation identity.
+  Identifier profile_id = 1;
+  // tool_package_digest pins the package observed.
+  Digest tool_package_digest = 2;
+  // observed_operations lists sandbox-observed operation classes.
+  repeated string observed_operations = 3;
+  // egress_destinations lists observed network destinations when any.
+  repeated string egress_destinations = 4;
+  // resource_receipt records measured resource use and sandbox configuration.
+  Receipt resource_receipt = 5;
+}
+
+// ToolPackageV1 describes an immutable, signed tool package pending or past certification.
+message ToolPackageV1 {
+  // package_id is an opaque package identity.
+  Identifier package_id = 1;
+  // package_digest identifies immutable package bytes in the private OCI registry.
+  Digest package_digest = 2;
+  // format selects a portable WASI component or native OCI image.
+  ToolFormat format = 3;
+  // sbom_artifact identifies the immutable software bill of materials.
+  ArtifactRef sbom_artifact = 4;
+  // provenance_artifact identifies reproducible-build and SLSA evidence.
+  ArtifactRef provenance_artifact = 5;
+  // contract_digest identifies typed tool input/output/effect contracts.
+  Digest contract_digest = 6;
+  // certification_state is the current promotion state.
+  ToolCertificationState certification_state = 7;
+  // observed_profile records measured sandbox behavior.
+  ObservedCapabilityProfile observed_profile = 8;
+  // created_at records package admission time.
+  google.protobuf.Timestamp created_at = 9;
+}
+
+// ToolRegistryEntry provides the scoped current registry view for one package.
+message ToolRegistryEntry {
+  // registry_entry_id is an opaque registry identity.
+  Identifier registry_entry_id = 1;
+  // tool_package identifies the immutable package and its certification state.
+  ToolPackageV1 tool_package = 2;
+  // scope identifies the personal, team, or canonical policy scope.
+  string scope = 3;
+  // promotion_receipt records independent review, tests, and human approval.
+  Receipt promotion_receipt = 4;
+}

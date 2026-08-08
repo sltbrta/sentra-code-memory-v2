@@ -1,0 +1,33 @@
+"""Durable Stage 05 inter-agent mailbox facts with replay-safe identities."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "mailbox",
+    srcs = [
+        "doc.go",
+        "mailbox.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/factory/mailbox",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "//services/internal/contracts",
+    ],
+)
+
+go_test(
+    name = "mailbox_test",
+    srcs = glob(["*_test.go"]),
+    embed = [":mailbox"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    deps = [
+        "//services/brain/internal/localstate",
+        "//services/brain/internal/localstate/schema",
+        "//services/internal/contracts",
+        "@org_modernc_sqlite//:go_default_library",
+    ],
+)

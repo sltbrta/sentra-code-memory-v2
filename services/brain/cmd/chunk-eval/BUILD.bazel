@@ -1,0 +1,41 @@
+"""Golden-fixture chunking benchmark harness (issue #332). Diagnostics only."""
+
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "command",
+    srcs = [
+        "engine.go",
+        "fixtures.go",
+        "main.go",
+        "metrics.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/cmd/chunk-eval",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//services/brain/internal/chunking",
+        "//services/brain/internal/hosted",
+    ],
+)
+
+go_binary(
+    name = "chunk-eval",
+    embed = [":command"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "command_test",
+    srcs = [
+        "engine_test.go",
+        "fixtures_test.go",
+        "metrics_test.go",
+    ],
+    data = glob(["testdata/golden/**"]),
+    embed = [":command"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

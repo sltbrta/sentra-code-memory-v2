@@ -1,0 +1,316 @@
+package codecrawl
+
+import (
+	"encoding/gob"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+)
+
+// DefaultIndexFile is the durable codecrawl index basename next to the summary.
+const DefaultIndexFile = "code-index.gob"
+
+// DurableMeta is sidecar metadata stored with the gob.
+type DurableMeta struct {
+	Root      string    `json:"root"`
+	GitHead   string    `json:"git_head,omitempty"`
+	IndexedAt time.Time `json:"indexed_at"`
+	Files     int       `json:"files"`
+	Schema    string    `json:"schema"`
+}
+
+// durableSnap is the gob payload (all fields exported for encoding/gob).
+// Schema v3 optionally stores global inverted + symbol maps so warm Load skips
+// full rebuildGlobalFromFiles (warm wall-time fix).
+type durableSnap struct {
+	Meta         DurableMeta
+	FilePostings map[string]map[string]int
+	FileDefs     map[string][]string
+	FileRefs     map[string][]string
+	FileImps     map[string][]string
+	FileHashes   map[string]string
+	FileStamps   map[string]FileStamp
+	// GlobalInverted: token → path → tf (optional warm acceleration).
+	GlobalInverted map[string]map[string]int
+	// GlobalDefs / GlobalRefs: symbol name → files.
+	GlobalDefs map[string][]string
+	GlobalRefs map[string][]string
+}
+
+func init() {
+	gob.Register(durableSnap{})
+	gob.Register(map[string]map[string]int{})
+	gob.Register(map[string][]string{})
+	gob.Register(map[string]string{})
+	gob.Register(map[string]FileStamp{})
+	gob.Register(FileStamp{})
+}
+
+// Save writes a durable index next to path (atomic temp+rename).
+func (idx *Index) Save(path string, root string) error {
+	if idx == nil {
+		return fmt.Errorf("codecrawl: save nil index")
+	}
+	if strings.TrimSpace(path) == "" {
+		return fmt.Errorf("codecrawl: empty save path")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	// Ensure globals present before persist (warm load can skip rebuild).
+	if len(idx.inverted) == 0 {
+		rebuildGlobalFromFiles(idx)
+	}
+	meta := DurableMeta{
+		Root:      root,
+		GitHead:   gitHead(root),
+		IndexedAt: time.Now().UTC(),
+		Files:     len(idx.files),
+		Schema:    "product-brain.code-index.v3",
+	}
+	snap := durableSnap{
+		Meta:           meta,
+		FilePostings:   idx.filePostings,
+		FileDefs:       idx.fileDefs,
+		FileRefs:       idx.fileRefs,
+		FileImps:       idx.fileImps,
+		FileHashes:     idx.fileHashes,
+		FileStamps:     idx.fileStamps,
+		GlobalInverted: idx.inverted,
+	}
+	if idx.symbols != nil {
+		snap.GlobalDefs = idx.symbols.Defs
+		snap.GlobalRefs = idx.symbols.Refs
+	}
+	tmp := path + ".tmp"
+	f, err := os.Create(tmp)
+	if err != nil {
+		return err
+	}
+	enc := gob.NewEncoder(f)
+	if err := enc.Encode(&snap); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+// Load reads a durable index and rebuilds global inverted + symbol graph.
+func Load(path string) (*Index, DurableMeta, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, DurableMeta{}, err
+	}
+	defer f.Close()
+	var snap durableSnap
+	if err := gob.NewDecoder(f).Decode(&snap); err != nil {
+		return nil, DurableMeta{}, err
+	}
+	idx := newEmptyIndex()
+	idx.filePostings = snap.FilePostings
+	if idx.filePostings == nil {
+		idx.filePostings = map[string]map[string]int{}
+	}
+	idx.fileDefs = snap.FileDefs
+	if idx.fileDefs == nil {
+		idx.fileDefs = map[string][]string{}
+	}
+	idx.fileRefs = snap.FileRefs
+	if idx.fileRefs == nil {
+		idx.fileRefs = map[string][]string{}
+	}
+	idx.fileImps = snap.FileImps
+	if idx.fileImps == nil {
+		idx.fileImps = map[string][]string{}
+	}
+	idx.fileHashes = snap.FileHashes
+	if idx.fileHashes == nil {
+		idx.fileHashes = map[string]string{}
+	}
+	idx.fileStamps = snap.FileStamps
+	if idx.fileStamps == nil {
+		idx.fileStamps = map[string]FileStamp{}
+	}
+	// Warm acceleration: reuse persisted global inverted when present (v3).
+	if len(snap.GlobalInverted) > 0 {
+		idx.inverted = snap.GlobalInverted
+		for path := range idx.filePostings {
+			idx.files[path] = struct{}{}
+		}
+		sym := newSymbolGraph()
+		if snap.GlobalDefs != nil {
+			sym.Defs = snap.GlobalDefs
+		}
+		if snap.GlobalRefs != nil {
+			sym.Refs = snap.GlobalRefs
+		}
+		// Imports still from per-file maps.
+		for file, imps := range idx.fileImps {
+			for _, im := range imps {
+				sym.addImport(file, im)
+			}
+		}
+		idx.symbols = sym
+	} else {
+		rebuildGlobalFromFiles(idx)
+	}
+	return idx, snap.Meta, nil
+}
+
+// OpenOrRefresh loads a durable index when present and applies stamp/hash delta.
+//
+// Returns index, stats, whether the gob was rewritten, meta.
+func OpenOrRefresh(root, gobPath string, workers int, forceFull bool) (*Index, Stats, bool, DurableMeta, error) {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return nil, Stats{}, false, DurableMeta{}, err
+	}
+	if workers < 1 {
+		workers = 1
+	}
+	var prev *Index
+	var meta DurableMeta
+	if !forceFull {
+		if p, m, err := Load(gobPath); err == nil {
+			want, _ := filepath.Abs(m.Root)
+			if want == "" || want == rootAbs {
+				prev = p
+				meta = m
+			}
+		}
+	}
+	if prev == nil {
+		idx, st, err := CrawlDir(rootAbs, workers)
+		if err != nil {
+			return nil, st, false, DurableMeta{}, err
+		}
+		ensureHashes(idx, rootAbs)
+		if err := idx.Save(gobPath, rootAbs); err != nil {
+			return idx, st, false, DurableMeta{}, err
+		}
+		meta = DurableMeta{
+			Root: rootAbs, GitHead: gitHead(rootAbs), IndexedAt: time.Now().UTC(),
+			Files: len(idx.files), Schema: "product-brain.code-index.v3",
+		}
+		return idx, st, true, meta, nil
+	}
+	// Fully warm: stamps all match and globals already loaded — skip delta walk
+	// when prev already has inverted (v3 warm path).
+	if prev != nil && len(prev.inverted) > 0 && stAllStampsMatch(rootAbs, prev) {
+		st := Stats{
+			FilesIndexed:   len(prev.files),
+			BytesRead:      0,
+			Workers:        workers,
+			Duration:       0, // stamp walk only; caller may time outer
+			Unchanged:      len(prev.files),
+			SkippedByStamp: len(prev.files),
+		}
+		return prev, st, false, meta, nil
+	}
+	idx, st, _, err := CrawlDeltaFrom(rootAbs, workers, nil, prev)
+	if err != nil {
+		return nil, st, false, meta, err
+	}
+	wrote := st.Changed > 0 || st.Unchanged == 0
+	if wrote || meta.GitHead != gitHead(rootAbs) || (meta.Schema != "product-brain.code-index.v2" && meta.Schema != "product-brain.code-index.v3") {
+		if err := idx.Save(gobPath, rootAbs); err != nil {
+			return idx, st, false, meta, err
+		}
+		wrote = true
+		meta = DurableMeta{
+			Root: rootAbs, GitHead: gitHead(rootAbs), IndexedAt: time.Now().UTC(),
+			Files: len(idx.files), Schema: "product-brain.code-index.v3",
+		}
+	}
+	return idx, st, wrote, meta, nil
+}
+
+// stAllStampsMatch is a cheap walk: every on-disk stamp matches index stamps,
+// and every indexed path still exists (no silent deletions).
+func stAllStampsMatch(root string, prev *Index) bool {
+	if prev == nil || prev.fileStamps == nil || len(prev.fileStamps) == 0 {
+		return false
+	}
+	live := map[string]FileStamp{}
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil {
+			return nil
+		}
+		if info.IsDir() {
+			if _, ok := skipDir[info.Name()]; ok {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if _, ok := extOK[strings.ToLower(filepath.Ext(path))]; !ok {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil || rel == "" {
+			rel = path
+		}
+		live[rel] = FileStamp{Size: info.Size(), MtimeNs: info.ModTime().UnixNano()}
+		return nil
+	})
+	if len(live) != len(prev.fileStamps) {
+		return false
+	}
+	for rel, old := range prev.fileStamps {
+		st, ok := live[rel]
+		if !ok || !StampEqual(old, st) {
+			return false
+		}
+	}
+	return true
+}
+
+// ensureHashes fills fileHashes after a plain CrawlDir (which may not set them).
+func ensureHashes(idx *Index, root string) {
+	if idx == nil {
+		return
+	}
+	if idx.fileHashes == nil {
+		idx.fileHashes = map[string]string{}
+	}
+	if idx.fileStamps == nil {
+		idx.fileStamps = map[string]FileStamp{}
+	}
+	for rel := range idx.files {
+		if _, ok := idx.fileHashes[rel]; ok {
+			if _, ok2 := idx.fileStamps[rel]; ok2 {
+				continue
+			}
+		}
+		p := filepath.Join(root, rel)
+		info, err := os.Stat(p)
+		if err != nil {
+			continue
+		}
+		idx.fileStamps[rel] = FileStamp{Size: info.Size(), MtimeNs: info.ModTime().UnixNano()}
+		if _, ok := idx.fileHashes[rel]; ok {
+			continue
+		}
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		idx.fileHashes[rel] = FileHash(raw)
+	}
+}
+
+func gitHead(root string) string {
+	cmd := exec.Command("git", "-C", root, "rev-parse", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}

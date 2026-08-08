@@ -1,0 +1,28 @@
+"""Bounded Stage 12 Workflow IR inspection, replay, and effect-free simulation."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "workflowinspect",
+    srcs = [
+        "doc.go",
+        "inspect.go",
+        "ir.go",
+        "registry.go",
+        "replay.go",
+        "simulate.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/workflowinspect",
+    visibility = ["//services:__subpackages__"],
+)
+
+go_test(
+    name = "workflowinspect_test",
+    srcs = ["workflowinspect_test.go"],
+    embed = [":workflowinspect"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

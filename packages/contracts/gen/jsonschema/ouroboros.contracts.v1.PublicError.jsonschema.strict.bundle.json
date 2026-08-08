@@ -1,0 +1,60 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.PublicError.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "PublicError exposes a static public error code with an optional safe render model.",
+      "properties": {
+        "code": {
+          "description": "code is a stable, non-sensitive machine-readable public error code.",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "render": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.RenderModel.jsonschema.strict.json",
+          "description": "render supplies presentation-safe text for the TUI."
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "Public Error",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.RenderModel.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "RenderModel is a bounded non-sensitive presentation model for the thin TUI.",
+      "properties": {
+        "actionLabel": {
+          "description": "action_label suggests the next local action without implying authority.",
+          "maxLength": 80,
+          "type": "string"
+        },
+        "detail": {
+          "description": "detail is bounded static explanatory text and never an upstream error body.",
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "description": "title is a stable short heading suitable for a terminal status line.",
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "detail",
+        "actionLabel"
+      ],
+      "title": "Render Model",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.PublicError.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.PublicError.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

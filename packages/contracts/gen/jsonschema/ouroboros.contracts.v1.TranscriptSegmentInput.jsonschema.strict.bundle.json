@@ -1,0 +1,43 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.TranscriptSegmentInput.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "TranscriptSegmentInput is one client-supplied time-bounded transcript span.",
+      "properties": {
+        "endMillis": {
+          "description": "end_millis is exclusive within the meeting timeline.",
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "speakerLabel": {
+          "description": "speaker_label is an anonymous cluster label when present; it never asserts identity.",
+          "maxLength": 64,
+          "type": "string"
+        },
+        "startMillis": {
+          "description": "start_millis is inclusive within the meeting timeline.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "text": {
+          "description": "text is the bounded transcript prose for the span.",
+          "maxLength": 8192,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "startMillis",
+        "endMillis",
+        "text",
+        "speakerLabel"
+      ],
+      "title": "Transcript Segment Input",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.TranscriptSegmentInput.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.TranscriptSegmentInput.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -1,0 +1,41 @@
+"""Single-writer Stage 02 local authority state targets."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "localstate",
+    srcs = [
+        "ingestion_catalog.go",
+        "ingestion_checkpoint.go",
+        "ingestion_digest.go",
+        "ingestion_rows.go",
+        "ingestion_store.go",
+        "ingestion_types.go",
+        "ledger_write.go",
+        "owner_lock_unix.go",
+        "storage_executor.go",
+        "store.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/localstate",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "//services/brain/internal/audit",
+        "//services/brain/internal/deletion",
+        "//services/brain/internal/eventkernel",
+        "//services/internal/contracts",
+        "@org_modernc_sqlite//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "localstate_test",
+    srcs = [
+        "ingestion_catalog_test.go",
+        "ingestion_store_test.go",
+        "store_test.go",
+    ],
+    embed = [":localstate"],
+    data = ["//services/brain/internal/localstate/schema:stage02_migration"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+    visibility = ["//tools/stage-02:__pkg__"],
+)

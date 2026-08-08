@@ -1,0 +1,609 @@
+// Bounded multimodal source-envelope contracts for the Stage 11 TUI.
+// This surface is independently versioned and must never widen Stage 03
+// AddSource, which remains committed-Git-only. The authenticated gateway
+// supplies caller identity; body identity is an untrusted cross-check.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/common.proto";
+import "ouroboros/contracts/v1/evidence.proto";
+import "ouroboros/contracts/v1/local_authority.proto";
+
+// MultimodalService provides the five bounded multimodal operations used by
+// the thin TUI. It admits text/Markdown, PDF, standalone PNG, and PCM WAV
+// only. Unknown, unauthorized, and revoked source identities share the static
+// `not_found_or_denied` response shape on status, evidence, revoke, and purge.
+// Admission of an offered payload may fail loud with a frozen pre-decode
+// reason before expensive decoding. No JPEG, compressed audio, video,
+// diarization, dataset, archive, or Stage 03 Git path is part of this surface.
+service MultimodalService {
+  // AdmitMultimodalSource admits one bounded multimodal envelope revision.
+  rpc AdmitMultimodalSource(AdmitMultimodalSourceRequest) returns (AdmitMultimodalSourceResponse);
+  // GetMultimodalStatus reads readiness, coverage, and deletion state.
+  rpc GetMultimodalStatus(GetMultimodalStatusRequest) returns (GetMultimodalStatusResponse);
+  // GetMultimodalEvidence pages modality-native anchors for one source.
+  rpc GetMultimodalEvidence(GetMultimodalEvidenceRequest) returns (GetMultimodalEvidenceResponse);
+  // RevokeMultimodalSource denies hydration immediately and starts purge lineage.
+  rpc RevokeMultimodalSource(RevokeMultimodalSourceRequest) returns (RevokeMultimodalSourceResponse);
+  // PurgeMultimodalSource confirms verified purge of raw and derived lineage.
+  rpc PurgeMultimodalSource(PurgeMultimodalSourceRequest) returns (PurgeMultimodalSourceResponse);
+}
+
+// MultimodalSourceKind is the complete bounded Stage 11 v1 modality set.
+enum MultimodalSourceKind {
+  // MULTIMODAL_SOURCE_KIND_UNSPECIFIED is invalid at the boundary.
+  MULTIMODAL_SOURCE_KIND_UNSPECIFIED = 0;
+  // MULTIMODAL_SOURCE_KIND_TEXT_MARKDOWN admits plain text or Markdown <=1 MiB.
+  MULTIMODAL_SOURCE_KIND_TEXT_MARKDOWN = 1;
+  // MULTIMODAL_SOURCE_KIND_PDF admits one PDF <=25 MiB and 100 pages.
+  MULTIMODAL_SOURCE_KIND_PDF = 2;
+  // MULTIMODAL_SOURCE_KIND_PNG admits one standalone PNG <=20 MiB and 25 MP.
+  MULTIMODAL_SOURCE_KIND_PNG = 3;
+  // MULTIMODAL_SOURCE_KIND_PCM_WAV admits one PCM WAV <=250 MiB and 60 minutes.
+  MULTIMODAL_SOURCE_KIND_PCM_WAV = 4;
+}
+
+// MultimodalSourceState is the bounded lifecycle exposed to status consumers.
+enum MultimodalSourceState {
+  // MULTIMODAL_SOURCE_STATE_UNSPECIFIED is invalid for a known source.
+  MULTIMODAL_SOURCE_STATE_UNSPECIFIED = 0;
+  // MULTIMODAL_SOURCE_STATE_ADMITTED has encrypted original bytes committed.
+  MULTIMODAL_SOURCE_STATE_ADMITTED = 1;
+  // MULTIMODAL_SOURCE_STATE_EXTRACTING has one or more bounded extract jobs active.
+  MULTIMODAL_SOURCE_STATE_EXTRACTING = 2;
+  // MULTIMODAL_SOURCE_STATE_PARTIAL_READY has at least one queryable lane incomplete.
+  MULTIMODAL_SOURCE_STATE_PARTIAL_READY = 3;
+  // MULTIMODAL_SOURCE_STATE_READY has every required lane complete for the profile.
+  MULTIMODAL_SOURCE_STATE_READY = 4;
+  // MULTIMODAL_SOURCE_STATE_FAILED exhausted bounded retries for a required lane.
+  MULTIMODAL_SOURCE_STATE_FAILED = 5;
+  // MULTIMODAL_SOURCE_STATE_QUARANTINED failed integrity, key, malware, or policy checks.
+  MULTIMODAL_SOURCE_STATE_QUARANTINED = 6;
+  // MULTIMODAL_SOURCE_STATE_REVOKED denies hydration; purge may still be in progress.
+  MULTIMODAL_SOURCE_STATE_REVOKED = 7;
+  // MULTIMODAL_SOURCE_STATE_PURGED is terminal after verified lineage erasure.
+  MULTIMODAL_SOURCE_STATE_PURGED = 8;
+}
+
+// MultimodalReadinessLane identifies one required or optional extract lane.
+enum MultimodalReadinessLane {
+  // MULTIMODAL_READINESS_LANE_UNSPECIFIED is invalid in a served coverage record.
+  MULTIMODAL_READINESS_LANE_UNSPECIFIED = 0;
+  // MULTIMODAL_READINESS_LANE_ORIGINAL is the encrypted original revision.
+  MULTIMODAL_READINESS_LANE_ORIGINAL = 1;
+  // MULTIMODAL_READINESS_LANE_TEXT is ordered text or Markdown offset coverage.
+  MULTIMODAL_READINESS_LANE_TEXT = 2;
+  // MULTIMODAL_READINESS_LANE_PAGE is PDF page/layout coverage.
+  MULTIMODAL_READINESS_LANE_PAGE = 3;
+  // MULTIMODAL_READINESS_LANE_REGION is PNG region/OCR coverage.
+  MULTIMODAL_READINESS_LANE_REGION = 4;
+  // MULTIMODAL_READINESS_LANE_TRANSCRIPT is timestamped audio transcript coverage.
+  MULTIMODAL_READINESS_LANE_TRANSCRIPT = 5;
+}
+
+// MultimodalLaneState is the bounded state of one readiness lane.
+enum MultimodalLaneState {
+  // MULTIMODAL_LANE_STATE_UNSPECIFIED is invalid in a served coverage record.
+  MULTIMODAL_LANE_STATE_UNSPECIFIED = 0;
+  // MULTIMODAL_LANE_STATE_PENDING has not published.
+  MULTIMODAL_LANE_STATE_PENDING = 1;
+  // MULTIMODAL_LANE_STATE_READY is complete and queryable.
+  MULTIMODAL_LANE_STATE_READY = 2;
+  // MULTIMODAL_LANE_STATE_FAILED exhausted retries or failed validation.
+  MULTIMODAL_LANE_STATE_FAILED = 3;
+  // MULTIMODAL_LANE_STATE_ABSENT is optional enrichment that did not run.
+  MULTIMODAL_LANE_STATE_ABSENT = 4;
+}
+
+// UntrustedMultimodalCaller carries body identity only for authenticated-context checks.
+message UntrustedMultimodalCaller {
+  // requested_principal must match the authenticated peer principal and tenant.
+  AuthenticatedPrincipalRef requested_principal = 1 [(buf.validate.field).required = true];
+  // requested_session must match the authenticated gateway session.
+  Identifier requested_session = 2 [(buf.validate.field).required = true];
+}
+
+// TextMarkdownBounds freezes the Stage 11 text/Markdown admission limits.
+message TextMarkdownBounds {
+  // utf8_byte_length is the declared UTF-8 payload size and must be <=1 MiB.
+  uint64 utf8_byte_length = 1 [
+    (buf.validate.field).uint64.gt = 0,
+    (buf.validate.field).uint64.lte = 1048576
+  ];
+}
+
+// PdfBounds freezes the Stage 11 PDF admission limits.
+message PdfBounds {
+  // byte_length is the declared PDF size and must be <=25 MiB.
+  uint64 byte_length = 1 [
+    (buf.validate.field).uint64.gt = 0,
+    (buf.validate.field).uint64.lte = 26214400
+  ];
+  // page_count is the declared page count and must be <=100.
+  uint32 page_count = 2 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 100
+  ];
+}
+
+// PngBounds freezes the Stage 11 standalone PNG admission limits.
+message PngBounds {
+  option (buf.validate.message).cel = {
+    id: "png_bounds.megapixel_cap"
+    message: "PNG width times height must not exceed 25 megapixels"
+    expression: "uint(this.width_px) * uint(this.height_px) <= 25000000u"
+  };
+  // byte_length is the declared PNG size and must be <=20 MiB.
+  uint64 byte_length = 1 [
+    (buf.validate.field).uint64.gt = 0,
+    (buf.validate.field).uint64.lte = 20971520
+  ];
+  // width_px is the declared pixel width.
+  uint32 width_px = 2 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 25000000
+  ];
+  // height_px is the declared pixel height.
+  uint32 height_px = 3 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 25000000
+  ];
+}
+
+// PcmWavBounds freezes the Stage 11 PCM WAV admission limits.
+message PcmWavBounds {
+  // byte_length is the declared WAV size and must be <=250 MiB.
+  uint64 byte_length = 1 [
+    (buf.validate.field).uint64.gt = 0,
+    (buf.validate.field).uint64.lte = 262144000
+  ];
+  // duration_millis is the declared audio duration and must be <=60 minutes.
+  uint64 duration_millis = 2 [
+    (buf.validate.field).uint64.gt = 0,
+    (buf.validate.field).uint64.lte = 3600000
+  ];
+  // sample_rate_hz is a positive PCM sample rate.
+  uint32 sample_rate_hz = 3 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 192000
+  ];
+  // channels is the channel count (mono or stereo in v1).
+  uint32 channels = 4 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 2
+  ];
+}
+
+// MultimodalSourceEnvelope is the versioned multimodal admission envelope.
+// It stores references and protected metadata, never plaintext payload bytes.
+// It is deliberately distinct from Stage 03 AddSource / committed-Git sources.
+message MultimodalSourceEnvelope {
+  option (buf.validate.message).cel = {
+    id: "multimodal_source_envelope.kind_bounds"
+    message: "envelope kind must match its modality bounds oneof"
+    expression: "(this.kind == 1 && has(this.text)) || (this.kind == 2 && has(this.pdf)) || (this.kind == 3 && has(this.png)) || (this.kind == 4 && has(this.pcm_wav))"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_source_envelope.media_type"
+    message: "media type must match the bounded Stage 11 kind"
+    expression: "(this.kind == 1 && (this.media_type == 'text/plain' || this.media_type == 'text/markdown')) || (this.kind == 2 && this.media_type == 'application/pdf') || (this.kind == 3 && this.media_type == 'image/png') || (this.kind == 4 && (this.media_type == 'audio/wav' || this.media_type == 'audio/wave' || this.media_type == 'audio/x-wav'))"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_source_envelope.byte_length_binding"
+    message: "declared byte length must equal the modality bounds length"
+    expression: "(this.kind == 1 && this.byte_length == this.text.utf8_byte_length) || (this.kind == 2 && this.byte_length == this.pdf.byte_length) || (this.kind == 3 && this.byte_length == this.png.byte_length) || (this.kind == 4 && this.byte_length == this.pcm_wav.byte_length)"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_source_envelope.sha256_digest"
+    message: "content digest must be canonical SHA-256"
+    expression: "this.content_digest.algorithm == 'sha256' && this.content_digest.hex.matches('^[0-9a-f]{64}$')"
+  };
+  // source_object_id is the connector- or upload-scoped object identity.
+  Identifier source_object_id = 1 [(buf.validate.field).required = true];
+  // kind selects exactly one Stage 11 v1 modality family.
+  MultimodalSourceKind kind = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // media_type is the declared media type before decode.
+  string media_type = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 128
+      pattern: "^[a-z0-9][a-z0-9!#$&^_.+-]{0,126}/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$"
+    }
+  ];
+  // byte_length is the exact declared source byte count.
+  uint64 byte_length = 4 [
+    (buf.validate.field).uint64.gt = 0,
+    (buf.validate.field).uint64.lte = 262144000
+  ];
+  // content_digest identifies exact immutable source bytes.
+  Digest content_digest = 5 [(buf.validate.field).required = true];
+  // encrypted_original references ArtifactVault-encrypted original bytes.
+  ArtifactRef encrypted_original = 6 [(buf.validate.field).required = true];
+  // extractor_identity pins the certified extractor image/config digest.
+  Digest extractor_identity = 7 [(buf.validate.field).required = true];
+  // brain_id prevents same-tenant cross-brain projection reuse.
+  Identifier brain_id = 8 [(buf.validate.field).required = true];
+  // tenant_id prevents cross-tenant source reuse.
+  Identifier tenant_id = 9 [(buf.validate.field).required = true];
+  // modality carries exactly one kind-specific bound set.
+  oneof modality {
+    option (buf.validate.oneof).required = true;
+    // text bounds plain text or Markdown.
+    TextMarkdownBounds text = 10;
+    // pdf bounds one PDF document.
+    PdfBounds pdf = 11;
+    // png bounds one standalone PNG image.
+    PngBounds png = 12;
+    // pcm_wav bounds one PCM WAV audio file.
+    PcmWavBounds pcm_wav = 13;
+  }
+}
+
+// MultimodalLaneCoverage discloses one readiness lane without hiding failure.
+message MultimodalLaneCoverage {
+  // lane identifies the readiness lane.
+  MultimodalReadinessLane lane = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // state is the bounded lane lifecycle.
+  MultimodalLaneState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // required marks lanes that block complete readiness when absent or failed.
+  bool required = 3;
+  // coverage_per_mille is complete denominator coverage in [0, 1000].
+  uint32 coverage_per_mille = 4 [(buf.validate.field).uint32.lte = 1000];
+}
+
+// MultimodalSourceStatus is server-authored status for one admitted source.
+message MultimodalSourceStatus {
+  option (buf.validate.message).cel = {
+    id: "multimodal_source_status.partial_ready"
+    message: "partial_ready requires at least one ready lane and one incomplete required lane"
+    expression: "this.state != 3 || (this.lanes.exists(l, l.state == 2) && this.lanes.exists(l, l.required && l.state != 2))"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_source_status.ready"
+    message: "ready requires every required lane ready with full coverage"
+    expression: "this.state != 4 || this.lanes.filter(l, l.required).all(l, l.state == 2 && l.coverage_per_mille == 1000u)"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_source_status.unique_lanes"
+    message: "lane identifiers are unique within one status"
+    expression: "this.lanes.all(a, this.lanes.filter(b, b.lane == a.lane).size() == 1)"
+  };
+  // source_id is the opaque server-authored source identity.
+  Identifier source_id = 1 [(buf.validate.field).required = true];
+  // source_revision_id is the immutable admitted revision identity.
+  Identifier source_revision_id = 2 [(buf.validate.field).required = true];
+  // kind echoes the admitted modality family.
+  MultimodalSourceKind kind = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // state is the bounded source lifecycle excluding unspecified.
+  MultimodalSourceState state = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // deletion_state is the shared deletion vocabulary.
+  DeletionState deletion_state = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // acl_epoch invalidates stale grants and projections.
+  uint64 acl_epoch = 6;
+  // lanes disclose per-lane readiness honestly.
+  repeated MultimodalLaneCoverage lanes = 7 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 8
+  }];
+  // extractor_identity pins the certified extractor used for derived work.
+  Digest extractor_identity = 8 [(buf.validate.field).required = true];
+  // observed_at records when the source was admitted or last advanced.
+  google.protobuf.Timestamp observed_at = 9 [(buf.validate.field).required = true];
+}
+
+// MultimodalEvidenceItem binds one claim-supporting native anchor to its revision.
+message MultimodalEvidenceItem {
+  option (buf.validate.message).cel = {
+    id: "multimodal_evidence_item.anchor_kind"
+    message: "evidence item must carry a Stage 11 native anchor location"
+    expression: "has(this.anchor.bytes) || has(this.anchor.text) || has(this.anchor.page) || has(this.anchor.audio)"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_evidence_item.forward_bytes"
+    message: "byte and text anchors must move forward"
+    expression: "(!has(this.anchor.bytes) || this.anchor.bytes.start_byte < this.anchor.bytes.end_byte) && (!has(this.anchor.text) || this.anchor.text.start_byte < this.anchor.text.end_byte)"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_evidence_item.forward_time"
+    message: "audio time anchors must move forward"
+    expression: "!has(this.anchor.audio) || this.anchor.audio.start_millis < this.anchor.audio.end_millis"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_evidence_item.page_positive"
+    message: "page anchors use a positive one-based page number"
+    expression: "!has(this.anchor.page) || this.anchor.page.page_number > 0"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_evidence_item.region_box"
+    message: "optional page bounds must be a normalized forward box"
+    expression: "!has(this.anchor.page) || !has(this.anchor.page.bounds) || (this.anchor.page.bounds.left_per_mille < this.anchor.page.bounds.right_per_mille && this.anchor.page.bounds.top_per_mille < this.anchor.page.bounds.bottom_per_mille && this.anchor.page.bounds.right_per_mille <= 1000 && this.anchor.page.bounds.bottom_per_mille <= 1000)"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_evidence_item.no_video_code"
+    message: "Stage 11 v1 evidence never carries video or code anchors"
+    expression: "!has(this.anchor.video) && !has(this.anchor.code) && !has(this.anchor.table)"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_evidence_item.sha256_support"
+    message: "supporting text digest must be canonical SHA-256 when present"
+    expression: "!has(this.supporting_text_digest) || (this.supporting_text_digest.algorithm == 'sha256' && this.supporting_text_digest.hex.matches('^[0-9a-f]{64}$'))"
+  };
+  option (buf.validate.message).cel = {
+    id: "multimodal_evidence_item.authority"
+    message: "evidence authority is direct source or machine observation only"
+    expression: "this.authority_class == 1 || this.authority_class == 2"
+  };
+  // evidence identifies the immutable evidence and source revision.
+  EvidenceRef evidence = 1 [(buf.validate.field).required = true];
+  // anchor is the modality-native offset, page, region, or time location.
+  EvidenceAnchor anchor = 2 [(buf.validate.field).required = true];
+  // authority_class prevents summaries and model proposals from self-promotion.
+  AuthorityClass authority_class = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // supporting_text_digest optionally binds exact supporting text bytes.
+  Digest supporting_text_digest = 4;
+}
+
+// AdmitMultimodalSourceRequest admits one bounded multimodal envelope.
+message AdmitMultimodalSourceRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedMultimodalCaller caller = 1 [(buf.validate.field).required = true];
+  // envelope is the versioned multimodal admission envelope.
+  MultimodalSourceEnvelope envelope = 2 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// AdmitMultimodalSourceSuccess returns the admitted source identity and state.
+message AdmitMultimodalSourceSuccess {
+  option (buf.validate.message).cel = {
+    id: "admit_multimodal_source_success.admitted_state"
+    message: "an admitted source opens in admitted or extracting state"
+    expression: "this.state == 1 || this.state == 2"
+  };
+  // source_id is the server-authored source identity.
+  Identifier source_id = 1 [(buf.validate.field).required = true];
+  // source_revision_id is the immutable admitted revision identity.
+  Identifier source_revision_id = 2 [(buf.validate.field).required = true];
+  // state is the bounded initial lifecycle state.
+  MultimodalSourceState state = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+// AdmitMultimodalSourceResponse returns admission or a fail-loud pre-decode denial.
+message AdmitMultimodalSourceResponse {
+  option (buf.validate.message).cel = {
+    id: "admit_multimodal_source_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0 && !has(this.error.render) && this.error.code in ['not_found_or_denied', 'oversized', 'malformed', 'media_type_mismatch', 'encrypted_or_unsupported', 'partial_payload'])"
+  };
+  // receipt records the admission decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents admission facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the admitted source identity after authorization.
+    AdmitMultimodalSourceSuccess success = 2;
+    // error is a fail-loud pre-decode or non-disclosing rejection.
+    PublicError error = 3;
+  }
+}
+
+// GetMultimodalStatusRequest reads one opaque multimodal source identity.
+message GetMultimodalStatusRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedMultimodalCaller caller = 1 [(buf.validate.field).required = true];
+  // source_id is resolved under authenticated tenant and brain scope.
+  Identifier source_id = 2 [(buf.validate.field).required = true];
+}
+
+// GetMultimodalStatusSuccess contains authorized multimodal status.
+message GetMultimodalStatusSuccess {
+  option (buf.validate.message).cel = {
+    id: "get_multimodal_status_success.public_state"
+    message: "status success never discloses revoked or purged sources"
+    expression: "this.status.state != 7 && this.status.state != 8"
+  };
+  // status is the authorized non-revoked source status.
+  MultimodalSourceStatus status = 1 [(buf.validate.field).required = true];
+}
+
+// GetMultimodalStatusResponse returns status or non-disclosing denial.
+message GetMultimodalStatusResponse {
+  option (buf.validate.message).cel = {
+    id: "get_multimodal_status_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the read decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome makes known status and non-disclosing denial mutually exclusive.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains authorized source status.
+    GetMultimodalStatusSuccess success = 2;
+    // error uses the same static model for absent, denied, and revoked reads.
+    PublicError error = 3;
+  }
+}
+
+// GetMultimodalEvidenceRequest pages modality-native anchors for one source.
+message GetMultimodalEvidenceRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedMultimodalCaller caller = 1 [(buf.validate.field).required = true];
+  // source_id is resolved under authenticated tenant and brain scope.
+  Identifier source_id = 2 [(buf.validate.field).required = true];
+  // page_size is bounded before lookup or allocation.
+  uint32 page_size = 3 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 100
+  ];
+  // after is an opaque continuation within the same evidence listing.
+  Cursor after = 4;
+}
+
+// GetMultimodalEvidenceSuccess contains one authorized page of native anchors.
+message GetMultimodalEvidenceSuccess {
+  // items lists only anchors owned by the authorized source revision.
+  repeated MultimodalEvidenceItem items = 1 [(buf.validate.field).repeated.max_items = 100];
+  // next_cursor continues within the same bounded listing.
+  Cursor next_cursor = 2;
+}
+
+// GetMultimodalEvidenceResponse returns evidence or non-disclosing denial.
+message GetMultimodalEvidenceResponse {
+  option (buf.validate.message).cel = {
+    id: "get_multimodal_evidence_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the evidence read decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents evidence facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the authorized evidence page.
+    GetMultimodalEvidenceSuccess success = 2;
+    // error uses the same static model for absent, denied, and revoked reads.
+    PublicError error = 3;
+  }
+}
+
+// RevokeMultimodalSourceRequest denies hydration immediately for one source.
+message RevokeMultimodalSourceRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedMultimodalCaller caller = 1 [(buf.validate.field).required = true];
+  // source_id selects the source under authenticated scope.
+  Identifier source_id = 2 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// RevokeMultimodalSourceSuccess confirms the terminal revoked lifecycle state.
+message RevokeMultimodalSourceSuccess {
+  option (buf.validate.message).cel = {
+    id: "revoke_multimodal_source_success.revoked_state"
+    message: "a revoke confirms only the terminal revoked state"
+    expression: "this.state == 7"
+  };
+  // source_id echoes the revoked source identity.
+  Identifier source_id = 1 [(buf.validate.field).required = true];
+  // state is always the terminal revoked state.
+  MultimodalSourceState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // deletion_state is at least tombstoned after revoke.
+  DeletionState deletion_state = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [
+      2,
+      3
+    ]
+  }];
+}
+
+// RevokeMultimodalSourceResponse returns revoke confirmation or static denial.
+message RevokeMultimodalSourceResponse {
+  option (buf.validate.message).cel = {
+    id: "revoke_multimodal_source_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the revoke decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents revoke facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the terminal revoked state.
+    RevokeMultimodalSourceSuccess success = 2;
+    // error uses the same static model for absent, denied, and already-purged sources.
+    PublicError error = 3;
+  }
+}
+
+// PurgeMultimodalSourceRequest confirms verified purge of one revoked source.
+message PurgeMultimodalSourceRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedMultimodalCaller caller = 1 [(buf.validate.field).required = true];
+  // source_id selects the revoked source under authenticated scope.
+  Identifier source_id = 2 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// PurgeMultimodalSourceSuccess confirms terminal purged state and receipt.
+message PurgeMultimodalSourceSuccess {
+  option (buf.validate.message).cel = {
+    id: "purge_multimodal_source_success.purged_state"
+    message: "a purge confirms only the terminal purged state with purged deletion"
+    expression: "this.state == 8 && this.deletion_state == 3"
+  };
+  // source_id echoes the purged source identity.
+  Identifier source_id = 1 [(buf.validate.field).required = true];
+  // state is always the terminal purged state.
+  MultimodalSourceState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // deletion_state is always purged after verified lineage erasure.
+  DeletionState deletion_state = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // purge_receipt records verified primary and derivative erasure.
+  Receipt purge_receipt = 4 [(buf.validate.field).required = true];
+}
+
+// PurgeMultimodalSourceResponse returns purge confirmation or static denial.
+message PurgeMultimodalSourceResponse {
+  option (buf.validate.message).cel = {
+    id: "purge_multimodal_source_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the purge decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents purge facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the terminal purged state.
+    PurgeMultimodalSourceSuccess success = 2;
+    // error uses the same static model for absent, denied, and non-revoked sources.
+    PublicError error = 3;
+  }
+}

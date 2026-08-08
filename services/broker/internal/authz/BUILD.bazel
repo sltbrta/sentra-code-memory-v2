@@ -1,0 +1,34 @@
+"""OpenFGA-compatible Stage 02 local authorization targets."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "authz",
+    srcs = [
+        "client.go",
+        "evaluator.go",
+        "store.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/broker/internal/authz",
+    visibility = ["//services:__subpackages__"],
+    deps = ["//services/internal/contracts"],
+)
+
+go_test(
+    name = "authz_test",
+    srcs = [
+        "company_test.go",
+        "dual_run_test.go",
+        "evaluator_test.go",
+    ],
+    data = [
+        "//deploy/openfga/local:fixtures.json",
+        "//deploy/openfga/local:fixtures_company.json",
+    ],
+    embed = [":authz"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+    visibility = [
+        "//tools/stage-02:__pkg__",
+        "//tools/stage-10:__pkg__",
+    ],
+)

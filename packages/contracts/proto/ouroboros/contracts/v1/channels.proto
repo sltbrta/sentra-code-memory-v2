@@ -1,0 +1,81 @@
+// Canonical channel gateway, external identity, replay, and action reauthorization messages.
+//
+// Channel messages are evidence, not trusted instructions. Gateway implementations
+// must authenticate provider deliveries and reauthorize every requested action.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/common.proto";
+import "ouroboros/contracts/v1/security.proto";
+
+// ExternalIdentityMapping binds one provider identity to an authenticated Ouroboros principal.
+message ExternalIdentityMapping {
+  // mapping_id is an opaque mapping identity.
+  Identifier mapping_id = 1;
+  // channel_provider identifies Slack, Discord, Telegram, or a future provider.
+  string channel_provider = 2;
+  // external_identity is the provider's opaque identity string.
+  string external_identity = 3;
+  // principal identifies the mapped authenticated Ouroboros principal.
+  AuthenticatedPrincipalRef principal = 4;
+  // verified_at records successful provider-to-principal verification.
+  google.protobuf.Timestamp verified_at = 5;
+}
+
+// ChannelGateway describes one policy-scoped channel ingress and action boundary.
+message ChannelGateway {
+  // gateway_id is an opaque gateway identity.
+  Identifier gateway_id = 1;
+  // provider identifies the external channel provider.
+  string provider = 2;
+  // tenant_id identifies the target tenant scope.
+  Identifier tenant_id = 3;
+  // configuration_digest pins non-secret gateway and replay policy configuration.
+  Digest configuration_digest = 4;
+  // enabled is a desired configuration state, not a provider trust assertion.
+  bool enabled = 5;
+}
+
+// ChannelDelivery records one replay-protected external message as admitted evidence.
+message ChannelDelivery {
+  // delivery_id is the provider's opaque unique delivery identity.
+  string delivery_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+  // gateway_id identifies the receiving channel gateway.
+  Identifier gateway_id = 2 [(buf.validate.field).required = true];
+  // sender_mapping identifies the verified external identity mapping when available.
+  Identifier sender_mapping_id = 3;
+  // payload_artifact holds encrypted raw delivery evidence.
+  ArtifactRef payload_artifact = 4 [(buf.validate.field).required = true];
+  // received_at records local receipt time.
+  google.protobuf.Timestamp received_at = 5 [(buf.validate.field).required = true];
+  // replay_receipt records signature, timestamp, and duplicate verification.
+  Receipt replay_receipt = 6 [(buf.validate.field).required = true];
+}
+
+// ChannelActionRequest carries an untrusted channel-originated requested action.
+message ChannelActionRequest {
+  // request_id is an opaque action-request identity.
+  Identifier request_id = 1;
+  // delivery identifies the evidence that prompted the request.
+  ChannelDelivery delivery = 2;
+  // requested_action is not executable until current user and policy authorization.
+  string requested_action = 3;
+  // requested_scope_digest binds the suggested target scope.
+  Digest requested_scope_digest = 4;
+}
+
+// ChannelActionAuthorization records explicit reauthorization before an external effect.
+message ChannelActionAuthorization {
+  // request_id identifies the channel-originated action request.
+  Identifier request_id = 1;
+  // effect_approval supplies current authenticated authority and idempotency.
+  EffectApproval effect_approval = 2;
+  // authorized_at records the immediate pre-effect authorization check.
+  google.protobuf.Timestamp authorized_at = 3;
+}

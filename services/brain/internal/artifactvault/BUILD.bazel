@@ -1,0 +1,37 @@
+"""Encrypted immutable local ArtifactVault."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "artifactvault",
+    srcs = [
+        "composite.go",
+        "crypto.go",
+        "localstore.go",
+        "metadata.go",
+        "types.go",
+        "vault.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/artifactvault",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "//services/brain/internal/keyring",
+        "//services/internal/contracts",
+    ],
+)
+
+go_test(
+    name = "artifactvault_test",
+    srcs = ["artifactvault_test.go"],
+    embed = [":artifactvault"],
+    deps = [
+        "//services/brain/internal/keyring",
+        "//services/internal/contracts",
+    ],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    visibility = ["//tools/stage-02:__pkg__"],
+)

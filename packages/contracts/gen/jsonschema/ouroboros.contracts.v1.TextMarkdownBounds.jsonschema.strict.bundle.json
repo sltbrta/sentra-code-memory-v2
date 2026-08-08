@@ -1,0 +1,25 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.TextMarkdownBounds.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "TextMarkdownBounds freezes the Stage 11 text/Markdown admission limits.",
+      "properties": {
+        "utf8ByteLength": {
+          "description": "utf8_byte_length is the declared UTF-8 payload size and must be \u003c=1 MiB.",
+          "exclusiveMinimum": 0,
+          "maximum": 1048576,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "utf8ByteLength"
+      ],
+      "title": "Text Markdown Bounds",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.TextMarkdownBounds.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.TextMarkdownBounds.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

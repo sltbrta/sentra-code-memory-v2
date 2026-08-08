@@ -1,0 +1,31 @@
+"""Deterministic bounded P5 syntax and lexical projection."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "codeindex",
+    srcs = [
+        "classify.go",
+        "digest.go",
+        "doc.go",
+        "go_ast.go",
+        "projection.go",
+        "scanner.go",
+        "snapshot_validation.go",
+        "types.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeindex",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "codeindex_test",
+    srcs = glob(["*_test.go"]),
+    embed = [":codeindex"],
+    data = ["//tests/fixtures/stage-03:mixed_p5_seed"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

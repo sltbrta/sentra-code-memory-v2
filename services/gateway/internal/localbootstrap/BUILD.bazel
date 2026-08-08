@@ -1,0 +1,25 @@
+"""Owner-only, digest-pinned Stage 02 local bootstrap loader."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "localbootstrap",
+    srcs = glob(["*.go"], exclude = ["*_test.go"]),
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/gateway/internal/localbootstrap",
+    visibility = ["//services/gateway:__subpackages__"],
+)
+
+go_test(
+    name = "localbootstrap_test",
+    srcs = glob(["*_test.go"]),
+    embed = [":localbootstrap"],
+    tags = [
+        # Filesystem-custody tests must inspect/write the real current-user
+        # home ancestry; a /tmp-backed Bazel sandbox is intentionally unsafe.
+        "no-sandbox",
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    visibility = ["//tools/stage-02:__pkg__"],
+)

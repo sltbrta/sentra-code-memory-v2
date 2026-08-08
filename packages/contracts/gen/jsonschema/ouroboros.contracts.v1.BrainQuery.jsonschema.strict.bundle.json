@@ -1,0 +1,166 @@
+{
+  "$defs": {
+    "google.protobuf.Timestamp.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    },
+    "ouroboros.contracts.v1.AuthenticatedPrincipalRef.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "AuthenticatedPrincipalRef is an identity assertion emitted by a trusted boundary.",
+      "properties": {
+        "principalId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "principal_id is never accepted as caller identity from an untrusted body."
+        },
+        "sessionId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "session_id identifies the authenticated session when a session exists."
+        },
+        "tenantId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "tenant_id is the authenticated tenant context."
+        }
+      },
+      "required": [
+        "principalId",
+        "tenantId"
+      ],
+      "title": "Authenticated Principal Ref",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.BrainQuery.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "BrainQuery expresses a grounded query without treating request identity as trusted.",
+      "properties": {
+        "freshness": {
+          "description": "freshness controls partial, wait, or abstain behavior.",
+          "enum": [
+            "FRESHNESS_REQUIREMENT_BEST_EFFORT",
+            "FRESHNESS_REQUIREMENT_COMPLETE_GENERATION",
+            "FRESHNESS_REQUIREMENT_ABSTAIN_IF_STALE"
+          ],
+          "title": "Freshness Requirement",
+          "type": "string"
+        },
+        "includeOwnPriorSessions": {
+          "description": "include_own_prior_sessions requests only the caller's own private history.",
+          "type": "boolean"
+        },
+        "includeSharedSessions": {
+          "description": "include_shared_sessions requests explicitly shared history only.",
+          "type": "boolean"
+        },
+        "knownAt": {
+          "$ref": "#/$defs/google.protobuf.Timestamp.jsonschema.strict.json",
+          "description": "known_at selects historical system knowledge when present."
+        },
+        "query": {
+          "description": "query is the user-provided retrieval and synthesis request.",
+          "maxLength": 32768,
+          "minLength": 1,
+          "type": "string"
+        },
+        "queryId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "query_id is an opaque query identity for receipts and replay."
+        },
+        "repositoryGitOid": {
+          "description": "repository_git_oid pins code retrieval to one immutable Git revision.",
+          "type": "string"
+        },
+        "requestedPrincipal": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.AuthenticatedPrincipalRef.jsonschema.strict.json",
+          "description": "requested_principal is untrusted input to cross-check with authenticated context."
+        },
+        "scopes": {
+          "description": "scopes restricts eligible brain domains.",
+          "items": {
+            "$ref": "#/$defs/ouroboros.contracts.v1.BrainScope.jsonschema.strict.json"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "session_id optionally scopes conversation retrieval."
+        },
+        "tokenBudget": {
+          "description": "token_budget caps synthesis and evidence-packing cost.",
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "validAt": {
+          "$ref": "#/$defs/google.protobuf.Timestamp.jsonschema.strict.json",
+          "description": "valid_at selects historical real-world validity when present."
+        }
+      },
+      "required": [
+        "queryId",
+        "query",
+        "requestedPrincipal",
+        "includeOwnPriorSessions",
+        "includeSharedSessions",
+        "repositoryGitOid",
+        "tokenBudget",
+        "freshness"
+      ],
+      "title": "Brain Query",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.BrainScope.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "BrainScope narrows a query to an authorized brain domain.",
+      "properties": {
+        "brainId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "brain_id identifies the personal, team, project, or company brain."
+        },
+        "scopeKind": {
+          "description": "scope_kind is a stable domain kind.",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "brainId",
+        "scopeKind"
+      ],
+      "title": "Brain Scope",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.Identifier.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Identifier is an opaque, stable identifier within a declared namespace.",
+      "properties": {
+        "namespace": {
+          "description": "namespace prevents an identifier string from crossing a domain boundary.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "description": "value is opaque to consumers and must be non-empty after boundary validation.",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "value"
+      ],
+      "title": "Identifier",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.BrainQuery.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.BrainQuery.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -1,0 +1,30 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.QueryCoverage.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "QueryCoverage discloses canonical versus indexed coverage without existence detail.",
+      "properties": {
+        "canonicalRevisionCount": {
+          "description": "canonical_revision_count counts canonical revisions in the pinned generation.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "indexedRevisionCount": {
+          "description": "indexed_revision_count counts revisions present in the search projection.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "canonicalRevisionCount",
+        "indexedRevisionCount"
+      ],
+      "title": "Query Coverage",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.QueryCoverage.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.QueryCoverage.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

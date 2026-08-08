@@ -1,0 +1,18 @@
+"""Deterministic Stage 02 reaction-kernel targets."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "eventkernel",
+    srcs = ["kernel.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/eventkernel",
+    visibility = ["//services:__subpackages__"],
+)
+
+go_test(
+    name = "eventkernel_test",
+    srcs = ["kernel_test.go"],
+    embed = [":eventkernel"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+    visibility = ["//tools/stage-02:__pkg__"],
+)

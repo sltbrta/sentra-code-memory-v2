@@ -1,0 +1,24 @@
+# Local Go/build artifacts
+target/
+bazel-*
+*.test
+coverage.out
+coverage.html
+
+# Local code-memory projections and caches
+code-index.gob
+code-index-summary.json
+.ouroboros/
+.sentra/
+*.db-wal
+*.db-shm
+
+# Local credentials/configuration
+.env
+.env.*
+!.env.example
+
+# Editor/OS files
+.DS_Store
+.idea/
+.vscode/

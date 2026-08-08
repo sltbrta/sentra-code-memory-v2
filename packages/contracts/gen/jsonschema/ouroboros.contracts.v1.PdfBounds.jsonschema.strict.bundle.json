@@ -1,0 +1,32 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.PdfBounds.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "PdfBounds freezes the Stage 11 PDF admission limits.",
+      "properties": {
+        "byteLength": {
+          "description": "byte_length is the declared PDF size and must be \u003c=25 MiB.",
+          "exclusiveMinimum": 0,
+          "maximum": 26214400,
+          "type": "integer"
+        },
+        "pageCount": {
+          "description": "page_count is the declared page count and must be \u003c=100.",
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "byteLength",
+        "pageCount"
+      ],
+      "title": "Pdf Bounds",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.PdfBounds.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.PdfBounds.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

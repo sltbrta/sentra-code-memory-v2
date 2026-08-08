@@ -1,0 +1,129 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.AskRequest.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "AskRequest asks one bounded grounded question against one pinned generation.",
+      "properties": {
+        "caller": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.UntrustedQueryCaller.jsonschema.strict.json",
+          "description": "caller is untrusted payload identity to cross-check against authenticated context."
+        },
+        "freshness": {
+          "description": "freshness selects best-effort, complete-generation, or abstain-if-stale behavior.",
+          "enum": [
+            "FRESHNESS_REQUIREMENT_BEST_EFFORT",
+            "FRESHNESS_REQUIREMENT_COMPLETE_GENERATION",
+            "FRESHNESS_REQUIREMENT_ABSTAIN_IF_STALE"
+          ],
+          "title": "Freshness Requirement",
+          "type": "string"
+        },
+        "generationId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "generation_id pins one immutable complete generation for the whole query."
+        },
+        "idempotencyKey": {
+          "description": "idempotency_key distinguishes exact retries from conflicts.",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "query": {
+          "description": "query is the bounded natural-language question.",
+          "maxLength": 8192,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sourceId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "source_id selects the authorized Stage 03 source under authenticated scope."
+        }
+      },
+      "required": [
+        "caller",
+        "sourceId",
+        "generationId",
+        "query",
+        "freshness",
+        "idempotencyKey"
+      ],
+      "title": "Ask Request",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.AuthenticatedPrincipalRef.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "AuthenticatedPrincipalRef is an identity assertion emitted by a trusted boundary.",
+      "properties": {
+        "principalId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "principal_id is never accepted as caller identity from an untrusted body."
+        },
+        "sessionId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "session_id identifies the authenticated session when a session exists."
+        },
+        "tenantId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "tenant_id is the authenticated tenant context."
+        }
+      },
+      "required": [
+        "principalId",
+        "tenantId"
+      ],
+      "title": "Authenticated Principal Ref",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.Identifier.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Identifier is an opaque, stable identifier within a declared namespace.",
+      "properties": {
+        "namespace": {
+          "description": "namespace prevents an identifier string from crossing a domain boundary.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "description": "value is opaque to consumers and must be non-empty after boundary validation.",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "value"
+      ],
+      "title": "Identifier",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.UntrustedQueryCaller.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "UntrustedQueryCaller carries body identity only for authenticated-context checks.",
+      "properties": {
+        "requestedPrincipal": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.AuthenticatedPrincipalRef.jsonschema.strict.json",
+          "description": "requested_principal must match the authenticated peer principal and tenant."
+        },
+        "requestedSession": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "requested_session must match the authenticated gateway session."
+        }
+      },
+      "required": [
+        "requestedPrincipal",
+        "requestedSession"
+      ],
+      "title": "Untrusted Query Caller",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.AskRequest.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.AskRequest.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

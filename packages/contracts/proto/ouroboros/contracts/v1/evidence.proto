@@ -1,0 +1,219 @@
+// Canonical evidence, multimodal anchors, lineage, and deletion descriptions.
+//
+// Evidence describes what was observed and how it can be checked. It does not
+// grant access to source bytes or elevate a model proposal into a fact.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/common.proto";
+
+// DeletionState identifies whether a revision remains eligible for hydration.
+enum DeletionState {
+  DELETION_STATE_UNSPECIFIED = 0;
+  DELETION_STATE_ACTIVE = 1;
+  DELETION_STATE_TOMBSTONED = 2;
+  DELETION_STATE_PURGED = 3;
+}
+
+// AuthorityClass distinguishes observation, assertion, proposal, and decision.
+enum AuthorityClass {
+  AUTHORITY_CLASS_UNSPECIFIED = 0;
+  AUTHORITY_CLASS_DIRECT_SOURCE = 1;
+  AUTHORITY_CLASS_MACHINE_OBSERVATION = 2;
+  AUTHORITY_CLASS_APPROVED_DECISION = 3;
+  AUTHORITY_CLASS_USER_DIRECTIVE = 4;
+  AUTHORITY_CLASS_USER_ASSERTION = 5;
+  AUTHORITY_CLASS_MODEL_PROPOSAL = 6;
+  AUTHORITY_CLASS_DERIVED_SUMMARY = 7;
+}
+
+// SourceRevision records immutable source metadata and its deletion/ACL epochs.
+message SourceRevision {
+  // source_revision_id is an opaque immutable revision identity.
+  Identifier source_revision_id = 1;
+  // source_object_id identifies the connector-scoped source object.
+  Identifier source_object_id = 2;
+  // upstream_revision is the connector's opaque version marker.
+  string upstream_revision = 3;
+  // content_digest identifies exact immutable source bytes.
+  Digest content_digest = 4;
+  // media_type declares the received media type.
+  string media_type = 5;
+  // byte_length is the exact source byte count.
+  uint64 byte_length = 6;
+  // observed_at records when the source was observed.
+  google.protobuf.Timestamp observed_at = 7;
+  // valid_from is the earliest asserted real-world validity time.
+  google.protobuf.Timestamp valid_from = 8;
+  // valid_until ends the asserted validity interval when known.
+  google.protobuf.Timestamp valid_until = 9;
+  // deletion_state is current canonical deletion state.
+  DeletionState deletion_state = 10;
+  // acl_epoch invalidates stale grants and projections.
+  uint64 acl_epoch = 11;
+  // encryption_key_epoch identifies the envelope-key epoch used for the bytes.
+  uint64 encryption_key_epoch = 12;
+  // provenance_digest binds transformation and collector provenance.
+  Digest provenance_digest = 13;
+}
+
+// NormalizedBox identifies a bounded rectangle using normalized integer coordinates.
+message NormalizedBox {
+  // left_per_mille is the inclusive left coordinate in [0, 1000].
+  uint32 left_per_mille = 1;
+  // top_per_mille is the inclusive top coordinate in [0, 1000].
+  uint32 top_per_mille = 2;
+  // right_per_mille is the exclusive right coordinate in [0, 1000].
+  uint32 right_per_mille = 3;
+  // bottom_per_mille is the exclusive bottom coordinate in [0, 1000].
+  uint32 bottom_per_mille = 4;
+}
+
+// SourceRange identifies a source-code range using one-based line and column values.
+message SourceRange {
+  // path is a repository-relative source path.
+  string path = 1;
+  // start_line is a one-based inclusive line number.
+  uint32 start_line = 2;
+  // start_column is a one-based inclusive column number.
+  uint32 start_column = 3;
+  // end_line is a one-based exclusive line number.
+  uint32 end_line = 4;
+  // end_column is a one-based exclusive column number.
+  uint32 end_column = 5;
+}
+
+// EvidenceAnchor locates a modality-native supporting span.
+message EvidenceAnchor {
+  // bytes identifies a raw-byte half-open interval.
+  message BytesAnchor {
+    // start_byte is inclusive.
+    uint64 start_byte = 1;
+    // end_byte is exclusive.
+    uint64 end_byte = 2;
+  }
+  // text identifies a rendered-text half-open interval.
+  message TextAnchor {
+    // rendition identifies the immutable text rendition.
+    ArtifactRef rendition = 1;
+    // start_byte is inclusive within the rendition.
+    uint64 start_byte = 2;
+    // end_byte is exclusive within the rendition.
+    uint64 end_byte = 3;
+  }
+  // PageAnchor identifies one document page and optional visual bounds.
+  message PageAnchor {
+    // page_number is one-based.
+    uint32 page_number = 1;
+    // bounds is optional page-relative geometry.
+    NormalizedBox bounds = 2;
+  }
+  // TableAnchor identifies one structured table cell.
+  message TableAnchor {
+    // table_number is one-based.
+    uint32 table_number = 1;
+    // row_number is one-based.
+    uint32 row_number = 2;
+    // column_number is one-based.
+    uint32 column_number = 3;
+  }
+  // TimedAnchor identifies a media time interval and optional anonymous speaker.
+  message TimedAnchor {
+    // start_millis is inclusive.
+    uint64 start_millis = 1;
+    // end_millis is exclusive.
+    uint64 end_millis = 2;
+    // speaker_entity_id is a supported entity reference when available.
+    Identifier speaker_entity_id = 3;
+  }
+  // VideoAnchor identifies a video interval with optional frame and visual bounds.
+  message VideoAnchor {
+    // start_millis is inclusive.
+    uint64 start_millis = 1;
+    // end_millis is exclusive.
+    uint64 end_millis = 2;
+    // start_frame is inclusive when frame addressing is available.
+    uint64 start_frame = 3;
+    // end_frame is exclusive when frame addressing is available.
+    uint64 end_frame = 4;
+    // bounds is optional video-relative geometry.
+    NormalizedBox bounds = 5;
+  }
+  // CodeAnchor identifies an immutable Git tree and optional precise source range.
+  message CodeAnchor {
+    // git_oid identifies an immutable commit or tree.
+    string git_oid = 1;
+    // symbol_id identifies a resolved code symbol when available.
+    Identifier symbol_id = 2;
+    // range identifies the source span when available.
+    SourceRange range = 3;
+  }
+  // location contains exactly one modality-specific anchor.
+  oneof location {
+    BytesAnchor bytes = 1;
+    TextAnchor text = 2;
+    PageAnchor page = 3;
+    TableAnchor table = 4;
+    TimedAnchor audio = 5;
+    VideoAnchor video = 6;
+    CodeAnchor code = 7;
+  }
+}
+
+// Rendition records an immutable derivative of a source revision.
+message Rendition {
+  // rendition_id is an opaque rendition identity.
+  Identifier rendition_id = 1;
+  // artifact is the immutable rendition bytes.
+  ArtifactRef artifact = 2;
+  // kind identifies OCR, ASR, thumbnail, parsed-text, or another stable kind.
+  string kind = 3;
+  // input_revision identifies the immutable source revision transformed.
+  Identifier input_revision_id = 4;
+  // producer_digest identifies the exact adapter, tool, or model configuration.
+  Digest producer_digest = 5;
+}
+
+// LineageEdge records a typed dependency between immutable evidence artifacts.
+message LineageEdge {
+  // source is the prerequisite evidence or artifact.
+  Identifier source_id = 1;
+  // target is the derived evidence or artifact.
+  Identifier target_id = 2;
+  // relation is a stable typed relation such as derived_from or supports.
+  string relation = 3;
+  // receipt records the transformation evidence.
+  Receipt receipt = 4;
+}
+
+// Tombstone records immediate denial and eventual purge obligations.
+message Tombstone {
+  // tombstone_id is an opaque deletion-record identity.
+  Identifier tombstone_id = 1;
+  // target_id identifies the object that is no longer hydrateable.
+  Identifier target_id = 2;
+  // requested_by is the authenticated deletion requester.
+  AuthenticatedPrincipalRef requested_by = 3;
+  // created_at records the immediate deny transition.
+  google.protobuf.Timestamp created_at = 4;
+  // purge_receipt records completion or explicit pending failure.
+  Receipt purge_receipt = 5;
+}
+
+// Evidence is immutable metadata linking a source revision to precise anchors.
+message Evidence {
+  // evidence_id is an opaque evidence identity.
+  Identifier evidence_id = 1;
+  // source_revision identifies the immutable source revision.
+  SourceRevision source_revision = 2;
+  // anchors locate authoritative supporting spans.
+  repeated EvidenceAnchor anchors = 3;
+  // authority_class prevents summaries and proposals from self-promotion.
+  AuthorityClass authority_class = 4;
+  // lineage records direct immutable inputs and outputs.
+  repeated LineageEdge lineage = 5;
+  // rendition references available modality derivatives.
+  repeated Rendition renditions = 6;
+}

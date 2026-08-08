@@ -1,0 +1,132 @@
+// Canonical grounded-query messages and claim/citation result descriptions.
+//
+// These messages preserve evidence and uncertainty. Query services must
+// authenticate externally and must not trust body-supplied principal fields.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/common.proto";
+import "ouroboros/contracts/v1/evidence.proto";
+
+// FreshnessRequirement states how a query may trade waiting for partial coverage.
+enum FreshnessRequirement {
+  FRESHNESS_REQUIREMENT_UNSPECIFIED = 0;
+  FRESHNESS_REQUIREMENT_BEST_EFFORT = 1;
+  FRESHNESS_REQUIREMENT_COMPLETE_GENERATION = 2;
+  FRESHNESS_REQUIREMENT_ABSTAIN_IF_STALE = 3;
+}
+
+// AnswerStatus distinguishes an answer, disclosed partial result, and abstention.
+enum AnswerStatus {
+  ANSWER_STATUS_UNSPECIFIED = 0;
+  ANSWER_STATUS_ANSWERED = 1;
+  ANSWER_STATUS_PARTIAL = 2;
+  ANSWER_STATUS_ABSTAINED = 3;
+}
+
+// BrainScope narrows a query to an authorized brain domain.
+message BrainScope {
+  // brain_id identifies the personal, team, project, or company brain.
+  Identifier brain_id = 1 [(buf.validate.field).required = true];
+  // scope_kind is a stable domain kind.
+  string scope_kind = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 128
+  ];
+}
+
+// BrainQuery expresses a grounded query without treating request identity as trusted.
+message BrainQuery {
+  // query_id is an opaque query identity for receipts and replay.
+  Identifier query_id = 1 [(buf.validate.field).required = true];
+  // query is the user-provided retrieval and synthesis request.
+  string query = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 32768
+  ];
+  // requested_principal is untrusted input to cross-check with authenticated context.
+  AuthenticatedPrincipalRef requested_principal = 3 [(buf.validate.field).required = true];
+  // session_id optionally scopes conversation retrieval.
+  Identifier session_id = 4;
+  // scopes restricts eligible brain domains.
+  repeated BrainScope scopes = 5 [(buf.validate.field).repeated.min_items = 1];
+  // include_own_prior_sessions requests only the caller's own private history.
+  bool include_own_prior_sessions = 6;
+  // include_shared_sessions requests explicitly shared history only.
+  bool include_shared_sessions = 7;
+  // valid_at selects historical real-world validity when present.
+  google.protobuf.Timestamp valid_at = 8;
+  // known_at selects historical system knowledge when present.
+  google.protobuf.Timestamp known_at = 9;
+  // repository_git_oid pins code retrieval to one immutable Git revision.
+  string repository_git_oid = 10;
+  // token_budget caps synthesis and evidence-packing cost.
+  uint64 token_budget = 11 [(buf.validate.field).uint64.gt = 0];
+  // freshness controls partial, wait, or abstain behavior.
+  FreshnessRequirement freshness = 12 [(buf.validate.field).required = true];
+}
+
+// Citation binds a claim span to one authorized, immutable evidence anchor.
+message Citation {
+  // evidence is the cited immutable evidence reference.
+  EvidenceRef evidence = 1 [(buf.validate.field).required = true];
+  // anchor identifies the precise cited modality-native location.
+  EvidenceAnchor anchor = 2 [(buf.validate.field).required = true];
+  // supporting_text_digest binds rendered supporting text without duplicating bytes.
+  Digest supporting_text_digest = 3 [(buf.validate.field).required = true];
+}
+
+// GroundedClaim records one material answer assertion and its supporting evidence.
+message GroundedClaim {
+  // claim_id is an opaque claim identifier.
+  Identifier claim_id = 1 [(buf.validate.field).required = true];
+  // statement is the bounded rendered assertion.
+  string statement = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 32768
+  ];
+  // citations provide direct authorized support for this claim.
+  repeated Citation citations = 3 [(buf.validate.field).repeated.min_items = 1];
+  // authority_class prevents a summary or model proposal from self-promotion.
+  AuthorityClass authority_class = 4 [(buf.validate.field).required = true];
+  // confidence_per_mille is a disclosed calibrated estimate in [0, 1000].
+  uint32 confidence_per_mille = 5 [(buf.validate.field).uint32.lte = 1000];
+}
+
+// GroundedAnswer returns prose only with material claims, citations, and freshness.
+message GroundedAnswer {
+  option (buf.validate.message).cel = {
+    id: "grounded_answer.status_shape"
+    message: "grounded answer status, claims, and factual consistency must agree"
+    expression: "this.status == 1 ? (this.prose != '' && this.claims.size() > 0 && this.degraded_reasons.size() == 0 && this.factual_consistency.status in [1, 3] && this.factual_consistency.total_claim_count == uint(this.claims.size())) : (this.status == 2 ? (this.prose != '' && this.claims.size() > 0 && this.degraded_reasons.size() > 0 && this.factual_consistency.status in [1, 3] && this.factual_consistency.total_claim_count == uint(this.claims.size())) : (this.status == 3 ? (this.prose == '' && this.claims.size() == 0 && this.degraded_reasons.size() > 0 && this.factual_consistency.status == 2) : false))"
+  };
+  // query_id identifies the query this answer resolves.
+  Identifier query_id = 1 [(buf.validate.field).required = true];
+  // status prevents partial or unsupported results from masquerading as complete.
+  AnswerStatus status = 2 [(buf.validate.field).required = true];
+  // prose is the rendered answer and must map material spans to claims.
+  string prose = 3;
+  // claims is the complete material-claim set for the rendered prose.
+  repeated GroundedClaim claims = 4;
+  // valid_at records the answer's selected real-world validity time.
+  google.protobuf.Timestamp valid_at = 5 [(buf.validate.field).required = true];
+  // known_at records the selected system-knowledge time.
+  google.protobuf.Timestamp known_at = 6 [(buf.validate.field).required = true];
+  // consistency_watermark identifies the complete generation read.
+  uint64 consistency_watermark = 7;
+  // acl_epoch records the current authorization epoch used to hydrate evidence.
+  uint64 acl_epoch = 8;
+  // coverage_per_mille discloses supported retrieval coverage in [0, 1000].
+  uint32 coverage_per_mille = 9 [(buf.validate.field).uint32.lte = 1000];
+  // degraded_reasons lists stable non-sensitive partial or abstention reasons.
+  repeated string degraded_reasons = 10;
+  // routing_receipt records authorized brain selection and evidence routing.
+  Receipt routing_receipt = 11 [(buf.validate.field).required = true];
+  // token_usage records bounded synthesis consumption.
+  uint64 token_usage = 12;
+  // factual_consistency discloses a calibrated score or explicit non-score.
+  FactualConsistencyScore factual_consistency = 13 [(buf.validate.field).required = true];
+}

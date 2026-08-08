@@ -1,0 +1,40 @@
+"""Deterministic Stage 11 multimodal-source kernel on migration 007."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "multimodal",
+    srcs = [
+        "doc.go",
+        "errors.go",
+        "extract.go",
+        "identity.go",
+        "kernel.go",
+        "types.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/multimodal",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "//packages/contracts/gen/go/ouroboros/contracts/v1:contracts",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+        "@org_modernc_sqlite//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "multimodal_test",
+    srcs = glob(["*_test.go"]),
+    embed = [":multimodal"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    deps = [
+        "//packages/contracts/gen/go/ouroboros/contracts/v1:contracts",
+        "//services/brain/internal/localstate",
+        "//services/brain/internal/localstate/schema",
+        "//services/internal/contracts",
+    ],
+)

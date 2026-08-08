@@ -1,0 +1,30 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.MeetingTimeRange.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "MeetingTimeRange bounds one half-open query interval on the meeting timeline.",
+      "properties": {
+        "endMillis": {
+          "description": "end_millis is exclusive.",
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "startMillis": {
+          "description": "start_millis is inclusive.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "startMillis",
+        "endMillis"
+      ],
+      "title": "Meeting Time Range",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.MeetingTimeRange.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.MeetingTimeRange.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

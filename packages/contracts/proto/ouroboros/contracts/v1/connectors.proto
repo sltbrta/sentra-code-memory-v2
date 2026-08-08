@@ -1,0 +1,665 @@
+// Canonical source and action connector snapshot, delta, ACL, and deletion messages.
+//
+// Connector objects declare configuration and progress. They grant no effect
+// authority without a separately validated capability and current policy check.
+// Stage 08 freezes one GitHub source-connector TUI surface; other channel
+// clients and action connectors remain outside this service.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "ouroboros/contracts/v1/common.proto";
+import "ouroboros/contracts/v1/evidence.proto";
+import "ouroboros/contracts/v1/local_authority.proto";
+
+// ConnectorKind distinguishes evidence admission from externally visible actions.
+enum ConnectorKind {
+  CONNECTOR_KIND_UNSPECIFIED = 0;
+  CONNECTOR_KIND_SOURCE = 1;
+  CONNECTOR_KIND_ACTION = 2;
+}
+
+// SourceConnector declares one ACL-scoped source-admission integration.
+message SourceConnector {
+  // connector_id is an opaque connector identity.
+  Identifier connector_id = 1;
+  // provider identifies the signed connector implementation family.
+  string provider = 2;
+  // source_scope is the exact provider-scoped root admitted by this connector.
+  string source_scope = 3;
+  // configuration_digest pins non-secret configuration and adapter behavior.
+  Digest configuration_digest = 4;
+  // acl_epoch invalidates stale cursor or projection access.
+  uint64 acl_epoch = 5;
+  // enabled is a desired configuration value, not proof of current authorization.
+  bool enabled = 6;
+}
+
+// ActionConnector declares an external effect integration kept separate from source read.
+message ActionConnector {
+  // connector_id is an opaque action-connector identity.
+  Identifier connector_id = 1;
+  // provider identifies the signed connector implementation family.
+  string provider = 2;
+  // action_names lists exact allowed action names, never an implicit wildcard.
+  repeated string action_names = 3;
+  // configuration_digest pins non-secret configuration and adapter behavior.
+  Digest configuration_digest = 4;
+  // enabled is a desired configuration value, not effect authority.
+  bool enabled = 5;
+}
+
+// Snapshot describes one reconciled provider view and its completeness state.
+message Snapshot {
+  // snapshot_id is an opaque provider-view identity.
+  Identifier snapshot_id = 1;
+  // connector_id identifies the owning source connector.
+  Identifier connector_id = 2;
+  // cursor is an opaque provider resume cursor.
+  string cursor = 3;
+  // observed_at records provider-view observation time.
+  google.protobuf.Timestamp observed_at = 4;
+  // complete is false for partial, failed, or paginated-incomplete views.
+  bool complete = 5;
+  // receipt records the canonical acceptance or explicit failure.
+  Receipt receipt = 6;
+}
+
+// DeltaPage carries one opaque connector delta page and its safe progress marker.
+message DeltaPage {
+  // connector_id identifies the source connector.
+  Identifier connector_id = 1;
+  // prior_cursor is the cursor accepted before this page.
+  string prior_cursor = 2;
+  // next_cursor advances only after canonical receipt commit.
+  string next_cursor = 3;
+  // delivery_id is an optional provider webhook or delivery identity.
+  string delivery_id = 4;
+  // artifact_refs identify staged immutable page payloads.
+  repeated ArtifactRef artifact_refs = 5;
+  // complete is false until every page in a claimed snapshot is admitted.
+  bool complete = 6;
+}
+
+// ReconcileRequest asks a connector to repair watcher or webhook uncertainty.
+message ReconcileRequest {
+  // connector_id identifies the source connector.
+  Identifier connector_id = 1;
+  // requested_by is the authenticated requester or system principal.
+  AuthenticatedPrincipalRef requested_by = 2;
+  // known_cursor bounds the last trusted source position.
+  string known_cursor = 3;
+  // reason is a stable reconciliation reason such as watcher_overflow.
+  string reason = 4;
+}
+
+// AclUpdate records an observed source-side permission epoch or visibility change.
+message AclUpdate {
+  // connector_id identifies the source connector.
+  Identifier connector_id = 1;
+  // source_object_id identifies the provider object whose access changed.
+  Identifier source_object_id = 2;
+  // acl_epoch invalidates older allows and projections.
+  uint64 acl_epoch = 3;
+  // receipt records the canonical ACL update.
+  Receipt receipt = 4;
+}
+
+// DeletionNotice records a source-side deletion candidate; incomplete snapshots never imply it.
+message DeletionNotice {
+  // connector_id identifies the source connector.
+  Identifier connector_id = 1;
+  // source_object_id identifies the provider object suspected or confirmed deleted.
+  Identifier source_object_id = 2;
+  // snapshot_id identifies the complete reconciled evidence supporting deletion.
+  Identifier snapshot_id = 3;
+  // confirmed distinguishes a candidate from an authorized canonical deletion.
+  bool confirmed = 4;
+  // receipt records the deletion decision and purge obligations.
+  Receipt receipt = 5;
+}
+
+// ConnectorService is the six one-shot Stage 08 TUI commands for one GitHub
+// source connection: connect, status, incremental reconcile, cited query,
+// revoke, and purge. Unknown, unauthorized, revoked, and purged connections
+// share the static `not_found_or_denied` response shape. Other channel clients
+// and action connectors are outside this surface.
+service ConnectorService {
+  // ConnectGitHubSource admits one repository source scope and runs the first
+  // complete snapshot under a source-only grant.
+  rpc ConnectGitHubSource(ConnectGitHubSourceRequest) returns (ConnectGitHubSourceResponse);
+  // GetConnectorStatus reads readiness, cursor, object counts, and last error.
+  rpc GetConnectorStatus(GetConnectorStatusRequest) returns (GetConnectorStatusResponse);
+  // ReconcileConnector advances from the last trusted cursor with a complete
+  // delta page; partial or rate-limited pages never advance the cursor.
+  rpc ReconcileConnector(ReconcileConnectorRequest) returns (ReconcileConnectorResponse);
+  // QueryConnectorEvidence answers from admitted repository and issue evidence
+  // with provider-native anchors.
+  rpc QueryConnectorEvidence(QueryConnectorEvidenceRequest) returns (QueryConnectorEvidenceResponse);
+  // RevokeConnector denies hydration and query immediately.
+  rpc RevokeConnector(RevokeConnectorRequest) returns (RevokeConnectorResponse);
+  // PurgeConnector tombstones lineage and purges admitted evidence payloads.
+  rpc PurgeConnector(PurgeConnectorRequest) returns (PurgeConnectorResponse);
+}
+
+// ConnectorLifecycleState is the bounded Stage 08 connection lifecycle.
+enum ConnectorLifecycleState {
+  // CONNECTOR_LIFECYCLE_STATE_UNSPECIFIED is invalid for a known connection.
+  CONNECTOR_LIFECYCLE_STATE_UNSPECIFIED = 0;
+  // CONNECTOR_LIFECYCLE_STATE_READY has a complete baseline generation.
+  CONNECTOR_LIFECYCLE_STATE_READY = 1;
+  // CONNECTOR_LIFECYCLE_STATE_DEGRADED preserves the last complete generation
+  // after rate-limit, partial, or provider error.
+  CONNECTOR_LIFECYCLE_STATE_DEGRADED = 2;
+  // CONNECTOR_LIFECYCLE_STATE_REVOKED denies hydration and query.
+  CONNECTOR_LIFECYCLE_STATE_REVOKED = 3;
+  // CONNECTOR_LIFECYCLE_STATE_PURGED has completed lineage purge.
+  CONNECTOR_LIFECYCLE_STATE_PURGED = 4;
+}
+
+// ConnectorAnswerStatus is the bounded Stage 08 query answer vocabulary.
+enum ConnectorAnswerStatus {
+  // CONNECTOR_ANSWER_STATUS_UNSPECIFIED is invalid in a served answer.
+  CONNECTOR_ANSWER_STATUS_UNSPECIFIED = 0;
+  // CONNECTOR_ANSWER_STATUS_ANSWERED has prose and at least one native citation.
+  CONNECTOR_ANSWER_STATUS_ANSWERED = 1;
+  // CONNECTOR_ANSWER_STATUS_PARTIAL has prose with explicit partial coverage.
+  CONNECTOR_ANSWER_STATUS_PARTIAL = 2;
+  // CONNECTOR_ANSWER_STATUS_ABSTAINED has no prose and at least one reason.
+  CONNECTOR_ANSWER_STATUS_ABSTAINED = 3;
+}
+
+// UntrustedConnectorCaller carries body identity only for authenticated-context checks.
+message UntrustedConnectorCaller {
+  // requested_principal must match the authenticated peer principal and tenant.
+  AuthenticatedPrincipalRef requested_principal = 1 [(buf.validate.field).required = true];
+  // requested_session must match the authenticated gateway session.
+  Identifier requested_session = 2 [(buf.validate.field).required = true];
+}
+
+// GitHubNativeAnchor locates one provider-native repository or issue span.
+message GitHubNativeAnchor {
+  option (buf.validate.message).cel = {
+    id: "github_native_anchor.kind"
+    message: "anchor kind must be repository_file or issue"
+    expression: "this.kind in ['repository_file', 'issue']"
+  };
+  option (buf.validate.message).cel = {
+    id: "github_native_anchor.sha256"
+    message: "supporting text digest must be canonical SHA-256"
+    expression: "this.supporting_text_digest.algorithm == 'sha256' && this.supporting_text_digest.hex.matches('^[0-9a-f]{64}$')"
+  };
+  // kind is repository_file or issue.
+  string kind = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 32
+  ];
+  // owner is the GitHub repository owner.
+  string owner = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38}[A-Za-z0-9])?$"
+    }
+  ];
+  // repo is the GitHub repository name.
+  string repo = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 100
+      pattern: "^[A-Za-z0-9._-]{1,100}$"
+    }
+  ];
+  // path is the repository-relative file path for repository_file anchors.
+  string path = 4 [(buf.validate.field).string.max_len = 512];
+  // issue_number is the provider issue number for issue anchors.
+  uint32 issue_number = 5;
+  // start_line is inclusive for file anchors; zero when unused.
+  uint32 start_line = 6;
+  // end_line is exclusive for file anchors; zero when unused.
+  uint32 end_line = 7;
+  // supporting_text_digest binds hydrated supporting bytes without prose.
+  Digest supporting_text_digest = 8 [(buf.validate.field).required = true];
+  // evidence identifies the cited immutable evidence and source revision.
+  EvidenceRef evidence = 9 [(buf.validate.field).required = true];
+}
+
+// ConnectorAnswerClaim is one bounded material assertion with native support.
+message ConnectorAnswerClaim {
+  option (buf.validate.message).cel = {
+    id: "connector_answer_claim.proposal_authority"
+    message: "answer claims are model proposals and never promote themselves"
+    expression: "this.authority_class == 6"
+  };
+  // claim_id is an opaque claim identity within one answer.
+  Identifier claim_id = 1 [(buf.validate.field).required = true];
+  // statement is the bounded material assertion text.
+  string statement = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 4096
+  ];
+  // citations are one to sixteen exact GitHub-native anchors.
+  repeated GitHubNativeAnchor citations = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 16
+  }];
+  // authority_class is always model proposal for Stage 08 claims.
+  AuthorityClass authority_class = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // confidence_per_mille is a calibrated [0, 1000] confidence.
+  uint32 confidence_per_mille = 5 [(buf.validate.field).uint32.lte = 1000];
+}
+
+// ConnectorAnswer is one answered, partial, or abstained connector query result.
+message ConnectorAnswer {
+  option (buf.validate.message).cel = {
+    id: "connector_answer.status_shape"
+    message: "answered and partial require prose and claims; abstained requires empty prose, zero claims, and at least one reason"
+    expression: "(this.status == 1 && this.prose != '' && this.claims.size() > 0 && this.degraded_reasons.size() == 0 && this.factual_consistency.status in [1, 3] && this.factual_consistency.total_claim_count == uint(this.claims.size())) || (this.status == 2 && this.prose != '' && this.claims.size() > 0 && this.degraded_reasons.size() > 0 && this.factual_consistency.status in [1, 3] && this.factual_consistency.total_claim_count == uint(this.claims.size())) || (this.status == 3 && this.prose == '' && this.claims.size() == 0 && this.degraded_reasons.size() > 0 && this.factual_consistency.status == 2)"
+  };
+  // status is the bounded answer outcome.
+  ConnectorAnswerStatus status = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // prose is empty only for abstained answers.
+  string prose = 2 [(buf.validate.field).string.max_len = 8192];
+  // claims carry native citations for answered and partial outcomes.
+  repeated ConnectorAnswerClaim claims = 3 [(buf.validate.field).repeated.max_items = 16];
+  // degraded_reasons use only the bounded Stage 08 vocabulary.
+  repeated string degraded_reasons = 4 [(buf.validate.field).repeated = {
+    max_items: 8
+    items: {
+      string: {
+        max_len: 64
+        pattern: "^(absent_support|partial_coverage|stale_support|rate_limited|retrieval_unavailable)$"
+      }
+    }
+  }];
+  // factual_consistency discloses a calibrated score or explicit non-score.
+  FactualConsistencyScore factual_consistency = 5 [(buf.validate.field).required = true];
+}
+
+// ConnectGitHubSourceRequest admits one repository source under a source-only grant.
+message ConnectGitHubSourceRequest {
+  option (buf.validate.message).cel = {
+    id: "connect_github.source_only"
+    message: "Stage 08 admits source connectors only; action grants are forbidden"
+    expression: "this.action_grant_requested == false"
+  };
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedConnectorCaller caller = 1 [(buf.validate.field).required = true];
+  // owner is the GitHub repository owner.
+  string owner = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38}[A-Za-z0-9])?$"
+    }
+  ];
+  // repo is the GitHub repository name.
+  string repo = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 100
+      pattern: "^[A-Za-z0-9._-]{1,100}$"
+    }
+  ];
+  // source_scope is the exact authorized scope label (github.com/owner/repo).
+  string source_scope = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 196
+      pattern: "^github\\.com/[A-Za-z0-9](?:[A-Za-z0-9-]{0,38}[A-Za-z0-9])?/[A-Za-z0-9._-]{1,100}$"
+    }
+  ];
+  // action_grant_requested must be false; source and action grants never share.
+  bool action_grant_requested = 5;
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// ConnectGitHubSourceSuccess returns the admitted connection and first snapshot.
+message ConnectGitHubSourceSuccess {
+  // connection_id is the opaque admitted connection identity.
+  Identifier connection_id = 1 [(buf.validate.field).required = true];
+  // state is READY or DEGRADED after the first snapshot attempt.
+  ConnectorLifecycleState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [
+      1,
+      2
+    ]
+  }];
+  // source_scope echoes the exact authorized scope.
+  string source_scope = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 196
+  ];
+  // provider is always github for this Stage 08 surface.
+  string provider = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.const = "github"
+  ];
+  // cursor is the opaque resume cursor after the first complete snapshot.
+  string cursor = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+  // repository_object_count is the admitted repository evidence object count.
+  uint32 repository_object_count = 6;
+  // issue_object_count is the admitted issue evidence object count.
+  uint32 issue_object_count = 7;
+  // snapshot_complete is true only after a complete provider page set commits.
+  bool snapshot_complete = 8;
+}
+
+// ConnectGitHubSourceResponse returns exactly one admission or non-disclosing denial.
+message ConnectGitHubSourceResponse {
+  option (buf.validate.message).cel = {
+    id: "connect_github_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized connect decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents admission facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the admitted connection facts.
+    ConnectGitHubSourceSuccess success = 2;
+    // error uses the same static model for absent, denied, and malformed paths.
+    PublicError error = 3;
+  }
+}
+
+// GetConnectorStatusRequest reads one connection's readiness.
+message GetConnectorStatusRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedConnectorCaller caller = 1 [(buf.validate.field).required = true];
+  // connection_id selects the opaque connection under authenticated scope.
+  Identifier connection_id = 2 [(buf.validate.field).required = true];
+}
+
+// GetConnectorStatusSuccess discloses non-sensitive readiness for one connection.
+message GetConnectorStatusSuccess {
+  // connection_id echoes the opaque connection identity.
+  Identifier connection_id = 1 [(buf.validate.field).required = true];
+  // state is READY or DEGRADED for a queryable connection.
+  ConnectorLifecycleState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [
+      1,
+      2
+    ]
+  }];
+  // source_scope is the exact authorized scope.
+  string source_scope = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 196
+  ];
+  // provider is always github for this Stage 08 surface.
+  string provider = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.const = "github"
+  ];
+  // cursor is the last trusted complete cursor.
+  string cursor = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+  // repository_object_count is the admitted repository evidence object count.
+  uint32 repository_object_count = 6;
+  // issue_object_count is the admitted issue evidence object count.
+  uint32 issue_object_count = 7;
+  // last_error_code is empty when healthy; otherwise a stable non-sensitive code.
+  string last_error_code = 8 [(buf.validate.field).string = {
+    max_len: 64
+    pattern: "^(|rate_limited|partial_snapshot|provider_unavailable|malformed_page)$"
+  }];
+  // acl_epoch is the current ACL epoch for the connection.
+  uint64 acl_epoch = 9 [(buf.validate.field).uint64.gt = 0];
+}
+
+// GetConnectorStatusResponse returns readiness or non-disclosing denial.
+message GetConnectorStatusResponse {
+  option (buf.validate.message).cel = {
+    id: "get_connector_status_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized status decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents readiness facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the readiness facts.
+    GetConnectorStatusSuccess success = 2;
+    // error uses the same static model for absent, denied, revoked, and purged.
+    PublicError error = 3;
+  }
+}
+
+// ReconcileConnectorRequest advances one connection from its last trusted cursor.
+message ReconcileConnectorRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedConnectorCaller caller = 1 [(buf.validate.field).required = true];
+  // connection_id selects the opaque connection under authenticated scope.
+  Identifier connection_id = 2 [(buf.validate.field).required = true];
+  // known_cursor is the last trusted cursor the client observed.
+  string known_cursor = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+  // reason is a stable reconciliation reason.
+  string reason = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      max_len: 64
+      pattern: "^(periodic|manual|retry|watcher_overflow)$"
+    }
+  ];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// ReconcileConnectorSuccess reports cursor advancement and delta object counts.
+message ReconcileConnectorSuccess {
+  // connection_id echoes the opaque connection identity.
+  Identifier connection_id = 1 [(buf.validate.field).required = true];
+  // state is READY or DEGRADED after the reconcile attempt.
+  ConnectorLifecycleState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [
+      1,
+      2
+    ]
+  }];
+  // prior_cursor is the cursor accepted before this reconcile.
+  string prior_cursor = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+  // next_cursor advances only after a complete page commits.
+  string next_cursor = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+  // admitted_object_count is the number of objects newly admitted.
+  uint32 admitted_object_count = 5;
+  // deleted_object_count is the number of objects confirmed deleted after a
+  // complete reconcile; partial pages never contribute deletions.
+  uint32 deleted_object_count = 6;
+  // page_complete is true only when the provider page set fully committed.
+  bool page_complete = 7;
+}
+
+// ReconcileConnectorResponse returns reconcile facts or non-disclosing denial.
+message ReconcileConnectorResponse {
+  option (buf.validate.message).cel = {
+    id: "reconcile_connector_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized reconcile decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents reconcile facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the reconcile facts.
+    ReconcileConnectorSuccess success = 2;
+    // error uses the same static model for absent, denied, revoked, and purged.
+    PublicError error = 3;
+  }
+}
+
+// QueryConnectorEvidenceRequest asks one bounded question against one connection.
+message QueryConnectorEvidenceRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedConnectorCaller caller = 1 [(buf.validate.field).required = true];
+  // connection_id selects the opaque connection under authenticated scope.
+  Identifier connection_id = 2 [(buf.validate.field).required = true];
+  // query is the bounded natural-language or token query.
+  string query = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 8192
+  ];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// QueryConnectorEvidenceSuccess contains one grounded connector answer.
+message QueryConnectorEvidenceSuccess {
+  // answer is the bounded answered, partial, or abstained result.
+  ConnectorAnswer answer = 1 [(buf.validate.field).required = true];
+  // connection_id echoes the opaque connection identity.
+  Identifier connection_id = 2 [(buf.validate.field).required = true];
+  // state is READY or DEGRADED for a queryable connection.
+  ConnectorLifecycleState state = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [
+      1,
+      2
+    ]
+  }];
+}
+
+// QueryConnectorEvidenceResponse returns exactly one answer or non-disclosing denial.
+message QueryConnectorEvidenceResponse {
+  option (buf.validate.message).cel = {
+    id: "query_connector_evidence_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized query decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents grounded facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the grounded answer.
+    QueryConnectorEvidenceSuccess success = 2;
+    // error uses the same static model for absent, denied, revoked, and purged.
+    PublicError error = 3;
+  }
+}
+
+// RevokeConnectorRequest denies hydration and query for one connection immediately.
+message RevokeConnectorRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedConnectorCaller caller = 1 [(buf.validate.field).required = true];
+  // connection_id selects the opaque connection under authenticated scope.
+  Identifier connection_id = 2 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// RevokeConnectorSuccess confirms the connection is revoked.
+message RevokeConnectorSuccess {
+  // connection_id is the opaque revoked connection identity.
+  Identifier connection_id = 1 [(buf.validate.field).required = true];
+  // state is always REVOKED on success.
+  ConnectorLifecycleState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [3]
+  }];
+}
+
+// RevokeConnectorResponse returns revoke confirmation or non-disclosing denial.
+message RevokeConnectorResponse {
+  option (buf.validate.message).cel = {
+    id: "revoke_connector_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized revoke decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents revoke facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success confirms revocation.
+    RevokeConnectorSuccess success = 2;
+    // error uses the same static model for absent, denied, and already-purged.
+    PublicError error = 3;
+  }
+}
+
+// PurgeConnectorRequest tombstones lineage and purges admitted evidence payloads.
+message PurgeConnectorRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedConnectorCaller caller = 1 [(buf.validate.field).required = true];
+  // connection_id selects the opaque connection under authenticated scope.
+  Identifier connection_id = 2 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// PurgeConnectorSuccess confirms purge completion.
+message PurgeConnectorSuccess {
+  // connection_id is the opaque purged connection identity.
+  Identifier connection_id = 1 [(buf.validate.field).required = true];
+  // state is always PURGED on success.
+  ConnectorLifecycleState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    in: [4]
+  }];
+  // purged_object_count is the number of evidence objects purged.
+  uint32 purged_object_count = 3;
+}
+
+// PurgeConnectorResponse returns purge confirmation or non-disclosing denial.
+message PurgeConnectorResponse {
+  option (buf.validate.message).cel = {
+    id: "purge_connector_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized purge decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents purge facts and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success confirms purge.
+    PurgeConnectorSuccess success = 2;
+    // error uses the same static model for absent and unauthorized paths.
+    PublicError error = 3;
+  }
+}

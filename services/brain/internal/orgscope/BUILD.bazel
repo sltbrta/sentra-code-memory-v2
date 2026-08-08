@@ -1,0 +1,37 @@
+"""Issues #311/#312: fail-closed scope isolation, erasure, recovery drill."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "orgscope",
+    srcs = [
+        "authority.go",
+        "directory.go",
+        "doc.go",
+        "erasure.go",
+        "recovery_drill.go",
+        "recovery_runner.go",
+        "recovery_substrates.go",
+        "report.go",
+        "store.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/orgscope",
+    visibility = ["//services:__subpackages__"],
+)
+
+go_test(
+    name = "orgscope_test",
+    srcs = [
+        "lifecycle_substrates_test.go",
+        "orgscope_test.go",
+        "recovery_drill_test.go",
+        "recovery_runner_test.go",
+        "review_regression_test.go",
+    ],
+    embed = [":orgscope"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

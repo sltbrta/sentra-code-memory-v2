@@ -1,0 +1,43 @@
+"""Bounded Stage 08 GitHub source-connector kernel."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "connector",
+    srcs = [
+        "delegated.go",
+        "delegated_ports.go",
+        "doc.go",
+        "errors.go",
+        "kernel.go",
+        "source.go",
+        "source_fake.go",
+        "types.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/connector",
+    visibility = [
+        "//services/brain:__subpackages__",
+        "//services/gateway:__subpackages__",
+        "//tests/conformance/connectors:__subpackages__",
+    ],
+    deps = [
+        "//packages/contracts/gen/go/ouroboros/contracts/v1:contracts",
+    ],
+)
+
+go_test(
+    name = "connector_test",
+    srcs = [
+        "delegated_test.go",
+        "kernel_test.go",
+    ],
+    embed = [":connector"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    deps = [
+        "//packages/contracts/gen/go/ouroboros/contracts/v1:contracts",
+    ],
+)

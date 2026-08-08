@@ -1,0 +1,1022 @@
+{
+  "generator": {
+    "buf": "1.71.0"
+  },
+  "inputs": {
+    "buf.gen.yaml": {
+      "bytes": 7492,
+      "sha256": "363ce6dc81c4c614e2b0f7494c990050ce50cc55f0c2184096757ead489e6c69"
+    },
+    "buf.lock": {
+      "bytes": 283,
+      "sha256": "abbfae96cfa867e757e2ddc0bb6702df2ccb90f40d45014cd1a1dcb00ca83323"
+    },
+    "buf.yaml": {
+      "bytes": 169,
+      "sha256": "d896ea963533f483a7e67052bed38c25df2926de3a6cc4f0e00fbfdff90f7207"
+    },
+    "proto/ouroboros/contracts/v1/brain.proto": {
+      "bytes": 6892,
+      "sha256": "396604ded8df8a8368209a3b3523fa91dccc30ec4b568ee9d70680e45d772dd4"
+    },
+    "proto/ouroboros/contracts/v1/channels.proto": {
+      "bytes": 3638,
+      "sha256": "0ea1a4ca97420bb12dafec9faf0b09cd8cf60d906dab538dd4720205d59d4334"
+    },
+    "proto/ouroboros/contracts/v1/common.proto": {
+      "bytes": 13449,
+      "sha256": "894343cb6fae1fd7f9141efdd113c6c1df94771b6b45e6b7e85c1d097fa1be20"
+    },
+    "proto/ouroboros/contracts/v1/configuration.proto": {
+      "bytes": 2706,
+      "sha256": "398d3358e9455b4616bcb029b18c2acf8b1fb2cf9cbb6d5a8c6803b02a48ea74"
+    },
+    "proto/ouroboros/contracts/v1/connectors.proto": {
+      "bytes": 29737,
+      "sha256": "ddfd12c50cb66d04c2a2223f11025d102060055abc24a7b8efe551755f970e9c"
+    },
+    "proto/ouroboros/contracts/v1/evidence.proto": {
+      "bytes": 8248,
+      "sha256": "6666f4312453e73bcd79cfdb7e4e0b6f195047a7676ad4b555cf1c737244f2d6"
+    },
+    "proto/ouroboros/contracts/v1/factory.proto": {
+      "bytes": 50654,
+      "sha256": "e32463a28d1f86ab9eb63bffed37d7bd23c53baa465e343f023c9ae5388ae5c3"
+    },
+    "proto/ouroboros/contracts/v1/ingestion.proto": {
+      "bytes": 23489,
+      "sha256": "b18805dfec6bea243082693b9d0d59ce751fc6feb42be54ee8bff93aa772db9c"
+    },
+    "proto/ouroboros/contracts/v1/local_authority.proto": {
+      "bytes": 8370,
+      "sha256": "5b11613b9729f9e151b11fdc181846a051eba5536b1a42caf19219642ccf014c"
+    },
+    "proto/ouroboros/contracts/v1/meetings.proto": {
+      "bytes": 28151,
+      "sha256": "8063016cb5df6239d5038f92a0c9e68346b411a88c5b18a057b4382e9d4e3a56"
+    },
+    "proto/ouroboros/contracts/v1/multimodal.proto": {
+      "bytes": 29406,
+      "sha256": "1b72f9eccd41ff899f13e1ef70861f0e268e13bc8e897e87489beec00b4cbdab"
+    },
+    "proto/ouroboros/contracts/v1/query.proto": {
+      "bytes": 20960,
+      "sha256": "2fcb2896f4aae26b8bc21095cdafd9ec0ca08707f7303f6855c7cffe7898e9ca"
+    },
+    "proto/ouroboros/contracts/v1/security.proto": {
+      "bytes": 6618,
+      "sha256": "188c766a0f4ba9f4d10ca2e3dc0ade289b3a2cc553cd85a0a0e6454bade7ae9a"
+    },
+    "proto/ouroboros/contracts/v1/tools.proto": {
+      "bytes": 3188,
+      "sha256": "cc9988951f36b454f34c3d35b7b312eb6c896926560e45bc7679fdab2698d3da"
+    },
+    "proto/ouroboros/contracts/v1/tracer.proto": {
+      "bytes": 32923,
+      "sha256": "cd7ae78f97ebd6d65bc4d7cda7de32b3329338a0e954af7b6e464fd9c0ceef59"
+    },
+    "tools/generate.sh": {
+      "bytes": 1198,
+      "sha256": "4fa94bccbc67d92ae3ae36a0dfebccd97f9d9f1f8617f7d294ab933acf8ff5e9"
+    },
+    "tools/normalize-generated-go.rb": {
+      "bytes": 1713,
+      "sha256": "372d9d3c7f33f95aaf9abfd6c5b6ccda7448b4dba56f510fb52071c635941def"
+    },
+    "tools/normalize-generated-ts.rb": {
+      "bytes": 761,
+      "sha256": "8f96c1fc5a5b90278b546700c4a6cab854d3cfdf59eb1a63b7c4785da7906c2a"
+    },
+    "tools/templates/go-contracts-v1.BUILD.bazel": {
+      "bytes": 879,
+      "sha256": "0081b00931460aa9e9b95957fb1d0068dcc51adb736191451710ce94673e0c72"
+    }
+  },
+  "outputs": {
+    "gen/README.md": {
+      "bytes": 571,
+      "sha256": "11d73b778168a1a3ae34654f02530fd92db941dc3c354620ef1ae0ea3e02ebe8"
+    },
+    "gen/go/ouroboros/contracts/v1/BUILD.bazel": {
+      "bytes": 879,
+      "sha256": "0081b00931460aa9e9b95957fb1d0068dcc51adb736191451710ce94673e0c72"
+    },
+    "gen/go/ouroboros/contracts/v1/brain.pb.go": {
+      "bytes": 31541,
+      "sha256": "e44d9079e28e86d1a0b2f338f4a9b6343a734a287b53f3d3ebbf64aafc97f785"
+    },
+    "gen/go/ouroboros/contracts/v1/channels.pb.go": {
+      "bytes": 21941,
+      "sha256": "aae870b18641dea9010fdee775668e3986329f3a292073e06e415e4e1a1f50bd"
+    },
+    "gen/go/ouroboros/contracts/v1/common.pb.go": {
+      "bytes": 57148,
+      "sha256": "a11e1aa2e0a01f916562bf275e11eed8a718a33f00b484b32878ed191bc4e5ec"
+    },
+    "gen/go/ouroboros/contracts/v1/configuration.pb.go": {
+      "bytes": 19200,
+      "sha256": "78ff96942b210b0416f13bfecaddcde1fbd2673660b0811ee15b12cb4816292c"
+    },
+    "gen/go/ouroboros/contracts/v1/connectors.pb.go": {
+      "bytes": 122439,
+      "sha256": "92c7c2e1ac9ad3d10429d03fa4d80d8d6b2cdd2401f33e6ace9e3e9f3b9267c2"
+    },
+    "gen/go/ouroboros/contracts/v1/contractsv1connect/connectors.connect.go": {
+      "bytes": 16857,
+      "sha256": "a7d9ff264174a34226ecd17c7f265e39dd9a075bf33a766e96d4ef86362ea2e1"
+    },
+    "gen/go/ouroboros/contracts/v1/contractsv1connect/factory.connect.go": {
+      "bytes": 13890,
+      "sha256": "398bf7064bfb7407796cbbee02df1c389a3a21e0f994d3a99c34c6524f8a2010"
+    },
+    "gen/go/ouroboros/contracts/v1/contractsv1connect/ingestion.connect.go": {
+      "bytes": 13324,
+      "sha256": "56848e8ad955c47cbedc9ca9ae81442919a2cc665d75fbef1180565fec39b6e9"
+    },
+    "gen/go/ouroboros/contracts/v1/contractsv1connect/local_authority.connect.go": {
+      "bytes": 10373,
+      "sha256": "1fe8b2847a9934d156bd16e62975c84b265aa03e69ff5bcdbe3a8e217368b81e"
+    },
+    "gen/go/ouroboros/contracts/v1/contractsv1connect/meetings.connect.go": {
+      "bytes": 13862,
+      "sha256": "13edd8357fdc26592ad0a20027887f1542b220c735627b2065a21f4fcced4b20"
+    },
+    "gen/go/ouroboros/contracts/v1/contractsv1connect/multimodal.connect.go": {
+      "bytes": 14977,
+      "sha256": "8ff3551bf538a6f7072fb1da79003ef425cbae6241b2777af0202af01e70d82c"
+    },
+    "gen/go/ouroboros/contracts/v1/contractsv1connect/query.connect.go": {
+      "bytes": 10716,
+      "sha256": "5577befe0f5342d7310cbdcdd65b9d2ebe47d631f1f7a258040eda111b7313e3"
+    },
+    "gen/go/ouroboros/contracts/v1/evidence.pb.go": {
+      "bytes": 58325,
+      "sha256": "1d0e532d50325a50dc744309d00ecced471099e89675167be95610e65e086420"
+    },
+    "gen/go/ouroboros/contracts/v1/factory.pb.go": {
+      "bytes": 199133,
+      "sha256": "49defc7366af40e863d0c19a35f0f53c0ad40d29fd1d1050a19c7e0ed723832b"
+    },
+    "gen/go/ouroboros/contracts/v1/ingestion.pb.go": {
+      "bytes": 94116,
+      "sha256": "954d4aa24231e2e96d5a70da6223ceeeb4caa2e15db5b4399c6777d1aa143d31"
+    },
+    "gen/go/ouroboros/contracts/v1/local_authority.pb.go": {
+      "bytes": 43858,
+      "sha256": "4f0372c1d201741e7e22c6f68551d7083c64a1959cf551853e9925ee6c7bb09e"
+    },
+    "gen/go/ouroboros/contracts/v1/meetings.pb.go": {
+      "bytes": 115283,
+      "sha256": "354932fcdd687d58bbbd8503bd49bb2ae723ad2bc8cf6079e0da7659b2800522"
+    },
+    "gen/go/ouroboros/contracts/v1/multimodal.pb.go": {
+      "bytes": 109666,
+      "sha256": "58e98fa8c02eda67c820bd71e4abff13d7c880906b42058751dd6533175bcd99"
+    },
+    "gen/go/ouroboros/contracts/v1/query.pb.go": {
+      "bytes": 82781,
+      "sha256": "9e9f8bf31fa671c87688edfaf9981dbdb7988cc25d29c46da46cfbc6bcfec11c"
+    },
+    "gen/go/ouroboros/contracts/v1/security.pb.go": {
+      "bytes": 28909,
+      "sha256": "d571145d2c8d009cef63bc834c2d55cbaad73fb2d50e523e8c3746c815ab9dc0"
+    },
+    "gen/go/ouroboros/contracts/v1/tools.pb.go": {
+      "bytes": 21934,
+      "sha256": "957d25bb0bb9d3aa85ecfb5cd25754ff40ce2a241d3423348ef542fa28c00c93"
+    },
+    "gen/go/ouroboros/contracts/v1/tracer.pb.go": {
+      "bytes": 117310,
+      "sha256": "05bccae2dd65de9987096610c49c5183d44d2c04549b9ce5ebc961e26c7be2c6"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AddSourceRequest.jsonschema.strict.bundle.json": {
+      "bytes": 6970,
+      "sha256": "91835a15365df887060c36338ede08c1b9cea82cde8001d2a6c74530bc323c5e"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AddSourceResponse.jsonschema.strict.bundle.json": {
+      "bytes": 16939,
+      "sha256": "ded15455140aa34539d562dc0b822b4a9959648a21822d81a5be1e4413087228"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AddSourceSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 8701,
+      "sha256": "06cb4055fb620d9c75ec389f1e89d56a6b30d3233f9f77802883cf002405e51f"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AdmitChangeIntentRequest.jsonschema.strict.bundle.json": {
+      "bytes": 14034,
+      "sha256": "2039f592e917f5ae1998452bd326559b59096b6c80036aa6a352f995e65419b1"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AdmitChangeIntentResponse.jsonschema.strict.bundle.json": {
+      "bytes": 11413,
+      "sha256": "dbb9f9e5bdee3ef44df501379012384e37eb11b52b214cef388a9cf86d3ca2cf"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AdmitChangeIntentSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 2291,
+      "sha256": "640932ba7f6e4ef31fd854d1799e197d1b9800276503ecee06c5b96e0cd83b43"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AdmitMultimodalSourceRequest.jsonschema.strict.bundle.json": {
+      "bytes": 13734,
+      "sha256": "39508605d53d646b112811ddf634dea002f8eec511617ae4240031a803d4ee2f"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AdmitMultimodalSourceResponse.jsonschema.strict.bundle.json": {
+      "bytes": 11749,
+      "sha256": "4a0038e10b67799aaa97ae20538dfb7f3c72b57be03a67ad7e9a0951e153f0fd"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AdmitMultimodalSourceSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 2621,
+      "sha256": "452315265c06177eab46da9607a2ab93625a9cbb13d934b29d350d514975e1d5"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.Approval.jsonschema.strict.bundle.json": {
+      "bytes": 9863,
+      "sha256": "bd7c3d690bb6fc0eaf962ddf8a9b2f8afff879dbea85677d4955c544a4ef0878"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ArtifactAdmitCommand.jsonschema.strict.bundle.json": {
+      "bytes": 4427,
+      "sha256": "f102b7e297b5bcb5cb1d3d22aad30676d2ad6d1bf0d7ed1e74a3cdd02dac2eb3"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ArtifactDeleteCommand.jsonschema.strict.bundle.json": {
+      "bytes": 4104,
+      "sha256": "1f64260c233877c6bb21ba6ae1a126daf4927bdc953eae4e5bde2b5a850872b1"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ArtifactReadCommand.jsonschema.strict.bundle.json": {
+      "bytes": 4250,
+      "sha256": "ed88db06e672fc1182564a9dfbe379ba3edf63aaa5689716c1bb721aece33bd2"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ArtifactRef.jsonschema.strict.bundle.json": {
+      "bytes": 2991,
+      "sha256": "985c36bc359405858391a01d384dbac055d00feed0d1cedb52c5d3cc0559c49a"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AskRequest.jsonschema.strict.bundle.json": {
+      "bytes": 5121,
+      "sha256": "d1f0e2b17d40d1ed8dc5ed9ac998f44077c4cf1d99e91cbaa53a0e42a97c7a76"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AskResponse.jsonschema.strict.bundle.json": {
+      "bytes": 29882,
+      "sha256": "39182e0a652c5d0b0eb4fa9c7f6f1674a448560fe8b0b842ec232aa36eb745e9"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AskSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 22914,
+      "sha256": "7fb8748dce4808bb5a59d3166d449dd1fcd382fa6a7ef49f98b5f2019852054d"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AuthenticatedPrincipalRef.jsonschema.strict.bundle.json": {
+      "bytes": 2216,
+      "sha256": "f021a0d78dd7bb8d7cbbbb86ef637165731d5876e451ab3653487469acb70916"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.AuthorizationReceipt.jsonschema.strict.bundle.json": {
+      "bytes": 8617,
+      "sha256": "24fd39412b435e522bc4e5de0ba31502318c51a57ec0ef8319b76ea1a517f8ae"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.BrainQuery.jsonschema.strict.bundle.json": {
+      "bytes": 6395,
+      "sha256": "278f2b7e34d16200b68caffae9366250806eb327b55eb7a275117a4cf03126f9"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.BrainScope.jsonschema.strict.bundle.json": {
+      "bytes": 1885,
+      "sha256": "e316a0b9fc387f09a6acabdc32e849c3e6f82809132aa4bb5d03216c526bfa4c"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ByteInterval.jsonschema.strict.bundle.json": {
+      "bytes": 968,
+      "sha256": "4e36c1cf222cfb873e2cd7dc045c4dfac1af04793955af4e2e1275e4972f8d80"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.CancelChangeRunRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4327,
+      "sha256": "3c2e8dd54224830e324db97c488f84f6c6906b0eb8b54c789857aa272097e783"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.CancelChangeRunResponse.jsonschema.strict.bundle.json": {
+      "bytes": 11362,
+      "sha256": "1ce7012427be65c7370168593e55cc50484d23a4a6b7f5116a9cbe79e7ad3e02"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.CancelChangeRunSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 2262,
+      "sha256": "09ceac1c2762d4fa2426d3f26fd64649e201edf255d6b04292e5e2f45dd572a4"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.CapabilityGrant.jsonschema.strict.bundle.json": {
+      "bytes": 14559,
+      "sha256": "01eae6f2e5301a0b82cffbb66c3ce52fdb1494a3b5897c2acf7a23e98d337aa5"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.CausalContext.jsonschema.strict.bundle.json": {
+      "bytes": 2741,
+      "sha256": "cbfc7cfb24a0552d412a2cfe8c247c00032d26f943aa3bcd4bfabdccff928cad"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ChangeIntent.jsonschema.strict.bundle.json": {
+      "bytes": 11802,
+      "sha256": "990d00d56a7d182fef1e3f36194a14ad2eb1e35fdda836f6d190e8fd6f62f34f"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ChangePlan.jsonschema.strict.bundle.json": {
+      "bytes": 32134,
+      "sha256": "9706e125a5b33c1cd1045ee3a118b961035fcd226d7e6835c384a24a5aa34b8e"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ChangeSet.jsonschema.strict.bundle.json": {
+      "bytes": 10289,
+      "sha256": "b93be29d23fc1526cca1f5f15346d4735725ea2b3ee3522856d0dd5152ce575a"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ChangeSetPreview.jsonschema.strict.bundle.json": {
+      "bytes": 19607,
+      "sha256": "8808c6df843c91b9853a1ce8eb8e54f3f1ca13b8dc9d390656bac47fd233011b"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ChannelDelivery.jsonschema.strict.bundle.json": {
+      "bytes": 10120,
+      "sha256": "fdd6db51c20162d4c95ba62b7b66485e2e2b26dc1c82c2de072e8c6196bb0561"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.Citation.jsonschema.strict.bundle.json": {
+      "bytes": 15746,
+      "sha256": "3cd7e9c5766ca78fa770e4148d72e9a5b755dd8951e1c1f2cd5cb71757e7412f"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.CodeOccurrence.jsonschema.strict.bundle.json": {
+      "bytes": 9538,
+      "sha256": "7ff777ad9d4b44bd3549895484659370ae4d70289e7e9a478b3cd95266655106"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.CommandEnvelope.jsonschema.strict.bundle.json": {
+      "bytes": 6915,
+      "sha256": "04ad81e4258ea70db1af6eed65dfe8f42afa87aee386f87fb32b331bd86a50a2"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ConnectGitHubSourceRequest.jsonschema.strict.bundle.json": {
+      "bytes": 5148,
+      "sha256": "5f590c2879a633d5538f5eedcce08fc3a0d5b87a921087a78060b6d4f4efbdbc"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ConnectGitHubSourceResponse.jsonschema.strict.bundle.json": {
+      "bytes": 12639,
+      "sha256": "f9c43c5521c5a5b1be677b17b29a318db3f8943575c33d68d510d5c0a6991929"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ConnectGitHubSourceSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 3511,
+      "sha256": "851bdcca78f7ad56614f9797d4c63560d967bc4f612868dc4c2870547cddae32"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ConnectorAnswer.jsonschema.strict.bundle.json": {
+      "bytes": 13267,
+      "sha256": "395b7f3e20bdb847e5fb983e7e28b2858437d91f0e648b280d5941bbb09c29d6"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ConnectorAnswerClaim.jsonschema.strict.bundle.json": {
+      "bytes": 7456,
+      "sha256": "879d1751eb7d2c5b3b5bb618e67a6870827acb2eeb80c0fcf15498b81a157701"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ConversationTurn.jsonschema.strict.bundle.json": {
+      "bytes": 17174,
+      "sha256": "41dffa8b09a9ed5c7962afce297e1e1f8bd715ab4223dcc168980d4f456a19fa"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.Cursor.jsonschema.strict.bundle.json": {
+      "bytes": 1002,
+      "sha256": "d988a5b5d18693b0a54241fbc6f2456ae6aede6ae98eedc63c6ecfe9ec4a8f19"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.Digest.jsonschema.strict.bundle.json": {
+      "bytes": 1062,
+      "sha256": "9a407b65b683cb20608a9d6c8816656c0d4dc2812fa8c8dfcebc2289f0d049ff"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.DraftPrReceipt.jsonschema.strict.bundle.json": {
+      "bytes": 11209,
+      "sha256": "58b77b4c5117b48d1f665df4a9c708cfde0e6b2391f6629a0d4f95877a5c9a7e"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.EgressManifest.jsonschema.strict.bundle.json": {
+      "bytes": 5102,
+      "sha256": "0bf4132df38ad890b64a8f52168f05c90b29fa140a1f914e3b66c71b805cb176"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.EventEnvelope.jsonschema.strict.bundle.json": {
+      "bytes": 6870,
+      "sha256": "1dc176361ed089f2e536082d109dea5ebea9ff841382762c0896c116ad19c6b4"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.EvidenceAnchor.jsonschema.strict.bundle.json": {
+      "bytes": 13605,
+      "sha256": "0cc691975b4c6b527d66fd40c058c6235e6ecdde4e546f7fdd2f5e43364672ec"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.EvidenceRef.jsonschema.strict.bundle.json": {
+      "bytes": 2983,
+      "sha256": "8380fc9545c7f862eb048a89afb08bbec853d0860b7af64d94bf282427852c83"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ExecuteAuthorityCommandRequest.jsonschema.strict.bundle.json": {
+      "bytes": 23594,
+      "sha256": "85d34400ae8a34be912ac574afb62d47a05b903f9d8ef88143b288f5753e5313"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ExecuteAuthorityCommandResponse.jsonschema.strict.bundle.json": {
+      "bytes": 14298,
+      "sha256": "c2951ee8d23bec9af0728b4bc27e1c6bb09b2eeeef9f132a65d4a754ad0a632c"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.FactualConsistencyProvenance.jsonschema.strict.bundle.json": {
+      "bytes": 2557,
+      "sha256": "685efc778905f774298663a3951e094603b93e11cdc28a9c8994f72d41f68019"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.FactualConsistencyScore.jsonschema.strict.bundle.json": {
+      "bytes": 5021,
+      "sha256": "d6a41cf0db6942521f89bd47d97b5567d4e317a707c9c3dd8607c0ae49bb22d3"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GateSpec.jsonschema.strict.bundle.json": {
+      "bytes": 2637,
+      "sha256": "26501db895f38963842d6e7763d21015426f8a7ef65001637182ef84f2ee7ca3"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetChangePlanRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4093,
+      "sha256": "7e8dd28e6e75029c617bc40eef2cc858ed81243fa25178e2064d5849a34d91d2"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetChangePlanResponse.jsonschema.strict.bundle.json": {
+      "bytes": 35668,
+      "sha256": "ff1d099aca7cbcdd788178d9a120d7b3122ac000cdc097cb757ba8e51da4c482"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetChangePlanSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 32769,
+      "sha256": "8b4df9dc6b2852d5686acab2b8d09696195ab72fcabdb4fbf1bea2915bce93aa"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetConnectorStatusRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4070,
+      "sha256": "fefb9db9b4c790219db409f7279d685d47da384763d8da114321ca7194345137"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetConnectorStatusResponse.jsonschema.strict.bundle.json": {
+      "bytes": 12881,
+      "sha256": "b7df6acf623c00ea2294a2791c1ad1333dd4660968dcd96b25f98c239b7e5334"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetConnectorStatusSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 3781,
+      "sha256": "f6f0530780c8b14211f5c131801ee32963e924c70518e602b9e785b6b5bb48df"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetHistoryRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4993,
+      "sha256": "36b19b1293cf1a5ef44a1dade56bb8cf978f8c5df84d1db15d5bb216db2a29dc"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetHistoryResponse.jsonschema.strict.bundle.json": {
+      "bytes": 25807,
+      "sha256": "ab01ef519838ad138312d6d146cd02da0d5b94b1648616a65730d52fc864530b"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetHistorySuccess.jsonschema.strict.bundle.json": {
+      "bytes": 18822,
+      "sha256": "18e5d337321bd4708587cb0d59e8a64bbe811090b3783a99488c2ee238d4fb2a"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetMeetingStatusRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4068,
+      "sha256": "6215e9edeef0464d3d0540fc9a60605083dd95ed28dcd0c14548eb6e57173c70"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetMeetingStatusResponse.jsonschema.strict.bundle.json": {
+      "bytes": 13998,
+      "sha256": "8ffacea19a1f4be580465959020cc0166cdce95acce0ab946fc5d84b8f409f03"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetMeetingStatusSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 4906,
+      "sha256": "7a4a2372d6ee298c4791d40ca63776e546013d2d1bf767dd1e29a792c15b8631"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetMultimodalEvidenceRequest.jsonschema.strict.bundle.json": {
+      "bytes": 5286,
+      "sha256": "f82caead83549d6f4e8bdd280613d5ae8754366244c085213f5933ddcb847686"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetMultimodalEvidenceResponse.jsonschema.strict.bundle.json": {
+      "bytes": 25295,
+      "sha256": "364dec8405722c80d4bf01cb5845e0ccb0008c3d9c42500545b6818b3a1a6d4f"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetMultimodalEvidenceSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 18076,
+      "sha256": "0647b01ebdc789195b7d9c39e202161277348d69de21d4460c27f074fe235b30"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetMultimodalStatusRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4077,
+      "sha256": "a21929d706f5e8bbe58736907a4b48b8897ec545653d72362aa9ea4405898e11"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetMultimodalStatusResponse.jsonschema.strict.bundle.json": {
+      "bytes": 15764,
+      "sha256": "1e1c12de3de0a622c61027f00c458647f46dc1e683dfd75c79273d6081bd7d4e"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetMultimodalStatusSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 7718,
+      "sha256": "a606e93667d944d39f2ee53b9c9b962060a1e7e33de1cf3db8c04693e8be7a9e"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetReviewFindingsRequest.jsonschema.strict.bundle.json": {
+      "bytes": 5301,
+      "sha256": "f923bfab85bad3a81a6ba272cb1256cbc21729762cc857c052be867da9cd6325"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetReviewFindingsResponse.jsonschema.strict.bundle.json": {
+      "bytes": 16381,
+      "sha256": "b9afe929fdcd445c1f0c16bf572996f2dfa297d65000ff9f14bf5479e31acc26"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetReviewFindingsSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 13461,
+      "sha256": "38f4f0ec062e069b725c3b3c8e8cb0ea314de4d459b5eb86445d2b15e33c3185"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetSourceStatusRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4042,
+      "sha256": "5d9305f0ad5c885c972ce2143bf62277e155e743d0231b734bcdf3618d0081a7"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetSourceStatusResponse.jsonschema.strict.bundle.json": {
+      "bytes": 17406,
+      "sha256": "508a3cffd208327f25c8cc6f37321c51f3dd42bc4bb84ff446e3f213337ea733"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetSourceStatusSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 9065,
+      "sha256": "be8bd392c5a65ff777e39df0f28ed866d2dcc222add249fe8912a234445461ad"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetStatusRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4025,
+      "sha256": "04b728702d91e4a858a7ed449aa266350156267c1f0cd73c52799c9d4cccb0b6"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetStatusResponse.jsonschema.strict.bundle.json": {
+      "bytes": 19929,
+      "sha256": "09444287c8fc5a91867108f2cacd24d3359c3956dd77b443b948e52b82267c01"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GetStatusSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 11874,
+      "sha256": "8b6162bcdf1304439f631e4823ecd489963c16d404cbfd366db4a8a1ed82dc28"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GitHubNativeAnchor.jsonschema.strict.bundle.json": {
+      "bytes": 5463,
+      "sha256": "3d523319df67981a958d381e53292d693c514e91c4ef23c7b91018371f0fb325"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GitSnapshot.jsonschema.strict.bundle.json": {
+      "bytes": 3259,
+      "sha256": "6516ae7e58b5d29e8727446b22cb5113ad85874df408550241fc0a65fa59f001"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GroundedAnswer.jsonschema.strict.bundle.json": {
+      "bytes": 29390,
+      "sha256": "b40e62b68370b4a127f3ee5bde60fe4a95b25aaebb402de0d89c59cb71d7eb44"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GroundedAnswerClaim.jsonschema.strict.bundle.json": {
+      "bytes": 8535,
+      "sha256": "db6bf45ca5cbb8baf55e25ec9d550c18acdf3ee360ecbf19446117121a616c8d"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GroundedCitation.jsonschema.strict.bundle.json": {
+      "bytes": 6498,
+      "sha256": "407fd43ee1c54c488260bd8ab16d63abb4a5b7c6d7f1208db24e633ec28faaee"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.GroundedClaim.jsonschema.strict.bundle.json": {
+      "bytes": 17704,
+      "sha256": "f981ae16021b87b54780cbb5981c468fd066b2942270be265fb7d63549bd38cd"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.Identifier.jsonschema.strict.bundle.json": {
+      "bytes": 1086,
+      "sha256": "eee70e39ee088e56c9dfe25bac77f3df62935c409c22cae407bb250c4c159735"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ImpactReceipt.jsonschema.strict.bundle.json": {
+      "bytes": 9616,
+      "sha256": "7f909f464a6c2831b453dea1a2d03945030731a0531f34163bb604d48d862a1c"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ImportRetentionPolicy.jsonschema.strict.bundle.json": {
+      "bytes": 1537,
+      "sha256": "75d8e7db02268b9d59bafb08005c9bc3185a4ba23a4600af1943d825d74435f9"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ImportTranscriptRequest.jsonschema.strict.bundle.json": {
+      "bytes": 8667,
+      "sha256": "8e84502b7547ece7287da00b1875853550a3c918b79c323187c6b7d627d8b96b"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ImportTranscriptResponse.jsonschema.strict.bundle.json": {
+      "bytes": 13379,
+      "sha256": "1fd6bf037c6e4f3130795048b355abc36d9bd832901d68291a13caff9f7e0d07"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ImportTranscriptSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 4271,
+      "sha256": "02a107b156760bb683f58ea387bf297b284c90d33fc18ddac7f13edf58df9d02"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.IngestionGeneration.jsonschema.strict.bundle.json": {
+      "bytes": 6568,
+      "sha256": "c05bca435d46725545cf6ce76612850032cdb54abbc567980fcab1e58cd46c95"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.LanguageObligation.jsonschema.strict.bundle.json": {
+      "bytes": 11079,
+      "sha256": "730c0d7800f04bcf3e7154899369e76dbf6b69b53689bc776b724e05a0f31032"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.LanguageReadiness.jsonschema.strict.bundle.json": {
+      "bytes": 1634,
+      "sha256": "6afa06cc304e1e8b3c951372793a0b2a7e05ff9d5481d0242db755e0af1f1054"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.Lease.jsonschema.strict.bundle.json": {
+      "bytes": 3617,
+      "sha256": "2f70c7a3d3b0136bbec44b94ec666f18ca0338164b0e33ca88a00b4f0270d334"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.LineInterval.jsonschema.strict.bundle.json": {
+      "bytes": 1068,
+      "sha256": "3353e8d97458e73af642e4121effab445634f1a94536c4b6c9d1045c538a75b0"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ListSourcesRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4978,
+      "sha256": "9e53b599dd287d89e1758fbce6adfc86362fce23eccfd85df1493589fd562261"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ListSourcesResponse.jsonschema.strict.bundle.json": {
+      "bytes": 18902,
+      "sha256": "4eacd877ae859bc5d969b71cd2557343db2772ba19535aad5b159300b6e98b0f"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ListSourcesSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 10686,
+      "sha256": "cf8a2e2429b1bf1030b109edf7e2e8b3389dba64f6d632edca11531b08cb9380"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.MeetingAnswer.jsonschema.strict.bundle.json": {
+      "bytes": 12058,
+      "sha256": "96c2675a0792d8b236092af59003d4639eb6f10897abb3cb6be609df07d439eb"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.MeetingAnswerClaim.jsonschema.strict.bundle.json": {
+      "bytes": 6279,
+      "sha256": "5c0db6ee081a80076f35feba66b5c634658c716d948edc1a3097e219ba91a3ce"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.MeetingTemporalCitation.jsonschema.strict.bundle.json": {
+      "bytes": 4307,
+      "sha256": "346042bb57b7d6d71dee6a55463d3e3983c2fc8d569c1c73fb81507a23e3d8b2"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.MeetingTimeRange.jsonschema.strict.bundle.json": {
+      "bytes": 983,
+      "sha256": "8ef28635d70684dc79e8827c98115089c72a53f30dcef624096cde921e63933b"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ModelRoute.jsonschema.strict.bundle.json": {
+      "bytes": 3489,
+      "sha256": "51fd8f7084fe91f3fe38d5c80911202c8ecef79fa5f0019c937c158e04dcf4f3"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.MultimodalEvidenceItem.jsonschema.strict.bundle.json": {
+      "bytes": 16383,
+      "sha256": "aed0e4880f54f4648bad29ddce99cdcbdec69dd0cbc724860d1ae4ba274977e5"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.MultimodalLaneCoverage.jsonschema.strict.bundle.json": {
+      "bytes": 1944,
+      "sha256": "22082ababd0e3f9e40cd2bcf93a83da32938631167e4bf3f8531aedb6629fd32"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.MultimodalSourceEnvelope.jsonschema.strict.bundle.json": {
+      "bytes": 10527,
+      "sha256": "297060b4e95d1bfa5085827f5c2444ed2b9a57cbffe2216a1cb9c2975d6b3293"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.MultimodalSourceStatus.jsonschema.strict.bundle.json": {
+      "bytes": 7074,
+      "sha256": "ef907c3ea96afaafc53fa0b2186e6aeac5ff9bddcce3853654ced67d49116756"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.NormalizedBox.jsonschema.strict.bundle.json": {
+      "bytes": 1592,
+      "sha256": "2246e94ca95c7f2bc2c1df67a73fc9c4869ddda3c80f966bb7081a133e4f0a04"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.OpenLocalSessionRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4139,
+      "sha256": "edbf5c397593eddb6eb48c20d04130b61112474247afc426acd65b8ae7eaa712"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.OpenLocalSessionResponse.jsonschema.strict.bundle.json": {
+      "bytes": 11344,
+      "sha256": "a3db08edfbe69215a159772ea8a8fd8a29f6208ce301c43efeda16eb4cd0a2ae"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.OutcomeFact.jsonschema.strict.bundle.json": {
+      "bytes": 9512,
+      "sha256": "d9c74041e09421331945eaffece2c61e5adfb0ea797e412e8aa33d393b29b90c"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PcmWavBounds.jsonschema.strict.bundle.json": {
+      "bytes": 1555,
+      "sha256": "cbc9cf7d4a6edda70e2e7947f7f0f32f2bfb79fd7fff9aff101a2c826fd8d3e1"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PdfBounds.jsonschema.strict.bundle.json": {
+      "bytes": 1067,
+      "sha256": "e15130feb7a8b1e51f63fcd6b34c6c60162b702ff1781c2f093599a1f15d8245"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PlanEdge.jsonschema.strict.bundle.json": {
+      "bytes": 1148,
+      "sha256": "413f5473dd9fbd2006c6c6ff0e24ab9f52d7f978adc137e037c5ca9d429fd9fd"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PlanNode.jsonschema.strict.bundle.json": {
+      "bytes": 18420,
+      "sha256": "7c6108e5102ec305023ded0d056a0889369e1a9202a434cc9bd00c87dd365b5e"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PngBounds.jsonschema.strict.bundle.json": {
+      "bytes": 1268,
+      "sha256": "2bd9b5386e26acd00ee8cb1023966dc08c8079b4c0e8289f972c6cc756ac24df"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PreviewChangeSetRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4104,
+      "sha256": "cef090cf3c0631e09fca70c742bb33b38800a0a6547b7913c2881d4d7e497d59"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PreviewChangeSetResponse.jsonschema.strict.bundle.json": {
+      "bytes": 23181,
+      "sha256": "df7fc973d0dacfd35198286f85561ecfeba15b95ae946311f36fabe8a698a339"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PreviewChangeSetSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 20265,
+      "sha256": "2d9e451e40bba8237fc0c21e761222a8b3a5fd0ab9db17fde985f1d9a560713a"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PreviewEdit.jsonschema.strict.bundle.json": {
+      "bytes": 3104,
+      "sha256": "7553caf085d13c91ea53bdaad1e6834edaefcada18d6b8122427919c57453ad8"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PublicError.jsonschema.strict.bundle.json": {
+      "bytes": 2112,
+      "sha256": "783c1ddf14446a2f07f51263aa45b0bc55d95e3b08a93578536b81b30420b8df"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PurgeConnectorRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4307,
+      "sha256": "3c65e24108bab9bc07886fdb0fb6e26c8ad367476f1e023e608d25e687793b4a"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PurgeConnectorResponse.jsonschema.strict.bundle.json": {
+      "bytes": 11302,
+      "sha256": "96f049427f51e1997b281b6df8811c085a070f73bbb47d1bd58cf94389bd4f53"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PurgeConnectorSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 2231,
+      "sha256": "2d9df579165c501ce99a15ea3eed17a0b304006d1698f26f5dc082d356cd800f"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PurgeMeetingRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4292,
+      "sha256": "3514d62a36e76e54497d1fcc92a43fc67f363d5cd5d643f4987c5e0a64496eb8"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PurgeMeetingResponse.jsonschema.strict.bundle.json": {
+      "bytes": 11310,
+      "sha256": "eb11f1d7906387f2852dcac27b6fae37083b69c49324cb61021fcf15a335cb1b"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PurgeMeetingSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 2247,
+      "sha256": "3cc36ad81ac81caf1d5861e45fa0e041ce788b5e5f5dbcebfba2555499fc2da9"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PurgeMultimodalSourceRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4321,
+      "sha256": "471ff4ef1d9765715e62e0ff96b4b34943cf5ed75f808d2f0549d07feaaf7852"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PurgeMultimodalSourceResponse.jsonschema.strict.bundle.json": {
+      "bytes": 12074,
+      "sha256": "b4d87d7237e24a6f2c66a1481b5e481cb32d968ac9d290d0a65526b0a458d5e2"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.PurgeMultimodalSourceSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 9146,
+      "sha256": "e608f050bec7fa250b9f001b46bebf228b388120bdff37c162b8017b2171d3cd"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.QueryAnswer.jsonschema.strict.bundle.json": {
+      "bytes": 14670,
+      "sha256": "80d993cfc703cdba8216d57b9dd5171a2808a0b9e23892093441e56a5ce0b70a"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.QueryConnectorEvidenceRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4551,
+      "sha256": "94e709b3e31c33a045783f6567457c0515a88b09618de79513750b39dc755631"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.QueryConnectorEvidenceResponse.jsonschema.strict.bundle.json": {
+      "bytes": 21734,
+      "sha256": "88525e440e14016143b4563f37324ed6f557df5660c73240826be207a95aee91"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.QueryConnectorEvidenceSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 14505,
+      "sha256": "9946505f7eb0b3248f23fa9ec628d0a3453d4721ebbbbab49a216a52cede01b7"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.QueryCoverage.jsonschema.strict.bundle.json": {
+      "bytes": 1111,
+      "sha256": "9a61e188c8af52de43a048a41ad300a423f3a63beea333a0e4b544c797ed12a4"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.QueryFreshness.jsonschema.strict.bundle.json": {
+      "bytes": 8219,
+      "sha256": "13c4009cd1c9adce980676b1ad8ace8fca905b6772516386c792e18eaa52a334"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.QueryMeetingRequest.jsonschema.strict.bundle.json": {
+      "bytes": 5460,
+      "sha256": "ecd4c8dc22fb62668f8343165e907c0df9281437c47c6b8fa2b70f63a0fe3ba7"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.QueryMeetingResponse.jsonschema.strict.bundle.json": {
+      "bytes": 20454,
+      "sha256": "4e2b59a20cf2c06aa3a025ca27702150d5459c2a29e882937f7ef387be6ea7ee"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.QueryMeetingSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 13266,
+      "sha256": "ee1fef3de6371147a054a41f7eb06e49b39bc36f8403888a1913439b4f77eb00"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ReadStatusRequest.jsonschema.strict.bundle.json": {
+      "bytes": 2746,
+      "sha256": "8f80423125008013a2a05828317bfc51e68e87974040d85412e9e31a545da053"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ReadStatusResponse.jsonschema.strict.bundle.json": {
+      "bytes": 12136,
+      "sha256": "1426c49577f927835b5eb7ed57ae49709b0fddd208f9cf94a84ba76c446c0a59"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.Receipt.jsonschema.strict.bundle.json": {
+      "bytes": 7263,
+      "sha256": "fe9c721e4ea28a543c9bafacad204c697160168f5f124b96b202a93699b4ae85"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ReconcileConnectorRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4818,
+      "sha256": "25d00694f7f1444370b615209cf9be62d4a1c90a2022d4e4997c9e07f304806c"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ReconcileConnectorResponse.jsonschema.strict.bundle.json": {
+      "bytes": 12416,
+      "sha256": "1a03d0a8159cd56cec014f1f1206a16781ef42a83489b02c0b09b5704eaad84c"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ReconcileConnectorSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 3308,
+      "sha256": "b0a66df25fc5b6bada5d4b134cf4b2ac2743690dba41a860070d875175e46529"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ReconcileSourceRequest.jsonschema.strict.bundle.json": {
+      "bytes": 5107,
+      "sha256": "bfcf0e54bdb86aceab1b8cef3669d2ed7ee155b561646d55c764de57839e7a26"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ReconcileSourceResponse.jsonschema.strict.bundle.json": {
+      "bytes": 15477,
+      "sha256": "cbb484c9541fc9c58966ea93af6eeefe26c0d54cd87654c81b04e46e98c6f15f"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ReconcileSourceSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 7230,
+      "sha256": "7673ec7f93bca4dc5bc857844037ee044a0fce92bd2b27125fa3d937ba86589e"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RenderModel.jsonschema.strict.bundle.json": {
+      "bytes": 1298,
+      "sha256": "bf4185d3f225342ba73cc21695aec10f7143a14d5e2df883f11e6c5c1bdcfc27"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ResourceLimit.jsonschema.strict.bundle.json": {
+      "bytes": 1084,
+      "sha256": "22601433b39a6a7616fd8d6c6f78de03937ee6a31a699b32dfa15dd4e338669b"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ReviewDisposition.jsonschema.strict.bundle.json": {
+      "bytes": 9664,
+      "sha256": "95c4c30c2a64fa33ada92467ac4c694b3108643e893781ab95c6af264d7f8830"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ReviewFinding.jsonschema.strict.bundle.json": {
+      "bytes": 11784,
+      "sha256": "477f75158471678b2af3e39e135bd9f35fe6cca2918a63f2a11051b22f085057"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeConnectorRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4313,
+      "sha256": "31848bceaee6621d287f378f487cee19532b1675b9d46c0670944177b082ce14"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeConnectorResponse.jsonschema.strict.bundle.json": {
+      "bytes": 11089,
+      "sha256": "711190c78188c1833c1dff2b716ce346df248bbf1d70e0958517d4dff0938594"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeConnectorSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 2002,
+      "sha256": "c78c636280b34c95cb5637d4f3a0de1e7ad603ea01f41ed2ac51cb8cb2f1a6ef"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeMeetingRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4302,
+      "sha256": "bb8cd84fddf8890820b6734e8b51782aa6ad630093361506973fcfe3f988d557"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeMeetingResponse.jsonschema.strict.bundle.json": {
+      "bytes": 11074,
+      "sha256": "5b0ab88949235846c748e530600c562b5220f479259178a65b82f53497155390"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeMeetingSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 1995,
+      "sha256": "0b02966aff7dbab02803bb6f75a53929bea5f1fa0413dd1130896a63c7246586"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeMultimodalSourceRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4316,
+      "sha256": "7a3547b4a986c8a8949dda006d8d5faec9c8d8fde7fe8e3cbbf33c7713981e45"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeMultimodalSourceResponse.jsonschema.strict.bundle.json": {
+      "bytes": 11811,
+      "sha256": "c427dc13bfc07f0270df08f275d307c88fe29e435ca72d4297ba1c60f4f9741a"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeMultimodalSourceSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 2690,
+      "sha256": "c753ef6639a8ea614b9f3ff2454f860dbeb90141fe835c50a3b0ea3a79ac0a53"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeSourceRequest.jsonschema.strict.bundle.json": {
+      "bytes": 4539,
+      "sha256": "65390904910a0a1f39e7a4c1a6255de3a26fd65b025ce51abf0a9a0b3d716ba0"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeSourceResponse.jsonschema.strict.bundle.json": {
+      "bytes": 10543,
+      "sha256": "5e3f5af4207dc7d6f61359f0b95183aec88acc95e505ed4ec978ed045c41e66c"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.RevokeSourceSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 619,
+      "sha256": "51d3b1506c0cbe4087b87f40e68b864d02661c03b18d048af24346a84a7919d0"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.SearchCodeRequest.jsonschema.strict.bundle.json": {
+      "bytes": 6024,
+      "sha256": "3e93946703303764023cdadf479330f5030bf3100acfeeba5286f871ff1f7873"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.SearchCodeResponse.jsonschema.strict.bundle.json": {
+      "bytes": 24144,
+      "sha256": "81d1bcd18a2d0f061a72de7c3e29e9df269a92eddfbd4250f152f2c1f1e7680b"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.SearchCodeSuccess.jsonschema.strict.bundle.json": {
+      "bytes": 16083,
+      "sha256": "53fdb7c6f6ab497a56e122adfd44fd438d8f0f8f671829af494bcc54493bfccb"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.SourcePolicy.jsonschema.strict.bundle.json": {
+      "bytes": 1523,
+      "sha256": "7ea49c129e42eec15d0b26193447d4988609d3d9ef8b652d87c067998399420f"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.SourceRange.jsonschema.strict.bundle.json": {
+      "bytes": 1647,
+      "sha256": "8346273f91bbeb0a0280f20ee4f09086f2720398cad8e28610455f7380b7022c"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.SourceReference.jsonschema.strict.bundle.json": {
+      "bytes": 2387,
+      "sha256": "956df2e1047d5da930b7ffe59380fa7530daf0d1786d9e84650c539ab4bbf6d2"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.SourceRevision.jsonschema.strict.bundle.json": {
+      "bytes": 5304,
+      "sha256": "339dbd64321a12e0b9ad0fa547af4804eb7569b4c25265d3b0320b347a5ae326"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.SourceSummary.jsonschema.strict.bundle.json": {
+      "bytes": 9026,
+      "sha256": "1fff111aba4b1f84d900af5935b8187282799ec85892e948a6942aaf8c673676"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.TextMarkdownBounds.jsonschema.strict.bundle.json": {
+      "bytes": 912,
+      "sha256": "20078074d4c686fa8deefbd24f5238a860cf90946ae9f1aa6b450bc72588f66d"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.ToolGrant.jsonschema.strict.bundle.json": {
+      "bytes": 5445,
+      "sha256": "9ca52dfd4563ad4c479440b33f244613ea5b9e24f395d1cbf6276d5b833f1ed6"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.TracerConfigSurface.jsonschema.strict.bundle.json": {
+      "bytes": 4211,
+      "sha256": "3f73c8d7232b606650bc67c93e41258f11473dc82c62e2c9d5ccbabba9d5f7b2"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.TracerLogicalParityProjection.jsonschema.strict.bundle.json": {
+      "bytes": 7095,
+      "sha256": "3342b0da93fec8423ee592731a0fd5187619e097164f16b6e3d5dfdfbad5e450"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.TracerManifest.jsonschema.strict.bundle.json": {
+      "bytes": 14777,
+      "sha256": "a365ee03679ccfdcbb9217f66ec4771d6722588063e24bfe9df3466520e31a5b"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.TracerRun.jsonschema.strict.bundle.json": {
+      "bytes": 22111,
+      "sha256": "8c72b2fbbc406adcc5cdb2f5b177a063cb5f1187acc091727735abd55d20e676"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.TracerShardReceipt.jsonschema.strict.bundle.json": {
+      "bytes": 17168,
+      "sha256": "94bcc831fcebaed16e6768961edf76ea05fb5a6cb136c6a2cd1b6ef8a6cefdc7"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.TracerStepReceipt.jsonschema.strict.bundle.json": {
+      "bytes": 9432,
+      "sha256": "49ffd94de4cbcc20f7ae92109454aeb3ad826ab6a7ed9a80e433e8792ea5b21f"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.TracerVariant.jsonschema.strict.bundle.json": {
+      "bytes": 2729,
+      "sha256": "c04bd9caeef25e4a98e894d3b745a7ddf57d34a1f4e4c9c7bee55a151d08a634"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.TranscriptSegmentInput.jsonschema.strict.bundle.json": {
+      "bytes": 1495,
+      "sha256": "df5f1b4f523f571f34e596c75c8a9db87a0345cf124bf5c18ffa976be3f0b651"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.UntrustedConnectorCaller.jsonschema.strict.bundle.json": {
+      "bytes": 3162,
+      "sha256": "c0c3e1c5da251e814a445b1fcc9fb7883681e5c79b9df95f3c930d6933bf9e9c"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.UntrustedFactoryCaller.jsonschema.strict.bundle.json": {
+      "bytes": 3216,
+      "sha256": "4c7ee80343bd509d345958e0a60f24b281ffa2937fb339b4eb7c5448e65456c7"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.UntrustedIngestionCaller.jsonschema.strict.bundle.json": {
+      "bytes": 3162,
+      "sha256": "b67f4cdbd0e27576aa9b80fd2da2acb007ae03390ebacc2cfe3f2f745e92200b"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.UntrustedMeetingCaller.jsonschema.strict.bundle.json": {
+      "bytes": 3152,
+      "sha256": "b1e232054a4928396c38bb32454cc6870f17faafe4e85d6b31b3704fd981efe9"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.UntrustedMultimodalCaller.jsonschema.strict.bundle.json": {
+      "bytes": 3167,
+      "sha256": "a147d9269686af92c29515b3793dfe1fcbce495ff9fe8ed09e74cebeb4c4e8bd"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.UntrustedQueryCaller.jsonschema.strict.bundle.json": {
+      "bytes": 3142,
+      "sha256": "4c993ba7b5d35dad0bcf46740efc7c65d23cc14765c0d99b408ebc3b1631eaad"
+    },
+    "gen/jsonschema/ouroboros.contracts.v1.VerifyTracerEvidenceShardV1Input.jsonschema.strict.bundle.json": {
+      "bytes": 7507,
+      "sha256": "5a69911f8de549eea48bf7c4cd1ee3c99fd1adabccd362980c60e7e42f4757c4"
+    },
+    "gen/ts/buf/validate/validate_pb.ts": {
+      "bytes": 225337,
+      "sha256": "f7dde73fbdefa3a84b10292e5656c7981e97ec95b8debb6917881cbaf790a01e"
+    },
+    "gen/ts/ouroboros/contracts/v1/brain_pb.ts": {
+      "bytes": 16186,
+      "sha256": "59ff984d8b406ee42cb9a01e0a6861d3835d6b927322d638c54f66c21ee0b2d5"
+    },
+    "gen/ts/ouroboros/contracts/v1/channels_pb.ts": {
+      "bytes": 10707,
+      "sha256": "ea4082d583c92e9c01b2e3753a9c60bdc88a826be55dbc8a62243646119f30f4"
+    },
+    "gen/ts/ouroboros/contracts/v1/common_pb.ts": {
+      "bytes": 29768,
+      "sha256": "e197ddc341c5f79ed883b9fc3f16f9caa7b5487a68e29097ff6812f9032726f9"
+    },
+    "gen/ts/ouroboros/contracts/v1/configuration_pb.ts": {
+      "bytes": 9180,
+      "sha256": "b00008e8805ee364eee32e925ceaabc8f3e5d108d1ec7a79afd2ad2908089e93"
+    },
+    "gen/ts/ouroboros/contracts/v1/connectors_pb.ts": {
+      "bytes": 65989,
+      "sha256": "1132100d70d63dc7eb07e2f83ba6b608ce5a00ed2fbb81ade881e1b5b05ec430"
+    },
+    "gen/ts/ouroboros/contracts/v1/evidence_pb.ts": {
+      "bytes": 28205,
+      "sha256": "70c1ba8b74b3b28a6e2ffc85dfdd9fab3ed4c5ac5f3cd56d739ade8e71984745"
+    },
+    "gen/ts/ouroboros/contracts/v1/factory_pb.ts": {
+      "bytes": 111567,
+      "sha256": "b87af2bc95dea43c70adb9b5306c0bd6d0f33330be33a526a8c5e182ae33d598"
+    },
+    "gen/ts/ouroboros/contracts/v1/ingestion_pb.ts": {
+      "bytes": 51914,
+      "sha256": "8b965a7c4830565a57415a9523c93d10ab5692d175a2ef58ad6e810764c0a2f2"
+    },
+    "gen/ts/ouroboros/contracts/v1/local_authority_pb.ts": {
+      "bytes": 22490,
+      "sha256": "d23cf2b92702e24c57c0b98c8307cfbebbc1d9a3f60075de153e09886b8ae034"
+    },
+    "gen/ts/ouroboros/contracts/v1/meetings_pb.ts": {
+      "bytes": 62262,
+      "sha256": "fcf887b0115d2f4d0314650d3eca0527deb1a2e83731b2165857c71c32b94432"
+    },
+    "gen/ts/ouroboros/contracts/v1/multimodal_pb.ts": {
+      "bytes": 61119,
+      "sha256": "52cd3ab98eae4eff9b8becb6a6882b319b32ad7ef3999e16af5eb108f2427048"
+    },
+    "gen/ts/ouroboros/contracts/v1/query_pb.ts": {
+      "bytes": 45874,
+      "sha256": "695d48b6c5818e997e7c6cb27299a311fd6a4807010b1e97715b34221537fd8c"
+    },
+    "gen/ts/ouroboros/contracts/v1/security_pb.ts": {
+      "bytes": 14508,
+      "sha256": "711d972828f33683049d7849a15c16f1a48c10d31197a5797cd0fe4cb7d1221e"
+    },
+    "gen/ts/ouroboros/contracts/v1/tools_pb.ts": {
+      "bytes": 10619,
+      "sha256": "136eb808a5383ddd7bf36a15ef801406c69e11abd5cdd39cacc6f367479c127b"
+    },
+    "gen/ts/ouroboros/contracts/v1/tracer_pb.ts": {
+      "bytes": 64143,
+      "sha256": "ae3ac31fa2b52d7c08c10b76dbd742b2c4335cbcee97a03b5793ec4077ad21e1"
+    }
+  },
+  "schema_version": "stage1.contract-generated-manifest.v1"
+}

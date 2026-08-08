@@ -1,0 +1,39 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.PngBounds.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "PngBounds freezes the Stage 11 standalone PNG admission limits.",
+      "properties": {
+        "byteLength": {
+          "description": "byte_length is the declared PNG size and must be \u003c=20 MiB.",
+          "exclusiveMinimum": 0,
+          "maximum": 20971520,
+          "type": "integer"
+        },
+        "heightPx": {
+          "description": "height_px is the declared pixel height.",
+          "exclusiveMinimum": 0,
+          "maximum": 25000000,
+          "type": "integer"
+        },
+        "widthPx": {
+          "description": "width_px is the declared pixel width.",
+          "exclusiveMinimum": 0,
+          "maximum": 25000000,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "byteLength",
+        "widthPx",
+        "heightPx"
+      ],
+      "title": "Png Bounds",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.PngBounds.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.PngBounds.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

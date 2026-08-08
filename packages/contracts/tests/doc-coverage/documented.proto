@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package ouroboros.contracts.test.v1;
+
+// LeadingLine documents a declaration with a multi-line line comment.
+// The complete comment belongs to the declaration below.
+message LeadingLine {
+  string value = 1;
+}
+
+/* LeadingBlock documents a declaration with a block comment
+ * that spans more than one source line. */
+message LeadingBlock {
+  string value = 1;
+}
+
+// DetachedLeading remains declaration documentation even when the source
+// formatter preserves a separating blank line.
+
+message DetachedLeading {
+  string value = 1;
+}
+
+message TrailingComment { // TrailingComment is documented on its declaration.
+  string value = 1;
+}
+
+// Container is public and documented; nested declarations are not part of the
+// top-level public-declaration coverage contract.
+message Container {
+  message InternalDetail {
+    string value = 1;
+  }
+}
+
+// DocumentedState exercises top-level enum source locations.
+enum DocumentedState {
+  DOCUMENTED_STATE_UNSPECIFIED = 0;
+}

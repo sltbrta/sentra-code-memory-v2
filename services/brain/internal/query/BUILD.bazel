@@ -1,0 +1,57 @@
+"""ACL-first grounded-query engine over the Stage 03 committed-Git corpus."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "query",
+    srcs = [
+        "bag_dense.go",
+        "compose.go",
+        "doc.go",
+        "embed_dense.go",
+        "engine.go",
+        "freshness.go",
+        "graph_hop.go",
+        "http_rerank.go",
+        "hybrid_expand.go",
+        "hydrate.go",
+        "lexical_rerank.go",
+        "multi_query.go",
+        "pack.go",
+        "ports.go",
+        "retrieval.go",
+        "rrf.go",
+        "synthesis.go",
+        "synthesis_deterministic.go",
+        "synthesis_provider.go",
+        "types.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/query",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "//services/brain/internal/codeindex",
+        "//services/brain/internal/dense",
+        "//services/brain/internal/factualconsistency",
+        "//services/brain/internal/ingestion",
+        "//services/brain/internal/rerank",
+    ],
+)
+
+go_test(
+    name = "query_test",
+    srcs = glob(["*_test.go"]),
+    data = [
+        "//tests/fixtures/stage-03:mixed_p5_seed",
+        "//tests/fixtures/stage-04:grounding_cases",
+    ],
+    embed = [":query"],
+    deps = [
+        "//services/brain/internal/factualconsistency",
+        "//services/brain/internal/projections",
+    ],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

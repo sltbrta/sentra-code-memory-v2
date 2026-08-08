@@ -1,0 +1,11 @@
+"""Public re-export of brain/internal/outcomes for gateway composition."""
+
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "outcomes",
+    srcs = ["export.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/outcomes",
+    visibility = ["//visibility:public"],
+    deps = ["//services/brain/internal/outcomes"],
+)

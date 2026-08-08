@@ -1,0 +1,11 @@
+"""Public re-export of broker/internal/github for gateway composition."""
+
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "github",
+    srcs = ["export.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/broker/github",
+    visibility = ["//visibility:public"],
+    deps = ["//services/broker/internal/github"],
+)

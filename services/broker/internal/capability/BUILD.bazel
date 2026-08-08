@@ -1,0 +1,19 @@
+"""Attenuated Stage 02 capability targets."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "capability",
+    srcs = ["grant.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/broker/internal/capability",
+    visibility = ["//services:__subpackages__"],
+    deps = ["//services/internal/contracts"],
+)
+
+go_test(
+    name = "capability_test",
+    srcs = ["grant_test.go"],
+    embed = [":capability"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+    visibility = ["//tools/stage-02:__pkg__"],
+)

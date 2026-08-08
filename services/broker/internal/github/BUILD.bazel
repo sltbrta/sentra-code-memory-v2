@@ -1,0 +1,35 @@
+"""Stage 06 two-phase GitHub draft-PR effect broker."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "github",
+    srcs = [
+        "broker.go",
+        "doc.go",
+        "errors.go",
+        "transport.go",
+        "tuple.go",
+        "types.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/broker/internal/github",
+    visibility = [
+        "//services/broker:__subpackages__",
+        "//services/gateway:__subpackages__",
+        "//services/brain:__subpackages__",
+    ],
+    deps = ["//services/internal/contracts"],
+)
+
+go_test(
+    name = "github_test",
+    srcs = ["broker_test.go"],
+    embed = [":github"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    visibility = ["//tools/stage-06:__pkg__"],
+    deps = ["//services/internal/contracts"],
+)

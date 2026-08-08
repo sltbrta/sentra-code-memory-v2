@@ -1,0 +1,319 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.Digest.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Digest identifies immutable bytes using a named digest algorithm.",
+      "properties": {
+        "algorithm": {
+          "description": "algorithm identifies the canonical digest algorithm, for example sha256.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hex": {
+          "description": "hex is the lower-case encoded digest value.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[0-9a-f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "hex"
+      ],
+      "title": "Digest",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.EvidenceRef.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "EvidenceRef identifies evidence metadata and optionally one precise anchor.",
+      "properties": {
+        "anchorDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "anchor_digest identifies an optional canonical anchor serialization."
+        },
+        "evidenceId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "evidence_id is an opaque evidence identity."
+        },
+        "sourceRevisionId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "source_revision_id identifies the immutable source revision."
+        }
+      },
+      "required": [
+        "evidenceId",
+        "sourceRevisionId"
+      ],
+      "title": "Evidence Ref",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.FactualConsistencyProvenance.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "FactualConsistencyProvenance pins the implementation and calibration bytes\n behind one numeric factual-consistency result. It never identifies evidence.",
+      "properties": {
+        "calibrationDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "calibration_digest binds the immutable calibration artifact bytes."
+        },
+        "calibrationId": {
+          "description": "calibration_id identifies the declared calibration population and method.",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "scorerId": {
+          "description": "scorer_id is a stable implementation family, not a floating provider alias.",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "scorerVersion": {
+          "description": "scorer_version pins the exact scoring behavior.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "scorerId",
+        "scorerVersion",
+        "calibrationId",
+        "calibrationDigest"
+      ],
+      "title": "Factual Consistency Provenance",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.FactualConsistencyScore.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "FactualConsistencyScore is the bounded answer-level factual-consistency\n disclosure. Zero is a valid calibrated score only when status is SCORED;\n UNKNOWN and ABSTAINED never masquerade as numeric zero.",
+      "properties": {
+        "evaluatedClaimCount": {
+          "description": "evaluated_claim_count is the number of fully evaluated claims.",
+          "maximum": 64,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.FactualConsistencyProvenance.jsonschema.strict.json",
+          "description": "provenance is required only for a scored result."
+        },
+        "reason": {
+          "description": "reason is unspecified only for a scored result.",
+          "enum": [
+            "FACTUAL_CONSISTENCY_REASON_UNSPECIFIED",
+            "FACTUAL_CONSISTENCY_REASON_ANSWER_ABSTAINED",
+            "FACTUAL_CONSISTENCY_REASON_SCORER_UNAVAILABLE",
+            "FACTUAL_CONSISTENCY_REASON_SCORER_FAILED",
+            "FACTUAL_CONSISTENCY_REASON_INVALID_RESULT",
+            "FACTUAL_CONSISTENCY_REASON_BUDGET_EXCEEDED"
+          ],
+          "title": "Factual Consistency Reason",
+          "type": "string"
+        },
+        "scorePerMille": {
+          "description": "score_per_mille is a calibrated [0, 1000] estimate when status is SCORED.",
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "description": "status distinguishes scored, answer abstention, and unknown outcomes.",
+          "enum": [
+            "FACTUAL_CONSISTENCY_STATUS_SCORED",
+            "FACTUAL_CONSISTENCY_STATUS_ABSTAINED",
+            "FACTUAL_CONSISTENCY_STATUS_UNKNOWN"
+          ],
+          "title": "Factual Consistency Status",
+          "type": "string"
+        },
+        "totalClaimCount": {
+          "description": "total_claim_count is the bounded answer claim count presented to scoring.",
+          "maximum": 64,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "scorePerMille",
+        "reason",
+        "evaluatedClaimCount",
+        "totalClaimCount"
+      ],
+      "title": "Factual Consistency Score",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.Identifier.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Identifier is an opaque, stable identifier within a declared namespace.",
+      "properties": {
+        "namespace": {
+          "description": "namespace prevents an identifier string from crossing a domain boundary.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "description": "value is opaque to consumers and must be non-empty after boundary validation.",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "value"
+      ],
+      "title": "Identifier",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.MeetingAnswer.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "MeetingAnswer is one answered, partial, or abstained meeting query result.",
+      "properties": {
+        "claims": {
+          "description": "claims carry timed citations for answered and partial outcomes.",
+          "items": {
+            "$ref": "#/$defs/ouroboros.contracts.v1.MeetingAnswerClaim.jsonschema.strict.json"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "degradedReasons": {
+          "description": "degraded_reasons use only the bounded Stage 07 vocabulary.",
+          "items": {
+            "maxLength": 64,
+            "pattern": "^(absent_support|partial_coverage|stale_support|retrieval_unavailable)$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "factualConsistency": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.FactualConsistencyScore.jsonschema.strict.json",
+          "description": "factual_consistency discloses a calibrated score or explicit non-score."
+        },
+        "prose": {
+          "description": "prose is empty only for abstained answers.",
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "status": {
+          "description": "status is the bounded answer outcome.",
+          "enum": [
+            "MEETING_ANSWER_STATUS_ANSWERED",
+            "MEETING_ANSWER_STATUS_PARTIAL",
+            "MEETING_ANSWER_STATUS_ABSTAINED"
+          ],
+          "title": "Meeting Answer Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "prose",
+        "factualConsistency"
+      ],
+      "title": "Meeting Answer",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.MeetingAnswerClaim.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "MeetingAnswerClaim is one bounded material assertion with timed support.",
+      "properties": {
+        "authorityClass": {
+          "description": "authority_class is always model proposal for Stage 07 claims.",
+          "enum": [
+            "AUTHORITY_CLASS_DIRECT_SOURCE",
+            "AUTHORITY_CLASS_MACHINE_OBSERVATION",
+            "AUTHORITY_CLASS_APPROVED_DECISION",
+            "AUTHORITY_CLASS_USER_DIRECTIVE",
+            "AUTHORITY_CLASS_USER_ASSERTION",
+            "AUTHORITY_CLASS_MODEL_PROPOSAL",
+            "AUTHORITY_CLASS_DERIVED_SUMMARY"
+          ],
+          "title": "Authority Class",
+          "type": "string"
+        },
+        "citations": {
+          "description": "citations are one to sixteen exact temporal anchors.",
+          "items": {
+            "$ref": "#/$defs/ouroboros.contracts.v1.MeetingTemporalCitation.jsonschema.strict.json"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array"
+        },
+        "claimId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "claim_id is an opaque claim identity within one answer."
+        },
+        "confidencePerMille": {
+          "description": "confidence_per_mille is a calibrated [0, 1000] confidence.",
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "statement": {
+          "description": "statement is the bounded material assertion text.",
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "claimId",
+        "statement",
+        "authorityClass",
+        "confidencePerMille"
+      ],
+      "title": "Meeting Answer Claim",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.MeetingTemporalCitation.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "MeetingTemporalCitation binds one claim to an exact authorized time range.",
+      "properties": {
+        "endMillis": {
+          "description": "end_millis is exclusive within the meeting timeline.",
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "evidence": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.EvidenceRef.jsonschema.strict.json",
+          "description": "evidence identifies the cited immutable evidence and source revision."
+        },
+        "startMillis": {
+          "description": "start_millis is inclusive within the meeting timeline.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "supportingTextDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "supporting_text_digest binds the hydrated supporting bytes without prose."
+        }
+      },
+      "required": [
+        "evidence",
+        "startMillis",
+        "endMillis",
+        "supportingTextDigest"
+      ],
+      "title": "Meeting Temporal Citation",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.MeetingAnswer.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.MeetingAnswer.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

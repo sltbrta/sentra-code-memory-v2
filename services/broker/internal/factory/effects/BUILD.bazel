@@ -1,0 +1,28 @@
+"""Current-policy Stage 05 effect broker."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "effects",
+    srcs = ["effects.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/broker/internal/factory/effects",
+    visibility = ["//services/broker:__subpackages__"],
+    deps = [
+        "//services/broker/internal/factory/changeset",
+        "//services/broker/internal/factory/gitcandidate",
+        "//services/internal/contracts",
+    ],
+)
+
+go_test(
+    name = "effects_test",
+    srcs = ["effects_test.go"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+    visibility = ["//tools/stage-05:__pkg__"],
+    deps = [
+        ":effects",
+        "//services/broker/internal/factory/changeset",
+        "//services/broker/internal/factory/gitcandidate",
+        "//services/internal/contracts",
+    ],
+)

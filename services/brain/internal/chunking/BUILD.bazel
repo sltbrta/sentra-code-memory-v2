@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+# Versioned chunking policy + evaluation receipts (issue #332).
+
+go_library(
+    name = "chunking",
+    srcs = [
+        "chunk.go",
+        "doc.go",
+        "policy.go",
+        "tokens.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/chunking",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "chunking_test",
+    srcs = ["chunk_test.go"],
+    embed = [":chunking"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

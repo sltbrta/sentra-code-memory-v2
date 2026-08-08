@@ -1,0 +1,45 @@
+"""Durable principal-scoped private conversation history on migration 004."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "conversation",
+    srcs = [
+        "doc.go",
+        "payload.go",
+        "store.go",
+        "types.go",
+        "vault.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/conversation",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "//services/brain/internal/artifactvault",
+        "//services/brain/internal/factualconsistency",
+        "//services/brain/internal/keyring",
+        "//services/brain/internal/query",
+        "//services/internal/contracts",
+        "@org_modernc_sqlite//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "conversation_test",
+    srcs = glob(["*_test.go"]),
+    embed = [":conversation"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    deps = [
+        "//services/brain/internal/artifactvault",
+        "//services/brain/internal/factualconsistency",
+        "//services/brain/internal/keyring",
+        "//services/brain/internal/localstate",
+        "//services/brain/internal/localstate/schema",
+        "//services/brain/internal/query",
+        "//services/internal/contracts",
+        "@org_modernc_sqlite//:go_default_library",
+    ],
+)

@@ -1,0 +1,51 @@
+"""Bazel targets for deterministic local-state SQLite migration tests."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+filegroup(
+    name = "stage02_migration",
+    srcs = [
+        "migrations/001_stage02_authority.sql",
+        "migrations/002_durable_storage_adapters.sql",
+        "migrations/003_stage03_ingestion.sql",
+        "migrations/004_stage04_conversation.sql",
+        "migrations/005_stage05_factory.sql",
+        "migrations/006_stage07_meetings.sql",
+        "migrations/007_stage11_multimodal.sql",
+    ],
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_library(
+    name = "schema",
+    srcs = ["migrations.go"],
+    embedsrcs = [
+        "migrations/001_stage02_authority.sql",
+        "migrations/002_durable_storage_adapters.sql",
+        "migrations/003_stage03_ingestion.sql",
+        "migrations/004_stage04_conversation.sql",
+        "migrations/005_stage05_factory.sql",
+        "migrations/006_stage07_meetings.sql",
+        "migrations/007_stage11_multimodal.sql",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/localstate/schema",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = ["//services/brain/internal/localstate"],
+)
+
+go_test(
+    name = "schema_test",
+    srcs = [
+        "migrations_test.go",
+        "schema_test.go",
+    ],
+    data = [":stage02_migration"],
+    embed = [":schema"],
+    deps = ["@org_modernc_sqlite//:go_default_library"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    visibility = ["//tools/stage-02:__pkg__"],
+)

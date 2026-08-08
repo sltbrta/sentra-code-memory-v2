@@ -1,0 +1,32 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.LineInterval.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "LineInterval is a half-open one-based line interval [start_line, end_line).",
+      "properties": {
+        "endLine": {
+          "description": "end_line is exclusive and must be \u003e= start_line.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "startLine": {
+          "description": "start_line is inclusive and one-based when non-zero.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "startLine",
+        "endLine"
+      ],
+      "title": "Line Interval",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.LineInterval.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.LineInterval.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

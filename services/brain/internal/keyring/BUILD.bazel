@@ -1,0 +1,30 @@
+"""Tenant-scoped encryption root resolvers."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "keyring",
+    srcs = [
+        "darwin_keychain.go",
+        "keyring.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/keyring",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = ["//services/internal/contracts"],
+)
+
+go_test(
+    name = "keyring_test",
+    srcs = [
+        "darwin_keychain_test.go",
+        "keyring_test.go",
+    ],
+    embed = [":keyring"],
+    deps = ["//services/internal/contracts"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+    visibility = ["//tools/stage-02:__pkg__"],
+)

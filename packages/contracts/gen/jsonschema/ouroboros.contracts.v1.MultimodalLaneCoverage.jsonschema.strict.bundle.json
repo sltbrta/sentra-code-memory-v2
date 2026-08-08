@@ -1,0 +1,55 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.MultimodalLaneCoverage.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "MultimodalLaneCoverage discloses one readiness lane without hiding failure.",
+      "properties": {
+        "coveragePerMille": {
+          "description": "coverage_per_mille is complete denominator coverage in [0, 1000].",
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lane": {
+          "description": "lane identifies the readiness lane.",
+          "enum": [
+            "MULTIMODAL_READINESS_LANE_ORIGINAL",
+            "MULTIMODAL_READINESS_LANE_TEXT",
+            "MULTIMODAL_READINESS_LANE_PAGE",
+            "MULTIMODAL_READINESS_LANE_REGION",
+            "MULTIMODAL_READINESS_LANE_TRANSCRIPT"
+          ],
+          "title": "Multimodal Readiness Lane",
+          "type": "string"
+        },
+        "required": {
+          "description": "required marks lanes that block complete readiness when absent or failed.",
+          "type": "boolean"
+        },
+        "state": {
+          "description": "state is the bounded lane lifecycle.",
+          "enum": [
+            "MULTIMODAL_LANE_STATE_PENDING",
+            "MULTIMODAL_LANE_STATE_READY",
+            "MULTIMODAL_LANE_STATE_FAILED",
+            "MULTIMODAL_LANE_STATE_ABSENT"
+          ],
+          "title": "Multimodal Lane State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lane",
+        "state",
+        "required",
+        "coveragePerMille"
+      ],
+      "title": "Multimodal Lane Coverage",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.MultimodalLaneCoverage.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.MultimodalLaneCoverage.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

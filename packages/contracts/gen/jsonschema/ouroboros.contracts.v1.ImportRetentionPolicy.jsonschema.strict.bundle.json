@@ -1,0 +1,39 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.ImportRetentionPolicy.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "ImportRetentionPolicy is the Stage 07 required retention selection. Every\n class must be chosen before import; missing retention fails closed at the\n boundary and never defaults raw media silently.",
+      "properties": {
+        "derivativeRetention": {
+          "description": "derivative_retention is the selected transcript/notes retention policy.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "rawMediaRetention": {
+          "description": "raw_media_retention is the selected raw-media retention policy.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "screenshotRetention": {
+          "description": "screenshot_retention is the selected screenshot retention policy.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "rawMediaRetention",
+        "screenshotRetention",
+        "derivativeRetention"
+      ],
+      "title": "Import Retention Policy",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.ImportRetentionPolicy.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.ImportRetentionPolicy.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

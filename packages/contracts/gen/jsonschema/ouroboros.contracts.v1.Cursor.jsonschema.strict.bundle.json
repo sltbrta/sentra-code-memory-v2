@@ -1,0 +1,30 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.Cursor.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Cursor pins an ordered replay or status position without exposing storage internals.",
+      "properties": {
+        "token": {
+          "description": "token is an opaque bounded continuation token.",
+          "maxLength": 512,
+          "type": "string"
+        },
+        "watermark": {
+          "description": "watermark is the inclusive canonical event watermark observed by the caller.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "watermark",
+        "token"
+      ],
+      "title": "Cursor",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.Cursor.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.Cursor.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -1,0 +1,8 @@
+# Light ontology predicate policy for product-brain memory cortex.
+# Multi-valued predicates may hold many objects without conflict attacks.
+version: ontology.predicate.v0
+multi_valued_predicates:
+  - tags
+  - aliases
+  - keywords
+  - related_to

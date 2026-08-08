@@ -1,0 +1,186 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.ByteInterval.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "ByteInterval is a half-open raw-byte interval [start_byte, end_byte).",
+      "properties": {
+        "endByte": {
+          "description": "end_byte is exclusive and must be \u003e= start_byte.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "startByte": {
+          "description": "start_byte is inclusive.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "startByte",
+        "endByte"
+      ],
+      "title": "Byte Interval",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.Digest.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Digest identifies immutable bytes using a named digest algorithm.",
+      "properties": {
+        "algorithm": {
+          "description": "algorithm identifies the canonical digest algorithm, for example sha256.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hex": {
+          "description": "hex is the lower-case encoded digest value.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[0-9a-f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "hex"
+      ],
+      "title": "Digest",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.LineInterval.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "LineInterval is a half-open one-based line interval [start_line, end_line).",
+      "properties": {
+        "endLine": {
+          "description": "end_line is exclusive and must be \u003e= start_line.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "startLine": {
+          "description": "start_line is inclusive and one-based when non-zero.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "startLine",
+        "endLine"
+      ],
+      "title": "Line Interval",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.TracerLogicalParityProjection.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "TracerLogicalParityProjection is the canonical comparison tuple for local vs\n Modal VERIFY_TRACER_EVIDENCE_SHARD_V1 receipts. Any difference is\n REMOTE_RECEIPT_MISMATCH. Realm, run/attempt/lease/fence IDs, times, host\n metrics, and cleanup receipts are intentionally excluded.",
+      "properties": {
+        "anchorDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "anchor_digest is the recomputed anchor digest."
+        },
+        "inputBundleDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "input_bundle_digest binds the full immutable input bundle."
+        },
+        "operationVersion": {
+          "description": "operation_version pins the deterministic operation implementation version.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "outputDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "output_digest binds the full logical output."
+        },
+        "resultCode": {
+          "description": "result_code is the deterministic shard result.",
+          "enum": [
+            "TRACER_SHARD_RESULT_CODE_OK",
+            "TRACER_SHARD_RESULT_CODE_BOUNDS_INVALID",
+            "TRACER_SHARD_RESULT_CODE_UTF8_INVALID",
+            "TRACER_SHARD_RESULT_CODE_DIGEST_MISMATCH",
+            "TRACER_SHARD_RESULT_CODE_SPAN_MISMATCH"
+          ],
+          "title": "Tracer Shard Result Code",
+          "type": "string"
+        },
+        "shardId": {
+          "description": "shard_id is the fixed shard identity.",
+          "enum": [
+            "tracer-001/evidence/0001"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "sourceArtifactDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "source_artifact_digest pins the validated source artifact."
+        },
+        "sourceByteLength": {
+          "description": "source_byte_length is the validated source byte count.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sourceRevision": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "source_revision is the source revision digest hex binding."
+        },
+        "spanByteInterval": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.ByteInterval.jsonschema.strict.json",
+          "description": "span_byte_interval is the validated supporting-span byte interval."
+        },
+        "spanDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "span_digest is the recomputed span digest."
+        },
+        "spanLineInterval": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.LineInterval.jsonschema.strict.json",
+          "description": "span_line_interval is the validated supporting-span line interval."
+        },
+        "tracerManifestDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "tracer_manifest_digest binds the projection to one TracerManifest."
+        },
+        "validatedFileCount": {
+          "description": "validated_file_count is the number of source files validated.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "validatedSpanCount": {
+          "description": "validated_span_count is the number of spans validated.",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "operationVersion",
+        "tracerManifestDigest",
+        "shardId",
+        "inputBundleDigest",
+        "sourceArtifactDigest",
+        "sourceRevision",
+        "sourceByteLength",
+        "spanByteInterval",
+        "spanLineInterval",
+        "spanDigest",
+        "anchorDigest",
+        "resultCode",
+        "validatedFileCount",
+        "validatedSpanCount",
+        "outputDigest"
+      ],
+      "title": "Tracer Logical Parity Projection",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.TracerLogicalParityProjection.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.TracerLogicalParityProjection.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -1,0 +1,37 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.SourcePolicy.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "SourcePolicy selects committed root-level ignore files for the preapproved root.\n Both files use the exclusion-only Stage 03 subset: blank/comment, exact\n repository-relative path, trailing-slash directory prefix, and per-segment\n '*'/'?'. Negation, '**', absolute/dot-segment, nested, and other forms reject.",
+      "properties": {
+        "symlinkPolicy": {
+          "description": "symlink_policy must be record-without-follow in bounded v1.",
+          "enum": [
+            "SYMLINK_POLICY_RECORD_WITHOUT_FOLLOW"
+          ],
+          "title": "Symlink Policy",
+          "type": "string"
+        },
+        "useGitignore": {
+          "description": "use_gitignore applies committed Git ignore rules.",
+          "type": "boolean"
+        },
+        "useOuroborosignore": {
+          "description": "use_ouroborosignore applies committed Ouroboros ignore rules.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "useGitignore",
+        "useOuroborosignore",
+        "symlinkPolicy"
+      ],
+      "title": "Source Policy",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.SourcePolicy.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.SourcePolicy.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

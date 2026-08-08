@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "tenant",
+    srcs = [
+        "doc.go",
+        "registry.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/tenant",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "tenant_test",
+    srcs = [
+        "ask_isolation_test.go",
+        "registry_test.go",
+    ],
+    deps = [
+        ":tenant",
+        "//services/brain/internal/hosted",
+    ],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

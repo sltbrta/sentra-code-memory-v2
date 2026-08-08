@@ -1,0 +1,224 @@
+{
+  "$defs": {
+    "google.protobuf.Timestamp.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    },
+    "ouroboros.contracts.v1.AuthenticatedPrincipalRef.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "AuthenticatedPrincipalRef is an identity assertion emitted by a trusted boundary.",
+      "properties": {
+        "principalId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "principal_id is never accepted as caller identity from an untrusted body."
+        },
+        "sessionId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "session_id identifies the authenticated session when a session exists."
+        },
+        "tenantId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "tenant_id is the authenticated tenant context."
+        }
+      },
+      "required": [
+        "principalId",
+        "tenantId"
+      ],
+      "title": "Authenticated Principal Ref",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.Identifier.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Identifier is an opaque, stable identifier within a declared namespace.",
+      "properties": {
+        "namespace": {
+          "description": "namespace prevents an identifier string from crossing a domain boundary.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "description": "value is opaque to consumers and must be non-empty after boundary validation.",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "value"
+      ],
+      "title": "Identifier",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.ImportRetentionPolicy.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "ImportRetentionPolicy is the Stage 07 required retention selection. Every\n class must be chosen before import; missing retention fails closed at the\n boundary and never defaults raw media silently.",
+      "properties": {
+        "derivativeRetention": {
+          "description": "derivative_retention is the selected transcript/notes retention policy.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "rawMediaRetention": {
+          "description": "raw_media_retention is the selected raw-media retention policy.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "screenshotRetention": {
+          "description": "screenshot_retention is the selected screenshot retention policy.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "rawMediaRetention",
+        "screenshotRetention",
+        "derivativeRetention"
+      ],
+      "title": "Import Retention Policy",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.ImportTranscriptRequest.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "ImportTranscriptRequest admits one timestamped fixture transcript.",
+      "properties": {
+        "caller": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.UntrustedMeetingCaller.jsonschema.strict.json",
+          "description": "caller is untrusted payload identity to cross-check against authenticated context."
+        },
+        "endedAt": {
+          "$ref": "#/$defs/google.protobuf.Timestamp.jsonschema.strict.json",
+          "description": "ended_at is the visible meeting end."
+        },
+        "idempotencyKey": {
+          "description": "idempotency_key distinguishes exact retries from conflicts.",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "partial": {
+          "description": "partial marks an intentionally incomplete import with usable segments.",
+          "type": "boolean"
+        },
+        "participantNotifyAcknowledged": {
+          "description": "participant_notify_acknowledged records the notify-participants reminder.",
+          "type": "boolean"
+        },
+        "retention": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.ImportRetentionPolicy.jsonschema.strict.json",
+          "description": "retention is the required pre-import retention selection."
+        },
+        "segments": {
+          "description": "segments is the ordered timestamped transcript body; empty is partial only when marked.",
+          "items": {
+            "$ref": "#/$defs/ouroboros.contracts.v1.TranscriptSegmentInput.jsonschema.strict.json"
+          },
+          "maxItems": 500,
+          "minItems": 1,
+          "type": "array"
+        },
+        "sourceScope": {
+          "description": "source_scope is the explicit authorized import scope (fixture or grant label).",
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._-]{0,127}$",
+          "type": "string"
+        },
+        "startedAt": {
+          "$ref": "#/$defs/google.protobuf.Timestamp.jsonschema.strict.json",
+          "description": "started_at is the visible meeting start."
+        },
+        "title": {
+          "description": "title is the bounded meeting title metadata.",
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "caller",
+        "title",
+        "sourceScope",
+        "startedAt",
+        "endedAt",
+        "retention",
+        "participantNotifyAcknowledged",
+        "partial",
+        "idempotencyKey"
+      ],
+      "title": "Import Transcript Request",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.TranscriptSegmentInput.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "TranscriptSegmentInput is one client-supplied time-bounded transcript span.",
+      "properties": {
+        "endMillis": {
+          "description": "end_millis is exclusive within the meeting timeline.",
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "speakerLabel": {
+          "description": "speaker_label is an anonymous cluster label when present; it never asserts identity.",
+          "maxLength": 64,
+          "type": "string"
+        },
+        "startMillis": {
+          "description": "start_millis is inclusive within the meeting timeline.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "text": {
+          "description": "text is the bounded transcript prose for the span.",
+          "maxLength": 8192,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "startMillis",
+        "endMillis",
+        "text",
+        "speakerLabel"
+      ],
+      "title": "Transcript Segment Input",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.UntrustedMeetingCaller.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "UntrustedMeetingCaller carries body identity only for authenticated-context checks.",
+      "properties": {
+        "requestedPrincipal": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.AuthenticatedPrincipalRef.jsonschema.strict.json",
+          "description": "requested_principal must match the authenticated peer principal and tenant."
+        },
+        "requestedSession": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "requested_session must match the authenticated gateway session."
+        }
+      },
+      "required": [
+        "requestedPrincipal",
+        "requestedSession"
+      ],
+      "title": "Untrusted Meeting Caller",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.ImportTranscriptRequest.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.ImportTranscriptRequest.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

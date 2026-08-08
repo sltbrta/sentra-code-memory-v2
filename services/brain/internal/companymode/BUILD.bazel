@@ -1,0 +1,36 @@
+"""Bounded Stage 10 company profile: two principals, isolation, load smoke."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "companymode",
+    srcs = [
+        "admission.go",
+        "backup.go",
+        "doc.go",
+        "drill.go",
+        "load.go",
+        "policy.go",
+        "ports.go",
+        "postgres_fake.go",
+        "runtime.go",
+        "s3_fake.go",
+        "sync.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/companymode",
+    visibility = ["//services:__subpackages__"],
+)
+
+go_test(
+    name = "companymode_test",
+    srcs = [
+        "companymode_test.go",
+        "drill_test.go",
+    ],
+    embed = [":companymode"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

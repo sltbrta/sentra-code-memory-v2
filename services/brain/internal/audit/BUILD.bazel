@@ -1,0 +1,18 @@
+"""Tamper-evident Stage 02 audit-chain targets."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "audit",
+    srcs = ["chain.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/audit",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "audit_test",
+    srcs = ["chain_test.go"],
+    embed = [":audit"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+    visibility = ["//tools/stage-02:__pkg__"],
+)

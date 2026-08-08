@@ -1,0 +1,482 @@
+// Bounded local ingestion and code-search contracts for the Stage 03 TUI.
+// The authenticated gateway supplies caller identity; request identity is an
+// untrusted cross-check, and implementations only ingest committed Git trees.
+syntax = "proto3";
+
+package ouroboros.contracts.v1;
+
+import "buf/validate/validate.proto";
+import "ouroboros/contracts/v1/common.proto";
+import "ouroboros/contracts/v1/evidence.proto";
+import "ouroboros/contracts/v1/local_authority.proto";
+
+// IngestionService provides the five one-shot commands used by the thin TUI.
+service IngestionService {
+  // AddSource admits the configured approved root at one committed Git revision.
+  rpc AddSource(AddSourceRequest) returns (AddSourceResponse);
+  // GetSourceStatus reads bounded generation and readiness metadata.
+  rpc GetSourceStatus(GetSourceStatusRequest) returns (GetSourceStatusResponse);
+  // SearchCode searches one immutable complete generation.
+  rpc SearchCode(SearchCodeRequest) returns (SearchCodeResponse);
+  // ReconcileSource advances from one exact committed revision to another.
+  rpc ReconcileSource(ReconcileSourceRequest) returns (ReconcileSourceResponse);
+  // RevokeSource denies reads immediately and requests durable tombstoning.
+  rpc RevokeSource(RevokeSourceRequest) returns (RevokeSourceResponse);
+}
+
+// SymlinkPolicy defines handling inside the configured approved root.
+enum SymlinkPolicy {
+  // SYMLINK_POLICY_UNSPECIFIED is invalid at admission.
+  SYMLINK_POLICY_UNSPECIFIED = 0;
+  // SYMLINK_POLICY_RECORD_WITHOUT_FOLLOW records links but never follows them.
+  SYMLINK_POLICY_RECORD_WITHOUT_FOLLOW = 1;
+}
+
+// SourceState is the bounded lifecycle exposed to status consumers.
+enum SourceState {
+  // SOURCE_STATE_UNSPECIFIED is invalid for a known source.
+  SOURCE_STATE_UNSPECIFIED = 0;
+  // SOURCE_STATE_ADMITTED has canonical revision metadata.
+  SOURCE_STATE_ADMITTED = 1;
+  // SOURCE_STATE_READY has a complete searchable generation.
+  SOURCE_STATE_READY = 2;
+  // SOURCE_STATE_RECONCILING is building a later immutable generation.
+  SOURCE_STATE_RECONCILING = 3;
+  // SOURCE_STATE_REVOKED denies hydration and publication.
+  SOURCE_STATE_REVOKED = 4;
+}
+
+// GenerationState identifies whether one immutable generation can serve search.
+enum GenerationState {
+  // GENERATION_STATE_UNSPECIFIED is invalid for a known generation.
+  GENERATION_STATE_UNSPECIFIED = 0;
+  // GENERATION_STATE_BUILDING cannot serve queries.
+  GENERATION_STATE_BUILDING = 1;
+  // GENERATION_STATE_READY has complete exact and declared P5 coverage.
+  GENERATION_STATE_READY = 2;
+  // GENERATION_STATE_DEGRADED is complete with explicitly reduced coverage.
+  GENERATION_STATE_DEGRADED = 3;
+}
+
+// CodeLanguage is the complete bounded Stage 03 language set.
+enum CodeLanguage {
+  // CODE_LANGUAGE_UNSPECIFIED is invalid for an occurrence or readiness record.
+  CODE_LANGUAGE_UNSPECIFIED = 0;
+  // CODE_LANGUAGE_GO identifies Go source.
+  CODE_LANGUAGE_GO = 1;
+  // CODE_LANGUAGE_TYPESCRIPT identifies TypeScript source.
+  CODE_LANGUAGE_TYPESCRIPT = 2;
+  // CODE_LANGUAGE_PYTHON identifies Python source.
+  CODE_LANGUAGE_PYTHON = 3;
+  // CODE_LANGUAGE_RUST identifies Rust source.
+  CODE_LANGUAGE_RUST = 4;
+  // CODE_LANGUAGE_JAVA identifies Java source.
+  CODE_LANGUAGE_JAVA = 5;
+}
+
+// CoverageState reports bounded parser coverage, never compiler semantics.
+enum CoverageState {
+  // COVERAGE_STATE_UNSPECIFIED is invalid for completed readiness.
+  COVERAGE_STATE_UNSPECIFIED = 0;
+  // COVERAGE_STATE_PENDING has not published the language lane.
+  COVERAGE_STATE_PENDING = 1;
+  // COVERAGE_STATE_SYNTAX_AWARE uses the declared bounded parser.
+  COVERAGE_STATE_SYNTAX_AWARE = 2;
+  // COVERAGE_STATE_LEXICAL_DEGRADED preserves tokens after malformed input.
+  COVERAGE_STATE_LEXICAL_DEGRADED = 3;
+}
+
+// SearchKind selects one bounded search behavior.
+enum SearchKind {
+  // SEARCH_KIND_UNSPECIFIED is invalid at the boundary.
+  SEARCH_KIND_UNSPECIFIED = 0;
+  // SEARCH_KIND_EXACT finds exact lexical occurrences.
+  SEARCH_KIND_EXACT = 1;
+  // SEARCH_KIND_SYMBOL finds bounded syntax-aware declarations.
+  SEARCH_KIND_SYMBOL = 2;
+  // SEARCH_KIND_REFERENCE finds bounded syntax-aware references.
+  SEARCH_KIND_REFERENCE = 3;
+}
+
+// UntrustedIngestionCaller carries body identity only for authenticated-context checks.
+message UntrustedIngestionCaller {
+  // requested_principal must match the authenticated peer principal and tenant.
+  AuthenticatedPrincipalRef requested_principal = 1 [(buf.validate.field).required = true];
+  // requested_session must match the authenticated gateway session.
+  Identifier requested_session = 2 [(buf.validate.field).required = true];
+}
+
+// SourceReference is server-authored and never exposes an absolute filesystem path.
+message SourceReference {
+  // source_id is the opaque canonical source identity.
+  Identifier source_id = 1 [(buf.validate.field).required = true];
+  // Field 2 was removed before Stage 03 shipped; approved-root identity is internal.
+  reserved 2;
+  // repository_id is the server-authored opaque repository scope.
+  Identifier repository_id = 3 [(buf.validate.field).required = true];
+  // brain_id prevents same-tenant cross-brain projection reuse.
+  Identifier brain_id = 4 [(buf.validate.field).required = true];
+  // tenant_id prevents cross-tenant source reuse.
+  Identifier tenant_id = 5 [(buf.validate.field).required = true];
+}
+
+// SourcePolicy selects committed root-level ignore files for the preapproved root.
+// Both files use the exclusion-only Stage 03 subset: blank/comment, exact
+// repository-relative path, trailing-slash directory prefix, and per-segment
+// '*'/'?'. Negation, '**', absolute/dot-segment, nested, and other forms reject.
+message SourcePolicy {
+  // use_gitignore applies committed Git ignore rules.
+  bool use_gitignore = 1;
+  // use_ouroborosignore applies committed Ouroboros ignore rules.
+  bool use_ouroborosignore = 2;
+  // symlink_policy must be record-without-follow in bounded v1.
+  SymlinkPolicy symlink_policy = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+// GitSnapshot is server-authored canonical metadata for one committed tree.
+message GitSnapshot {
+  // snapshot_id names the immutable snapshot fact.
+  Identifier snapshot_id = 1 [(buf.validate.field).required = true];
+  // commit_oid is the resolved local committed Git object ID.
+  string commit_oid = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^[0-9a-f]{40}([0-9a-f]{24})?$"
+  ];
+  // tree_oid is the exact root tree resolved from commit_oid.
+  string tree_oid = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^[0-9a-f]{40}([0-9a-f]{24})?$"
+  ];
+  // policy_digest is authored after normalizing ignore and symlink policy.
+  Digest policy_digest = 4 [(buf.validate.field).required = true];
+}
+
+// LanguageReadiness reports one P5 lane's syntax-aware or degraded state.
+message LanguageReadiness {
+  // language identifies exactly one P5 language.
+  CodeLanguage language = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // coverage distinguishes bounded syntax awareness from lexical degradation.
+  CoverageState coverage = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // reason_code is a stable non-sensitive explanation for degraded coverage.
+  string reason_code = 3 [(buf.validate.field).string.max_len = 128];
+}
+
+// IngestionGeneration identifies one immutable source projection generation.
+message IngestionGeneration {
+  option (buf.validate.message).cel = {
+    id: "ingestion_generation.p5_languages"
+    message: "language readiness must contain each P5 language exactly once"
+    expression: "this.language_readiness.exists(r, r.language == 1) && this.language_readiness.exists(r, r.language == 2) && this.language_readiness.exists(r, r.language == 3) && this.language_readiness.exists(r, r.language == 4) && this.language_readiness.exists(r, r.language == 5)"
+  };
+  // generation_id is the opaque immutable generation identity.
+  Identifier generation_id = 1 [(buf.validate.field).required = true];
+  // sequence is monotonic within the source.
+  uint64 sequence = 2 [(buf.validate.field).uint64.gt = 0];
+  // snapshot pins the exact committed Git inputs.
+  GitSnapshot snapshot = 3 [(buf.validate.field).required = true];
+  // state distinguishes unservable, ready, and degraded generations.
+  GenerationState state = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [
+      0,
+      1
+    ]
+  }];
+  // language_readiness contains exactly one record for each P5 language.
+  repeated LanguageReadiness language_readiness = 5 [(buf.validate.field).repeated = {
+    min_items: 5
+    max_items: 5
+  }];
+  // source_watermark is the complete canonical source position observed.
+  uint64 source_watermark = 6;
+}
+
+// CodeOccurrence reuses canonical evidence revision and code-anchor types.
+message CodeOccurrence {
+  option (buf.validate.message).cel = {
+    id: "code_occurrence.complete_revision"
+    message: "source revision must contain complete Stage 03 metadata"
+    expression: "has(this.source_revision.source_revision_id) && has(this.source_revision.source_object_id) && this.source_revision.media_type != '' && this.source_revision.media_type.size() <= 255 && has(this.source_revision.observed_at) && this.source_revision.deletion_state == 1"
+  };
+  option (buf.validate.message).cel = {
+    id: "code_occurrence.git_revision"
+    message: "source revision must name an exact Git blob"
+    expression: "this.source_revision.upstream_revision.matches('^[0-9a-f]{40}([0-9a-f]{24})?$')"
+  };
+  option (buf.validate.message).cel = {
+    id: "code_occurrence.sha256_digests"
+    message: "source and provenance digests must be canonical SHA-256"
+    expression: "has(this.source_revision.content_digest) && this.source_revision.content_digest.algorithm == 'sha256' && this.source_revision.content_digest.hex.matches('^[0-9a-f]{64}$') && has(this.source_revision.provenance_digest) && this.source_revision.provenance_digest.algorithm == 'sha256' && this.source_revision.provenance_digest.hex.matches('^[0-9a-f]{64}$')"
+  };
+  option (buf.validate.message).cel = {
+    id: "code_occurrence.exact_anchor"
+    message: "code anchor must name an exact Git object and repository-relative range"
+    expression: "this.anchor.git_oid.matches('^[0-9a-f]{40}([0-9a-f]{24})?$') && has(this.anchor.range) && this.anchor.range.path.size() <= 4096 && this.anchor.range.path.matches('^[^/\\\\\\x00-\\x1f\\x7f](?:[^\\\\\\x00-\\x1f\\x7f]*[^/\\\\\\x00-\\x1f\\x7f])?$') && this.anchor.range.path.split('/').all(segment, segment != '' && segment != '.' && segment != '..')"
+  };
+  option (buf.validate.message).cel = {
+    id: "code_occurrence.forward_range"
+    message: "code range must use positive coordinates and move forward"
+    expression: "this.anchor.range.start_line > 0 && this.anchor.range.start_column > 0 && this.anchor.range.end_line > 0 && this.anchor.range.end_column > 0 && (this.anchor.range.start_line < this.anchor.range.end_line || (this.anchor.range.start_line == this.anchor.range.end_line && this.anchor.range.start_column < this.anchor.range.end_column))"
+  };
+  // source_revision pins the exact admitted source revision.
+  SourceRevision source_revision = 1 [(buf.validate.field).required = true];
+  // anchor carries the immutable Git OID and repository-relative line/column range.
+  EvidenceAnchor.CodeAnchor anchor = 2 [(buf.validate.field).required = true];
+  // language identifies the bounded parser lane.
+  CodeLanguage language = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // symbol is the bounded source spelling; exact matches may leave it empty.
+  string symbol = 4 [(buf.validate.field).string.max_len = 512];
+  // coverage states whether this result is syntax-aware or lexically degraded.
+  CoverageState coverage = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+// AddSourceRequest admits exactly the configured root, never an arbitrary path.
+message AddSourceRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedIngestionCaller caller = 1 [(buf.validate.field).required = true];
+  // Field 2 was removed before Stage 03 shipped; the sole bootstrap root is implicit.
+  reserved 2;
+  // expected_commit_oid is resolved locally to its canonical tree by the server.
+  string expected_commit_oid = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^[0-9a-f]{40}([0-9a-f]{24})?$"
+  ];
+  // policy supplies bounded ignore and no-follow inputs; the server authors its digest.
+  SourcePolicy policy = 4 [(buf.validate.field).required = true];
+  // expected_configuration_digest pins the owner-protected bootstrap configuration.
+  Digest expected_configuration_digest = 5 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// AddSourceSuccess contains only server-authored admitted-source facts.
+message AddSourceSuccess {
+  // source is the authorized opaque source reference.
+  SourceReference source = 1 [(buf.validate.field).required = true];
+  // generation is the admitted or reused immutable generation.
+  IngestionGeneration generation = 2 [(buf.validate.field).required = true];
+}
+
+// AddSourceResponse returns exactly one success or static error outcome.
+message AddSourceResponse {
+  option (buf.validate.message).cel = {
+    id: "add_source_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authoritative admission decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents canonical success facts and an error from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains admitted-source facts after authorization.
+    AddSourceSuccess success = 2;
+    // error is a static presentation-safe rejection.
+    PublicError error = 3;
+  }
+}
+
+// GetSourceStatusRequest reads one opaque source identity.
+message GetSourceStatusRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedIngestionCaller caller = 1 [(buf.validate.field).required = true];
+  // source_id is resolved under authenticated tenant and brain scope.
+  Identifier source_id = 2 [(buf.validate.field).required = true];
+}
+
+// GetSourceStatusSuccess contains authorized, non-sensitive source metadata.
+message GetSourceStatusSuccess {
+  // source is the authorized opaque source reference.
+  SourceReference source = 1 [(buf.validate.field).required = true];
+  // state is a present, defined, non-revoked source state.
+  SourceState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [
+      0,
+      4
+    ]
+  }];
+  // current_generation is the complete authorized generation when available.
+  IngestionGeneration current_generation = 3;
+}
+
+// GetSourceStatusResponse exposes exactly one authorized success or static error.
+// Absent and revoked reads use the same non-disclosing error shape and reason code.
+message GetSourceStatusResponse {
+  option (buf.validate.message).cel = {
+    id: "get_source_status_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the read decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome makes known status and non-disclosing denial mutually exclusive.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains authorized source metadata.
+    GetSourceStatusSuccess success = 2;
+    // error uses the same static model for absent, denied, and revoked reads.
+    PublicError error = 3;
+  }
+}
+
+// SearchCodeRequest searches one immutable generation with bounded pagination.
+message SearchCodeRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedIngestionCaller caller = 1 [(buf.validate.field).required = true];
+  // source_id is resolved under authenticated tenant and brain scope.
+  Identifier source_id = 2 [(buf.validate.field).required = true];
+  // generation_id prevents search across a moving generation pointer.
+  Identifier generation_id = 3 [(buf.validate.field).required = true];
+  // query is the bounded exact source spelling to find.
+  string query = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+  // kind selects exact, declaration, or reference search.
+  SearchKind kind = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // page_size is bounded before projection work or allocation.
+  uint32 page_size = 6 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 100
+  ];
+  // after is an opaque continuation within the same immutable generation.
+  Cursor after = 7;
+}
+
+// SearchCodeSuccess contains one authorized immutable result page.
+message SearchCodeSuccess {
+  // generation is present only for an authorized complete generation.
+  IngestionGeneration generation = 1 [(buf.validate.field).required = true];
+  // occurrences are bounded to one validated result page.
+  repeated CodeOccurrence occurrences = 2 [(buf.validate.field).repeated.max_items = 100];
+  // next_cursor continues within the same immutable generation.
+  Cursor next_cursor = 3;
+}
+
+// SearchCodeResponse returns exactly one immutable page or non-disclosing denial.
+message SearchCodeResponse {
+  option (buf.validate.message).cel = {
+    id: "search_code_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the authorized search or static denial.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents result hydration and denial from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains an authorized immutable result page.
+    SearchCodeSuccess success = 2;
+    // error uses the same static model for absent, denied, and revoked reads.
+    PublicError error = 3;
+  }
+}
+
+// ReconcileSourceRequest advances only between exact local committed revisions.
+message ReconcileSourceRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedIngestionCaller caller = 1 [(buf.validate.field).required = true];
+  // source_id is resolved under authenticated tenant and brain scope.
+  Identifier source_id = 2 [(buf.validate.field).required = true];
+  // expected_generation_id prevents replacement of a newer generation.
+  Identifier expected_generation_id = 3 [(buf.validate.field).required = true];
+  // expected_commit_oid prevents reconciliation from a stale committed revision.
+  string expected_commit_oid = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^[0-9a-f]{40}([0-9a-f]{24})?$"
+  ];
+  // target_commit_oid is resolved locally to a server-authored snapshot.
+  string target_commit_oid = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^[0-9a-f]{40}([0-9a-f]{24})?$"
+  ];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// ReconcileSourceSuccess contains the server-authored target generation.
+message ReconcileSourceSuccess {
+  // generation is present after successful admission or exact retry reuse.
+  IngestionGeneration generation = 1 [(buf.validate.field).required = true];
+}
+
+// ReconcileSourceResponse returns exactly one generation or static error outcome.
+message ReconcileSourceResponse {
+  option (buf.validate.message).cel = {
+    id: "reconcile_source_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records the reconcile admission decision.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents a generation and rejection from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success contains the new complete generation.
+    ReconcileSourceSuccess success = 2;
+    // error is a static presentation-safe rejection.
+    PublicError error = 3;
+  }
+}
+
+// RevokeSourceRequest applies current deny before projection cleanup.
+message RevokeSourceRequest {
+  // caller is untrusted payload identity to cross-check against authenticated context.
+  UntrustedIngestionCaller caller = 1 [(buf.validate.field).required = true];
+  // source_id is resolved under authenticated tenant and brain scope.
+  Identifier source_id = 2 [(buf.validate.field).required = true];
+  // expected_generation_id prevents revoking an unintended current generation.
+  Identifier expected_generation_id = 3 [(buf.validate.field).required = true];
+  // idempotency_key distinguishes exact retries from conflicts.
+  string idempotency_key = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+// RevokeSourceSuccess is present only after the deny transition commits.
+message RevokeSourceSuccess {}
+
+// RevokeSourceResponse returns exactly one committed success or static error.
+message RevokeSourceResponse {
+  option (buf.validate.message).cel = {
+    id: "revoke_source_response.outcome_receipt"
+    message: "success and denial outcomes must use consistent non-disclosing receipts"
+    expression: "has(this.success) ? this.receipt.status == 4 : (this.error.code == 'not_found_or_denied' && !has(this.error.render) && this.receipt.status == 2 && this.receipt.reason_code == this.error.code && this.receipt.evidence.size() == 0)"
+  };
+  // receipt records deny-overlay and tombstone admission.
+  Receipt receipt = 1 [(buf.validate.field).required = true];
+  // outcome prevents a committed revoke and rejection from coexisting.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+    // success proves the deny transition committed.
+    RevokeSourceSuccess success = 2;
+    // error is a static presentation-safe rejection.
+    PublicError error = 3;
+  }
+}

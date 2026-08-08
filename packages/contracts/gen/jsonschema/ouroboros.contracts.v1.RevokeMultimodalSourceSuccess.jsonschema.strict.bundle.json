@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "ouroboros.contracts.v1.Identifier.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Identifier is an opaque, stable identifier within a declared namespace.",
+      "properties": {
+        "namespace": {
+          "description": "namespace prevents an identifier string from crossing a domain boundary.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "description": "value is opaque to consumers and must be non-empty after boundary validation.",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "value"
+      ],
+      "title": "Identifier",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.RevokeMultimodalSourceSuccess.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "RevokeMultimodalSourceSuccess confirms the terminal revoked lifecycle state.",
+      "properties": {
+        "deletionState": {
+          "description": "deletion_state is at least tombstoned after revoke.",
+          "enum": [
+            "DELETION_STATE_TOMBSTONED",
+            "DELETION_STATE_PURGED"
+          ],
+          "title": "Deletion State",
+          "type": "string"
+        },
+        "sourceId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "source_id echoes the revoked source identity."
+        },
+        "state": {
+          "description": "state is always the terminal revoked state.",
+          "enum": [
+            "MULTIMODAL_SOURCE_STATE_ADMITTED",
+            "MULTIMODAL_SOURCE_STATE_EXTRACTING",
+            "MULTIMODAL_SOURCE_STATE_PARTIAL_READY",
+            "MULTIMODAL_SOURCE_STATE_READY",
+            "MULTIMODAL_SOURCE_STATE_FAILED",
+            "MULTIMODAL_SOURCE_STATE_QUARANTINED",
+            "MULTIMODAL_SOURCE_STATE_REVOKED",
+            "MULTIMODAL_SOURCE_STATE_PURGED"
+          ],
+          "title": "Multimodal Source State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceId",
+        "state",
+        "deletionState"
+      ],
+      "title": "Revoke Multimodal Source Success",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.RevokeMultimodalSourceSuccess.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.RevokeMultimodalSourceSuccess.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -1,0 +1,72 @@
+{
+  "schema_version": "ouroboros.factual_consistency.calibration_dataset.v1",
+  "dataset_id": "fc-synthetic-nonofficial-v1",
+  "provenance": {
+    "origin": "repository-authored synthetic claim/support perturbations",
+    "created_utc": "2026-08-05",
+    "official_benchmark": false,
+    "customer_data": false,
+    "live_gold": false,
+    "scorer_id": "bounded_lexical_support",
+    "scorer_version": "v2",
+    "split_policy": "fit-* rows select bins and threshold; holdout-* rows are report-only and are never read by fitting",
+    "label_policy": "grounded means the synthetic support entails the material claim; false rows use value, polarity, entity, or unsupported-tail perturbations"
+  },
+  "fit_loss": {
+    "false_grounded_cost": 3,
+    "false_abstention_cost": 1
+  },
+  "bin_maxima": [399, 599, 799, 1000],
+  "cases": [
+    {"id":"fit-001","split":"fit","statement":"Aster launches Tuesday","supports":["Boreal opens Wednesday"],"grounded":false,"perturbation":"entity_swap"},
+    {"id":"fit-002","split":"fit","statement":"Cedar permits remote work","supports":["Cedar prohibits office access"],"grounded":false,"perturbation":"polarity_flip"},
+    {"id":"fit-003","split":"fit","statement":"Delta budget is twelve","supports":["Delta forecast equals nine"],"grounded":false,"perturbation":"value_swap"},
+    {"id":"fit-004","split":"fit","statement":"Elm opened Monday worldwide","supports":["Elm launched Tuesday locally"],"grounded":false,"perturbation":"unsupported_tail"},
+    {"id":"fit-005","split":"fit","statement":"Fjord closes eastern depot","supports":["Grove expands western office"],"grounded":false,"perturbation":"entity_swap"},
+
+    {"id":"fit-006","split":"fit","statement":"Harbor ships seven crates","supports":["Harbor ships nine boxes"],"grounded":false,"perturbation":"value_swap"},
+    {"id":"fit-007","split":"fit","statement":"Ion enables public access","supports":["Ion disables public entry"],"grounded":false,"perturbation":"polarity_flip"},
+    {"id":"fit-008","split":"fit","statement":"Jade opens doors Monday","supports":["Jade begins operations Monday"],"grounded":true,"perturbation":"distant_paraphrase"},
+    {"id":"fit-009","split":"fit","statement":"Kite employs eight analysts","supports":["Kite employs six researchers"],"grounded":false,"perturbation":"value_swap"},
+    {"id":"fit-010","split":"fit","statement":"Lumen ends service Friday","supports":["Lumen concludes operations Friday"],"grounded":true,"perturbation":"distant_paraphrase"},
+    {"id":"fit-011","split":"fit","statement":"Mica covers northern region","supports":["Mica covers southern district"],"grounded":false,"perturbation":"unsupported_tail"},
+
+    {"id":"fit-012","split":"fit","statement":"Noble starts trials Thursday","supports":["Noble begins trials Thursday"],"grounded":true,"perturbation":"paraphrase"},
+    {"id":"fit-013","split":"fit","statement":"Opal purchased three servers","supports":["Opal acquired three servers"],"grounded":true,"perturbation":"paraphrase"},
+    {"id":"fit-014","split":"fit","statement":"Pine reduced fees yesterday","supports":["Pine lowered fees yesterday"],"grounded":true,"perturbation":"paraphrase"},
+    {"id":"fit-015","split":"fit","statement":"Quartz serves coastal schools","supports":["Quartz serves coastal hospitals"],"grounded":false,"perturbation":"unsupported_tail"},
+    {"id":"fit-016","split":"fit","statement":"Reed selected blue uniforms","supports":["Reed chose blue uniforms"],"grounded":true,"perturbation":"paraphrase"},
+    {"id":"fit-017","split":"fit","statement":"Solace entered western markets","supports":["Solace joined western markets"],"grounded":true,"perturbation":"paraphrase"},
+    {"id":"fit-018","split":"fit","statement":"Talon restored nightly backups","supports":["Talon resumed nightly backups"],"grounded":true,"perturbation":"paraphrase"},
+
+    {"id":"fit-019","split":"fit","statement":"Umber opens offices today","supports":["Umber opens offices today"],"grounded":true,"perturbation":"exact"},
+    {"id":"fit-020","split":"fit","statement":"Vale hired four designers","supports":["Vale hired four designers"],"grounded":true,"perturbation":"exact"},
+    {"id":"fit-021","split":"fit","statement":"Willow renewed annual licenses","supports":["Willow renewed annual licenses"],"grounded":true,"perturbation":"exact"},
+    {"id":"fit-022","split":"fit","statement":"Xenon reports eleven active projects","supports":["Xenon reports nine active projects"],"grounded":false,"perturbation":"value_swap"},
+    {"id":"fit-023","split":"fit","statement":"Yarrow publishes results tomorrow","supports":["Yarrow publishes results tomorrow"],"grounded":true,"perturbation":"exact"},
+    {"id":"fit-024","split":"fit","statement":"Zephyr retained local ownership","supports":["Zephyr retained local ownership"],"grounded":true,"perturbation":"exact"},
+    {"id":"fit-025","split":"fit","statement":"Amber completed safety reviews","supports":["Amber completed safety reviews"],"grounded":true,"perturbation":"exact"},
+    {"id":"fit-026","split":"fit","statement":"Birch funds rural clinics","supports":["Birch funds rural clinics"],"grounded":true,"perturbation":"exact"},
+    {"id":"fit-027","split":"fit","statement":"Cobalt launched mobile service","supports":["Cobalt launched mobile service"],"grounded":true,"perturbation":"exact"},
+    {"id":"fit-028","split":"fit","statement":"Dawn approved revised policy","supports":["Dawn approved revised policy"],"grounded":true,"perturbation":"exact"},
+    {"id":"fit-029","split":"fit","statement":"Ember supports weekend delivery","supports":["Ember supports weekend delivery"],"grounded":true,"perturbation":"exact"},
+    {"id":"fit-030","split":"fit","statement":"Flint maintains daily archives","supports":["Flint maintains daily archives"],"grounded":true,"perturbation":"exact"},
+
+    {"id":"holdout-001","split":"holdout","statement":"Glade launches Sunday","supports":["Haven closes Wednesday"],"grounded":false,"perturbation":"entity_swap"},
+    {"id":"holdout-002","split":"holdout","statement":"Indigo allows guest access","supports":["Indigo blocks staff entry"],"grounded":false,"perturbation":"polarity_flip"},
+    {"id":"holdout-003","split":"holdout","statement":"Juniper budget totals twenty","supports":["Juniper forecast equals five"],"grounded":false,"perturbation":"value_swap"},
+    {"id":"holdout-004","split":"holdout","statement":"Kernel expanded Monday overseas","supports":["Kernel contracted Friday locally"],"grounded":false,"perturbation":"unsupported_tail"},
+    {"id":"holdout-005","split":"holdout","statement":"Lotus ships eight pallets","supports":["Lotus ships five boxes"],"grounded":false,"perturbation":"value_swap"},
+    {"id":"holdout-006","split":"holdout","statement":"Maple opens doors Tuesday","supports":["Maple begins operations Tuesday"],"grounded":true,"perturbation":"distant_paraphrase"},
+    {"id":"holdout-007","split":"holdout","statement":"Nimbus enables public downloads","supports":["Nimbus disables public exports"],"grounded":false,"perturbation":"polarity_flip"},
+    {"id":"holdout-008","split":"holdout","statement":"Oasis covers eastern counties","supports":["Oasis covers western villages"],"grounded":false,"perturbation":"unsupported_tail"},
+    {"id":"holdout-009","split":"holdout","statement":"Prairie starts audits Wednesday","supports":["Prairie begins audits Wednesday"],"grounded":true,"perturbation":"paraphrase"},
+    {"id":"holdout-010","split":"holdout","statement":"Raven purchased two vehicles","supports":["Raven acquired two vehicles"],"grounded":true,"perturbation":"paraphrase"},
+    {"id":"holdout-011","split":"holdout","statement":"Stone serves urban libraries","supports":["Stone serves urban schools"],"grounded":false,"perturbation":"value_swap"},
+    {"id":"holdout-012","split":"holdout","statement":"Timber selected green packaging","supports":["Timber chose green packaging"],"grounded":true,"perturbation":"paraphrase"},
+    {"id":"holdout-013","split":"holdout","statement":"Unity opened regional offices","supports":["Unity opened regional offices"],"grounded":true,"perturbation":"exact"},
+    {"id":"holdout-014","split":"holdout","statement":"Violet hired six engineers","supports":["Violet hired six engineers"],"grounded":true,"perturbation":"exact"},
+    {"id":"holdout-015","split":"holdout","statement":"Warden renewed monthly backups","supports":["Warden renewed monthly backups"],"grounded":true,"perturbation":"exact"},
+    {"id":"holdout-016","split":"holdout","statement":"Zenith completed annual review","supports":["Zenith completed annual review"],"grounded":true,"perturbation":"exact"}
+  ]
+}

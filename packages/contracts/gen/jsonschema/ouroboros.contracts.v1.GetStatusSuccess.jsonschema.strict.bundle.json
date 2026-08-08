@@ -1,0 +1,321 @@
+{
+  "$defs": {
+    "google.protobuf.Timestamp.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    },
+    "ouroboros.contracts.v1.Digest.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Digest identifies immutable bytes using a named digest algorithm.",
+      "properties": {
+        "algorithm": {
+          "description": "algorithm identifies the canonical digest algorithm, for example sha256.",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hex": {
+          "description": "hex is the lower-case encoded digest value.",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[0-9a-f]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "hex"
+      ],
+      "title": "Digest",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.GetStatusSuccess.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "GetStatusSuccess discloses pinned freshness, coverage, and projection truth.",
+      "properties": {
+        "coverage": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.QueryCoverage.jsonschema.strict.json",
+          "description": "coverage discloses canonical versus indexed counts without existence detail."
+        },
+        "freshness": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.QueryFreshness.jsonschema.strict.json",
+          "description": "freshness pins the current complete generation and discloses its state."
+        },
+        "projection": {
+          "description": "projection discloses the rebuildable projection state; absence is not deletion.",
+          "enum": [
+            "PROJECTION_STATE_READY",
+            "PROJECTION_STATE_REBUILDING",
+            "PROJECTION_STATE_ABSENT"
+          ],
+          "title": "Projection State",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.SourceReference.jsonschema.strict.json",
+          "description": "source is the authorized opaque source reference."
+        }
+      },
+      "required": [
+        "source",
+        "freshness",
+        "coverage",
+        "projection"
+      ],
+      "title": "Get Status Success",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.GitSnapshot.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "GitSnapshot is server-authored canonical metadata for one committed tree.",
+      "properties": {
+        "commitOid": {
+          "description": "commit_oid is the resolved local committed Git object ID.",
+          "minLength": 1,
+          "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$",
+          "type": "string"
+        },
+        "policyDigest": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Digest.jsonschema.strict.json",
+          "description": "policy_digest is authored after normalizing ignore and symlink policy."
+        },
+        "snapshotId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "snapshot_id names the immutable snapshot fact."
+        },
+        "treeOid": {
+          "description": "tree_oid is the exact root tree resolved from commit_oid.",
+          "minLength": 1,
+          "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "snapshotId",
+        "commitOid",
+        "treeOid",
+        "policyDigest"
+      ],
+      "title": "Git Snapshot",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.Identifier.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Identifier is an opaque, stable identifier within a declared namespace.",
+      "properties": {
+        "namespace": {
+          "description": "namespace prevents an identifier string from crossing a domain boundary.",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "description": "value is opaque to consumers and must be non-empty after boundary validation.",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "value"
+      ],
+      "title": "Identifier",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.IngestionGeneration.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "IngestionGeneration identifies one immutable source projection generation.",
+      "properties": {
+        "generationId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "generation_id is the opaque immutable generation identity."
+        },
+        "languageReadiness": {
+          "description": "language_readiness contains exactly one record for each P5 language.",
+          "items": {
+            "$ref": "#/$defs/ouroboros.contracts.v1.LanguageReadiness.jsonschema.strict.json"
+          },
+          "maxItems": 5,
+          "minItems": 5,
+          "type": "array"
+        },
+        "sequence": {
+          "description": "sequence is monotonic within the source.",
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.GitSnapshot.jsonschema.strict.json",
+          "description": "snapshot pins the exact committed Git inputs."
+        },
+        "sourceWatermark": {
+          "description": "source_watermark is the complete canonical source position observed.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "state": {
+          "description": "state distinguishes unservable, ready, and degraded generations.",
+          "enum": [
+            "GENERATION_STATE_READY",
+            "GENERATION_STATE_DEGRADED"
+          ],
+          "title": "Generation State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "generationId",
+        "sequence",
+        "snapshot",
+        "state",
+        "sourceWatermark"
+      ],
+      "title": "Ingestion Generation",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.LanguageReadiness.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "LanguageReadiness reports one P5 lane's syntax-aware or degraded state.",
+      "properties": {
+        "coverage": {
+          "description": "coverage distinguishes bounded syntax awareness from lexical degradation.",
+          "enum": [
+            "COVERAGE_STATE_PENDING",
+            "COVERAGE_STATE_SYNTAX_AWARE",
+            "COVERAGE_STATE_LEXICAL_DEGRADED"
+          ],
+          "title": "Coverage State",
+          "type": "string"
+        },
+        "language": {
+          "description": "language identifies exactly one P5 language.",
+          "enum": [
+            "CODE_LANGUAGE_GO",
+            "CODE_LANGUAGE_TYPESCRIPT",
+            "CODE_LANGUAGE_PYTHON",
+            "CODE_LANGUAGE_RUST",
+            "CODE_LANGUAGE_JAVA"
+          ],
+          "title": "Code Language",
+          "type": "string"
+        },
+        "reasonCode": {
+          "description": "reason_code is a stable non-sensitive explanation for degraded coverage.",
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "coverage",
+        "reasonCode"
+      ],
+      "title": "Language Readiness",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.QueryCoverage.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "QueryCoverage discloses canonical versus indexed coverage without existence detail.",
+      "properties": {
+        "canonicalRevisionCount": {
+          "description": "canonical_revision_count counts canonical revisions in the pinned generation.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "indexedRevisionCount": {
+          "description": "indexed_revision_count counts revisions present in the search projection.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "canonicalRevisionCount",
+        "indexedRevisionCount"
+      ],
+      "title": "Query Coverage",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.QueryFreshness.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "QueryFreshness pins one complete Stage 03 generation and discloses its state.",
+      "properties": {
+        "aclEpoch": {
+          "description": "acl_epoch records the authorization epoch used for hydration decisions.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "generation": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.IngestionGeneration.jsonschema.strict.json",
+          "description": "generation pins the exact served committed-Git generation and readiness."
+        },
+        "observedAt": {
+          "$ref": "#/$defs/google.protobuf.Timestamp.jsonschema.strict.json",
+          "description": "observed_at records when the freshness state was evaluated."
+        },
+        "state": {
+          "description": "state discloses whether the pinned generation is current, stale, or degraded.",
+          "enum": [
+            "FRESHNESS_STATE_CURRENT",
+            "FRESHNESS_STATE_STALE_DISCLOSED",
+            "FRESHNESS_STATE_DEGRADED"
+          ],
+          "title": "Freshness State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation",
+        "state",
+        "aclEpoch",
+        "observedAt"
+      ],
+      "title": "Query Freshness",
+      "type": "object"
+    },
+    "ouroboros.contracts.v1.SourceReference.jsonschema.strict.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "SourceReference is server-authored and never exposes an absolute filesystem path.",
+      "properties": {
+        "brainId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "brain_id prevents same-tenant cross-brain projection reuse."
+        },
+        "repositoryId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "repository_id is the server-authored opaque repository scope."
+        },
+        "sourceId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "source_id is the opaque canonical source identity."
+        },
+        "tenantId": {
+          "$ref": "#/$defs/ouroboros.contracts.v1.Identifier.jsonschema.strict.json",
+          "description": "tenant_id prevents cross-tenant source reuse."
+        }
+      },
+      "required": [
+        "sourceId",
+        "repositoryId",
+        "brainId",
+        "tenantId"
+      ],
+      "title": "Source Reference",
+      "type": "object"
+    }
+  },
+  "$id": "ouroboros.contracts.v1.GetStatusSuccess.jsonschema.strict.bundle.json",
+  "$ref": "#/$defs/ouroboros.contracts.v1.GetStatusSuccess.jsonschema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
