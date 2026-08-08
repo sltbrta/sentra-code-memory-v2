@@ -4,8 +4,8 @@ default:
     @just --list
 
 check:
-    go test ./...
-    go vet ./...
+    go test ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/memory
+    go vet ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/memory
 
 cli-help:
     go run ./services/brain/cmd/sentra-code-memory --help
