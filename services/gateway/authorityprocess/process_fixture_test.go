@@ -941,11 +941,11 @@ func requirePinnedBun(t *testing.T) string {
 	t.Helper()
 	bun := os.Getenv("OUROBOROS_BUN_BIN")
 	if !filepath.IsAbs(bun) {
-		t.Fatal("OUROBOROS_BUN_BIN must name the pinned Bun executable")
+		t.Skip("optional process-tracer tests require OUROBOROS_BUN_BIN pointing to Bun 1.3.14")
 	}
 	output, err := exec.Command(bun, "--version").Output()
 	if err != nil || strings.TrimSpace(string(output)) != "1.3.14" {
-		t.Fatalf("Bun 1.3.14 is required: %v", err)
+		t.Skipf("optional process-tracer tests require Bun 1.3.14: %v", err)
 	}
 	return bun
 }

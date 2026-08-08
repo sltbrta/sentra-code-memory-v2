@@ -1,6 +1,8 @@
 # Local Go/build artifacts
 target/
-bazel-*
+bazel-bin/
+bazel-out/
+bazel-testlogs/
 *.test
 coverage.out
 coverage.html

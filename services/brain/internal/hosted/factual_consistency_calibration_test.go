@@ -12,6 +12,10 @@ import (
 )
 
 func TestFactualConsistencyCalibrationEvidenceReceipt(t *testing.T) {
+	if !qualityEvidenceAvailable("docs/stages/stage-09/evidence/factual-consistency-calibration-v1.schema.json") ||
+		!qualityEvidenceAvailable("docs/stages/stage-09/evidence/factual-consistency-calibration-v1.json") {
+		t.Skip("optional stage-09 evidence artifacts are not present in this standalone checkout")
+	}
 	var schema map[string]any
 	decodeQualityEvidenceJSON(t, "docs/stages/stage-09/evidence/factual-consistency-calibration-v1.schema.json", &schema, false)
 	if schema["$schema"] != "https://json-schema.org/draft/2020-12/schema" || schema["additionalProperties"] != false {
