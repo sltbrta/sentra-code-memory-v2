@@ -49,6 +49,13 @@ type Stats struct {
 	SkippedByStamp int
 	// Hashed: files whose content was hashed (stamp miss or force).
 	Hashed int
+	// QueueDepth is the number of coalesced watch paths still pending after a
+	// refresh attempt.
+	QueueDepth int
+	// RetryCount is the consecutive refresh retry count at observation time.
+	RetryCount int
+	// FullRescan reports that the bounded event queue overflowed.
+	FullRescan bool
 }
 
 // Hit is one ranked file result from Search.

@@ -2,6 +2,9 @@ package productsearch
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,8 +12,12 @@ import (
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeindex"
 )
 
-// searchCodeExact builds a P5 codeindex snapshot from CodeRoot and returns
-// exact definition/reference/import matches for the query string.
+const maxCodeExactFiles = 16_384
+
+// searchCodeExact projects the P5 files under CodeRoot one at a time and
+// returns exact definition/reference/import matches for the query string.
+// Per-file projection keeps large repositories within bounded memory and
+// avoids turning one aggregate snapshot limit into a repository-wide failure.
 // This is the Stage SearchCode capability on the product facade (working-tree
 // sources; generation pin is the crawl receipt digest).
 func searchCodeExact(ctx context.Context, req Request) Result {
@@ -33,15 +40,37 @@ func searchCodeExact(ctx context.Context, req Request) Result {
 			RetrievalDiagnostics: map[string]any{"files": 0, "note": "no_p5_sources"},
 		}
 	}
-	snap, err := codeindex.Build(ctx, sources, codeindex.DefaultLimits())
-	if err != nil {
-		return Result{Failure: "productsearch: code_exact build: " + err.Error(), ProductOwned: true}
-	}
 	q := strings.TrimSpace(req.Question)
 	kind := strings.ToLower(strings.TrimSpace(req.ExactKind))
-	hits := make([]Hit, 0, req.TopK)
-	for _, file := range snap.Files {
-		for _, occ := range file.Occurrences {
+	hitLimit := req.TopK
+	if hitLimit < 0 {
+		hitLimit = 0
+	}
+	hits := make([]Hit, 0, hitLimit)
+	digest := sha256.New()
+	projectedFiles := 0
+	exactLimits := codeindex.DefaultLimits()
+	// Exact search runs over real repositories, where a generated source file
+	// can exceed the conservative snapshot defaults. Stay within codeindex's
+	// hard caps while avoiding a whole-repository failure for one large file.
+	exactLimits.MaxTokens = 500_000
+	exactLimits.MaxResults = 250_000
+	exactLimits.MaxLines = 500_000
+	exactLimits.MaxColumn = 1 << 20
+	for _, source := range sources {
+		projection, projectErr := codeindex.Project(ctx, source, exactLimits)
+		if projectErr != nil {
+			return Result{Failure: "productsearch: code_exact project: " + projectErr.Error(), ProductOwned: true}
+		}
+		projectedFiles++
+		_, _ = digest.Write([]byte(source.Path))
+		_, _ = digest.Write([]byte{0})
+		_, _ = digest.Write([]byte(projection.ReceiptDigest))
+		_, _ = digest.Write([]byte{0})
+		if len(hits) >= hitLimit {
+			continue
+		}
+		for _, occ := range projection.Occurrences {
 			if !exactKindMatch(kind, occ.Kind) {
 				continue
 			}
@@ -51,16 +80,13 @@ func searchCodeExact(ctx context.Context, req Request) Result {
 			hits = append(hits, Hit{
 				ID:    occ.Range.Path,
 				Title: string(occ.Kind) + " " + occ.Text,
-				Text:  occ.Text + " @ " + occ.Range.Path,
+				Text:  fmt.Sprintf("%s @ %s:%d:%d", occ.Text, occ.Range.Path, occ.Range.Start.Line, occ.Range.Start.Column),
 				Score: 1,
 				Arm:   "codeindex_exact",
 			})
-			if len(hits) >= req.TopK {
+			if len(hits) >= hitLimit {
 				break
 			}
-		}
-		if len(hits) >= req.TopK {
-			break
 		}
 	}
 	return Result{
@@ -68,8 +94,8 @@ func searchCodeExact(ctx context.Context, req Request) Result {
 		SearchMode: "product_codeindex_exact",
 		Guarantee:  GuaranteeExactP5Codeindex,
 		RetrievalDiagnostics: map[string]any{
-			"files":          len(snap.Files),
-			"receipt_digest": snap.ReceiptDigest,
+			"files":          projectedFiles,
+			"receipt_digest": "sha256:" + hex.EncodeToString(digest.Sum(nil)),
 			"hits":           len(hits),
 			"query":          q,
 			"kind":           kind,
@@ -96,6 +122,8 @@ func exactKindMatch(want string, kind codeindex.Kind) bool {
 	}
 }
 
+// collectP5Sources returns supported-language files in deterministic filepath
+// walk order, excluding generated/build/vendor trees and oversized files.
 func collectP5Sources(rootAbs string) ([]codeindex.SourceFile, error) {
 	var out []codeindex.SourceFile
 	err := filepath.Walk(rootAbs, func(path string, info os.FileInfo, err error) error {
@@ -135,7 +163,9 @@ func collectP5Sources(rootAbs string) ([]codeindex.SourceFile, error) {
 		out = append(out, codeindex.SourceFile{
 			Path: rel, Language: lang, Content: raw,
 		})
-		if len(out) >= codeindex.DefaultLimits().MaxFiles {
+		// Exact projection is processed file-by-file below, so it can cover a
+		// larger repository than codeindex.Build's in-memory snapshot cap.
+		if len(out) >= maxCodeExactFiles {
 			return filepath.SkipAll
 		}
 		return nil
@@ -143,6 +173,7 @@ func collectP5Sources(rootAbs string) ([]codeindex.SourceFile, error) {
 	return out, err
 }
 
+// p5Language maps a supported source extension to the exact P5 language set.
 func p5Language(path string) (codeindex.Language, bool) {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".go":

@@ -50,6 +50,10 @@ func execute(args []string, in io.Reader, out, errOut io.Writer) int {
 		return writeJSON(out, codeserve.Handle(context.Background(), codeserve.Request{"verb": "ping"}))
 	case "serve":
 		return serve(args[1:], in, out, errOut)
+	case "watch":
+		return runWatch(args[1:], out, errOut)
+	case "mlx":
+		return runMLX(args[1:], out, errOut)
 	default:
 		verb, ok := aliases[args[0]]
 		if !ok {
@@ -181,14 +185,16 @@ Usage:
   sentra-code-memory serve [--timeout 2s]  # one JSON object per input line
 
 Commands:
-  index, search, relevant, exact, defs, refs
+  index, search, relevant, exact, defs, refs, watch
   expand, impact, route, freshness, ingest, memory-ask
-  catalog, ping, serve
+  catalog, ping, serve, mlx
 
 Common flags:
   --root PATH --index-cache DIR --q QUERY --top-k N --workers N
   --no-refresh --force
 
 The JSONL protocol is discoverable with catalog and returns one JSON response
-per request. Use --help on this command for the complete contract.`)
+per request. Use watch for debounced multi-worker freshness with retries, and
+mlx start|stop|status|env for fully offline local inference. Use --help on this
+command for the complete contract.`)
 }

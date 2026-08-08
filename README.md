@@ -11,12 +11,17 @@ local configuration.
 
 ## Install and use
 
+See [installation.md](docs/installation.md) for prerequisites, build steps,
+JSONL usage, cache safety, and optional model clients. See
+[architecture.md](docs/architecture.md) for module boundaries and data flow.
+
 ```sh
 go build -o sentra-code-memory ./services/brain/cmd/sentra-code-memory
 ./sentra-code-memory catalog
 ./sentra-code-memory index --root /path/to/repo --workers 8
 ./sentra-code-memory search --root /path/to/repo --q "authentication" --top-k 20
 ./sentra-code-memory exact --root /path/to/repo --q "ValidateToken" --kind any
+cd /path/to/repo && ./sentra-code-memory watch --workers 8  # watches cwd by default
 ```
 
 Coding agents can keep one process warm with JSONL:
@@ -27,7 +32,17 @@ printf '%s\n' '{"verb":"code_search","root":"/path/to/repo","q":"authentication"
 ```
 
 Run `catalog` to discover every supported verb. Each input line produces one
-JSON response; errors are structured as `ok:false`.
+JSON response; errors are structured as `ok:false`. A real VS Code benchmark
+and answer-quality report is in [docs/benchmarks/vscode-qa.md](docs/benchmarks/vscode-qa.md).
+
+## Offline model profile
+
+On Apple Silicon, `scripts/mlx-serve.sh` runs a local OpenAI-compatible MLX
+server using Liquid `LFM2.5-VL-1.6B-8bit` with Gemma 4 `e2b-it-4bit` fallback.
+The configured multimodal retrieval pair is Qwen3-VL Embedding 2B 4-bit plus
+Qwen3-VL Reranker 2B 4-bit. Install runtimes with
+`scripts/requirements-mlx.txt`; see [docs/installation.md](docs/installation.md)
+and [docs/runbooks/MLX-LOCAL-INFERENCE.md](docs/runbooks/MLX-LOCAL-INFERENCE.md).
 
 ## What is included
 
@@ -40,6 +55,8 @@ JSON response; errors are structured as `ok:false`.
 - Local and hosted retrieval/model clients, dense backends, and generated Go/TS
   contracts.
 - Rust code-index worker boundary and parity fixtures.
+- Debounced fsnotify/poll watch with coalesced bounded event queue, overflow
+  full-rescan protection, exponential retries, and multi-worker refresh.
 
 ## Checks
 
@@ -48,13 +65,15 @@ go test ./services/brain/cmd/sentra-code-memory \
   ./services/brain/internal/codecrawl \
   ./services/brain/internal/codeindex \
   ./services/brain/internal/codeserve \
-  ./services/brain/internal/memory
+  ./services/brain/internal/memory \
+  ./services/brain/internal/productsearch
 
 go vet ./services/brain/cmd/sentra-code-memory \
   ./services/brain/internal/codecrawl \
   ./services/brain/internal/codeindex \
   ./services/brain/internal/codeserve \
-  ./services/brain/internal/memory
+  ./services/brain/internal/memory \
+  ./services/brain/internal/productsearch
 ```
 
 The full extracted backend also retains authority/evaluation tests that require

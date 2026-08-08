@@ -10,8 +10,10 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-// WatchFS uses fsnotify for near-real-time dirty detection, then debounced OpenOrRefresh.
-// Falls back to WatchPoll if the watcher cannot be created.
+// WatchFS uses fsnotify for near-real-time dirty detection, then debounced
+// OpenOrRefresh. Events are coalesced into a bounded queue; refresh failures
+// remain queued and retry with capped exponential backoff. It falls back to
+// WatchPoll if the kernel watcher cannot be created.
 func WatchFS(ctx context.Context, opt WatchOptions) error {
 	if opt.Workers < 1 {
 		opt.Workers = 4
@@ -34,12 +36,12 @@ func WatchFS(ctx context.Context, opt WatchOptions) error {
 
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
-		// No kernel watchers available — poll.
 		return WatchPoll(ctx, opt)
 	}
 	defer w.Close()
 
-	// Watch root + immediate subdirs (bounded).
+	// Watch root + bounded subdirectories. The queue's overflow/full-rescan
+	// path still catches files below the watcher depth.
 	_ = w.Add(rootAbs)
 	_ = filepath.Walk(rootAbs, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info == nil || !info.IsDir() {
@@ -48,7 +50,6 @@ func WatchFS(ctx context.Context, opt WatchOptions) error {
 		if _, ok := skipDir[info.Name()]; ok {
 			return filepath.SkipDir
 		}
-		// Limit depth to avoid watching huge trees with too many watches.
 		rel, _ := filepath.Rel(rootAbs, path)
 		if rel != "." && strings.Count(rel, string(filepath.Separator)) > 3 {
 			return filepath.SkipDir
@@ -57,32 +58,51 @@ func WatchFS(ctx context.Context, opt WatchOptions) error {
 		return nil
 	})
 
-	dirty := false
+	queue := newRefreshQueue(opt.QueueSize)
 	var dirtyAt time.Time
+	var retryAt time.Time
+	retryCount := 0
 	cycles := 0
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
 
 	refresh := func() {
-		_, st, wrote, _, err := OpenOrRefresh(rootAbs, opt.GobPath, opt.Workers, false)
-		if err != nil {
+		version, _, fullRescan := queue.begin()
+		_, st, wrote, _, refreshErr := OpenOrRefresh(rootAbs, opt.GobPath, opt.Workers, false)
+		if refreshErr != nil {
+			retryCount++
+			retryAt = time.Now().Add(retryDelay(retryCount, opt.RetryInitial, opt.RetryMax))
+			if opt.OnError != nil {
+				opt.OnError(refreshErr, retryCount)
+			}
 			return
 		}
-		dirty = false
-		dirtyAt = time.Time{}
+
+		committed := queue.commit(version)
+		st.QueueDepth = queue.depth()
+		st.RetryCount = retryCount
+		st.FullRescan = fullRescan
+		retryCount = 0
+		retryAt = time.Time{}
+		if committed {
+			dirtyAt = time.Time{}
+		} else {
+			// An event arrived during the scan. Keep it queued and debounce the
+			// follow-up rather than clearing a change we did not observe.
+			dirtyAt = time.Now()
+		}
 		if opt.OnRefresh != nil {
 			opt.OnRefresh(st, wrote)
 		}
 		cycles++
 	}
 
-	// Initial cycle so --max-cycles N exits without waiting forever for mtime changes
-	// (same class of bug as multi-folder docs watch). Smoke uses max-cycles=1.
+	// Initial cycle so --max-cycles N exits without waiting for a file event.
 	refresh()
-	if opt.MaxCycles > 0 && cycles >= opt.MaxCycles {
+	if retryCount == 0 && opt.MaxCycles > 0 && cycles >= opt.MaxCycles {
 		return nil
 	}
 
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -94,25 +114,39 @@ func WatchFS(ctx context.Context, opt WatchOptions) error {
 			if ev.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename) == 0 {
 				continue
 			}
-			// Only care about indexable extensions / dirs.
+			if info, statErr := os.Stat(ev.Name); statErr == nil && info.IsDir() {
+				_ = w.Add(ev.Name)
+				queue.enqueue("")
+				dirtyAt = time.Now()
+				continue
+			}
 			ext := strings.ToLower(filepath.Ext(ev.Name))
 			if ext != "" {
 				if _, ok := extOK[ext]; !ok {
 					continue
 				}
 			}
-			if !dirty {
-				dirty = true
-				dirtyAt = time.Now()
+			queue.enqueue(ev.Name)
+			dirtyAt = time.Now()
+		case watcherErr, ok := <-w.Errors:
+			if !ok {
+				return nil
 			}
-		case <-w.Errors:
-			// ignore transient watcher errors
-		case <-ticker.C:
-			if dirty && !dirtyAt.IsZero() && time.Since(dirtyAt) >= opt.Debounce {
-				refresh()
-				if opt.MaxCycles > 0 && cycles >= opt.MaxCycles {
-					return nil
-				}
+			queue.enqueue("")
+			dirtyAt = time.Now()
+			if opt.OnError != nil {
+				opt.OnError(watcherErr, retryCount)
+			}
+		case now := <-ticker.C:
+			if !queue.pending() || dirtyAt.IsZero() || now.Sub(dirtyAt) < opt.Debounce {
+				continue
+			}
+			if !retryAt.IsZero() && now.Before(retryAt) {
+				continue
+			}
+			refresh()
+			if retryCount == 0 && opt.MaxCycles > 0 && cycles >= opt.MaxCycles {
+				return nil
 			}
 		}
 	}

@@ -1,5 +1,8 @@
 # Sentra Code Memory standalone contract
 
+See [installation.md](installation.md) for setup and
+[architecture.md](architecture.md) for module boundaries.
+
 This repository is a self-contained extraction of the committed Ouroboros
 code-memory and code-intelligence backend. It has its own Go modules, generated
 contracts, local/hosted model clients, durable index formats, worker pools, and
@@ -32,8 +35,12 @@ and never require a network call.
 
 The code surface preserves the multi-worker incremental crawler, stamp/hash warm
 refresh, durable `code-index.gob` cache, search/relevant/expand/impact/route/
-freshness/ingest paths, and exact syntax definitions/references/imports. Use
-`--no-refresh` for the lowest-latency warm read when the cache is known fresh.
+freshness/ingest paths, exact syntax definitions/references/imports, and a
+watcher with debounce, bounded coalescing queue, retry backoff, and overflow
+full-rescan protection. Exact projection is processed file-by-file under hard
+caps so large repositories do not fail because an in-memory snapshot result
+limit was exceeded. Use `--no-refresh` for the lowest-latency warm read when
+the cache is known fresh.
 
 The memory surface retains the projection-only cortex, claims, temporal
 relations, episodes, utility, PageIndex, PPR/PageRank, RAPTOR/community,

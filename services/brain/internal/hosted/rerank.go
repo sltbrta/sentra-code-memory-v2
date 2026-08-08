@@ -103,7 +103,7 @@ func crossEncodeRerankModeCached(ctx context.Context, question string, passages 
 		// Local MLX / BYOC ranker first when selected (air-gapped residual).
 		if ranker == SubstrateAPIMLX || ranker == "local" {
 			attempted = append(attempted, "mlx")
-			model := envOr("OUROBOROS_BRAIN_MLX_RANK_MODEL", "rerank-mlx")
+			model := mlxRankModel()
 			scoreCall := func(ctx context.Context, question string, selected []Passage, topN int) ([]remoteRerankResult, error) {
 				return mlxRerankResults(ctx, model, question, selected, topN)
 			}

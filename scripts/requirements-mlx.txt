@@ -1,0 +1,9 @@
+# Apple Silicon offline inference runtimes.
+# Keep these unpinned to follow the current MLX-compatible model adapters;
+# capture a lockfile in the deployment environment for reproducibility.
+mlx-lm
+mlx-vlm
+mlx-embeddings
+huggingface-hub
+transformers
+pillow

@@ -10,7 +10,8 @@ import (
 )
 
 var skipDir = map[string]struct{}{
-	".git": {}, "node_modules": {}, "vendor": {}, "__pycache__": {}, ".cache": {},
+	".git": {}, ".sentra": {}, ".ouroboros": {}, "node_modules": {}, "vendor": {},
+	"__pycache__": {}, ".cache": {}, "dist": {}, "target": {},
 }
 
 var extOK = map[string]struct{}{

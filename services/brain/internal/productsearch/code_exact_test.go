@@ -2,28 +2,34 @@ package productsearch
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-func TestCodeExactFindsDefinition(t *testing.T) {
-	dir := t.TempDir()
-	src := filepath.Join(dir, "pkg.go")
-	if err := os.WriteFile(src, []byte("package pkg\n\nfunc OpenOrRefresh() {}\n"), 0o644); err != nil {
-		t.Fatal(err)
+func TestCodeExactScansLargeRepositoryWithoutSnapshotResultOverflow(t *testing.T) {
+	root := t.TempDir()
+	body := "package sample\n\nfunc Target() {}\n"
+	body += strings.Repeat("func useTarget() { Target() }\n", 320)
+	for i := 0; i < 200; i++ {
+		path := filepath.Join(root, fmt.Sprintf("%03d.go", i))
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
-	res := Search(context.Background(), Request{
-		Profile: ProfileCodeExact, CodeRoot: dir, Question: "OpenOrRefresh",
-		ExactKind: "definition", TopK: 10,
+
+	result := searchCodeExact(context.Background(), Request{
+		CodeRoot: root, Question: "Target", TopK: 1, ExactKind: "definition",
 	})
-	if res.Failure != "" {
-		t.Fatal(res.Failure)
+	if result.Failure != "" {
+		t.Fatalf("large exact search failed: %s", result.Failure)
 	}
-	if len(res.Hits) < 1 {
-		t.Fatalf("expected hits: %+v", res)
+	if len(result.Hits) != 1 || result.Hits[0].ID != "000.go" {
+		t.Fatalf("unexpected exact hits: %#v", result.Hits)
 	}
-	if res.SearchMode != "product_codeindex_exact" {
-		t.Fatalf("mode %s", res.SearchMode)
+	if result.RetrievalDiagnostics["files"] != 200 {
+		t.Fatalf("expected all sources to be accounted for, diagnostics=%#v", result.RetrievalDiagnostics)
 	}
 }

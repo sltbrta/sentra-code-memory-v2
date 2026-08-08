@@ -1472,6 +1472,14 @@ func synthesizeOnce(
 			model: cfg.Model,
 			url:   cfg.BaseURL + "/chat/completions",
 		})
+		if fallback := mlxChatFallbackModel(); fallback != "" && fallback != cfg.Model {
+			cands = append(cands, synthCandidate{
+				name:  "mlx-fallback",
+				key:   cfg.APIKey,
+				model: fallback,
+				url:   cfg.BaseURL + "/chat/completions",
+			})
+		}
 	}
 	// Hosted default chain (BYOK). QUALITY/bench: OpenAI gpt-5.6-terra first
 	// (SOTA chase — Gemini must not shadow). Light: Flash first for latency.

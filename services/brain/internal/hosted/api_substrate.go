@@ -19,9 +19,18 @@ const (
 	SubstrateAPINone   = "none"   // extractive / bag / lexical CE
 )
 
+// mlxEnv reads the standalone setting first and keeps the source-compatible
+// legacy setting as a fallback for existing local brain scripts.
+func mlxEnv(standalone, legacy string) string {
+	if value := strings.TrimSpace(os.Getenv(standalone)); value != "" {
+		return value
+	}
+	return strings.TrimSpace(os.Getenv(legacy))
+}
+
 // mlxBaseURL returns BYOC base for local MLX (OpenAI-compatible /v1).
 func mlxBaseURL() string {
-	u := strings.TrimSpace(os.Getenv("OUROBOROS_BRAIN_MLX_BASE_URL"))
+	u := mlxEnv("SENTRA_CODE_MEMORY_MLX_BASE_URL", "OUROBOROS_BRAIN_MLX_BASE_URL")
 	if u == "" {
 		u = strings.TrimSpace(os.Getenv("MLX_BASE_URL"))
 	}
@@ -32,7 +41,7 @@ func mlxBaseURL() string {
 }
 
 func mlxAPIKey() string {
-	k := strings.TrimSpace(os.Getenv("OUROBOROS_BRAIN_MLX_API_KEY"))
+	k := mlxEnv("SENTRA_CODE_MEMORY_MLX_API_KEY", "OUROBOROS_BRAIN_MLX_API_KEY")
 	if k == "" {
 		k = strings.TrimSpace(os.Getenv("MLX_API_KEY"))
 	}
@@ -50,9 +59,9 @@ type openAIEmbedCfg struct {
 }
 
 func mlxEmbedConfig() openAIEmbedCfg {
-	model := strings.TrimSpace(os.Getenv("OUROBOROS_BRAIN_MLX_EMBED_MODEL"))
+	model := mlxEnv("SENTRA_CODE_MEMORY_MLX_EMBED_MODEL", "OUROBOROS_BRAIN_MLX_EMBED_MODEL")
 	if model == "" {
-		model = "text-embedding-mlx"
+		model = "mlx-community/Qwen3-VL-Embedding-2B-4bit"
 	}
 	return openAIEmbedCfg{
 		BaseURL: mlxBaseURL(),
@@ -84,9 +93,9 @@ func openaiEmbedConfig() openAIEmbedCfg {
 }
 
 func mlxChatConfig() openAIEmbedCfg {
-	model := strings.TrimSpace(os.Getenv("OUROBOROS_BRAIN_MLX_CHAT_MODEL"))
+	model := mlxEnv("SENTRA_CODE_MEMORY_MLX_CHAT_MODEL", "OUROBOROS_BRAIN_MLX_CHAT_MODEL")
 	if model == "" {
-		model = "mlx-chat"
+		model = "mlx-community/LFM2.5-VL-1.6B-8bit"
 	}
 	return openAIEmbedCfg{
 		BaseURL: mlxBaseURL(),
@@ -94,6 +103,22 @@ func mlxChatConfig() openAIEmbedCfg {
 		Model:   model,
 		Timeout: 90 * time.Second,
 	}
+}
+
+func mlxRankModel() string {
+	model := mlxEnv("SENTRA_CODE_MEMORY_MLX_RANK_MODEL", "OUROBOROS_BRAIN_MLX_RANK_MODEL")
+	if model == "" {
+		model = "mlx-community/Qwen3-VL-Reranker-2B-4bit"
+	}
+	return model
+}
+
+func mlxChatFallbackModel() string {
+	model := mlxEnv("SENTRA_CODE_MEMORY_MLX_CHAT_FALLBACK_MODEL", "OUROBOROS_BRAIN_MLX_CHAT_FALLBACK_MODEL")
+	if model == "" {
+		model = "mlx-community/gemma-4-e2b-it-4bit"
+	}
+	return model
 }
 
 // embedOpenAICompatible calls POST {base}/embeddings (OpenAI shape) for MLX/BYOC.
@@ -153,8 +178,7 @@ func mlxRerank(ctx context.Context, question string, passages []Passage, topN in
 	if len(passages) == 0 {
 		return passages, nil
 	}
-	model := envOr("OUROBOROS_BRAIN_MLX_RANK_MODEL", "rerank-mlx")
-	results, err := mlxRerankResults(ctx, model, question, passages, topN)
+	results, err := mlxRerankResults(ctx, mlxRankModel(), question, passages, topN)
 	if err != nil {
 		return nil, err
 	}

@@ -179,7 +179,7 @@ func (c *Client) retrieveCacheKey(question string, topK int, opts RetrieveOption
 		"ranker=" + strings.ToLower(strings.TrimSpace(envOr("OUROBOROS_BRAIN_RANKER", ""))),
 		"cohere_rerank_model=" + strings.TrimSpace(envOr("OUROBOROS_ERB_COHERE_RERANK_MODEL", "rerank-v3.5")),
 		"ze_rerank_model=" + strings.TrimSpace(envOr("OUROBOROS_ERB_ZE_RERANK_MODEL", "zerank-2")),
-		"mlx_rerank_model=" + strings.TrimSpace(envOr("OUROBOROS_BRAIN_MLX_RANK_MODEL", "rerank-mlx")),
+		"mlx_rerank_model=" + mlxRankModel(),
 		"agentic_mode=" + strings.ToLower(strings.TrimSpace(envOr("OUROBOROS_ERB_AGENTIC_MODE", "auto"))),
 		"conf_top=" + strconv.FormatFloat(confTopThreshold(), 'f', -1, 64),
 		"conf_mean3=" + strconv.FormatFloat(confMean3Threshold(), 'f', -1, 64),
