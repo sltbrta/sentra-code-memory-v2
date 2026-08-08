@@ -1,65 +1,66 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "20260808T180600Z-search-ignore-relevance",
-  "head": "2c44fed54309e20d19105c69276c05f4113a524a",
-  "workflow": "search-relevance-and-ignore-policy",
-  "scope": "Improve local code-search relevance and make repository ignore policy consistent across indexing, incremental refresh, filesystem watching, freshness checks, and exact code projection. Honor root .gitignore, .dockerignore, and .git/info/exclude with conservative generated/secret defaults while preserving useful source/config files.",
+  "run_id": "20260808T181800Z-search-ignore-relevance-finalize",
+  "head": "ff0b925b567ae689244d2f2ddb373e4e7fd2edaf",
+  "workflow": "search-relevance-and-ignore-policy-finalize",
+  "scope": "Finalize the committed search-relevance and repository-ignore implementation for issue #2. The implementation is already committed; this head-bound manifest records preflight, independent review, and publication evidence.",
   "non_goals": [
-    "Do not implement semantic embeddings or a full language-model reranker.",
-    "Do not ignore all dotfiles; retain useful repository configuration such as .github and tool configs unless repository rules exclude them.",
-    "Do not change hosted/company retrieval behavior.",
-    "Do not modify external repositories."
+    "Do not expand scope beyond issue #2.",
+    "Do not modify external repositories.",
+    "Do not add semantic model reranking."
   ],
   "affected_files": [
+    ".local-agent-ci/workflow-manifest.json",
     "services/brain/internal/repoignore/**",
     "services/brain/internal/codecrawl/**",
     "services/brain/internal/productsearch/**",
     "docs/architecture.md",
-    "docs/installation.md",
-    "services/brain/internal/codecrawl/README.md",
-    "services/brain/internal/productsearch/README.md"
+    "docs/installation.md"
   ],
   "acceptance_commands": [
-    "cd services && go test ./brain/internal/repoignore ./brain/internal/codecrawl ./brain/internal/productsearch -count=1",
-    "cd services && go vet ./brain/internal/repoignore ./brain/internal/codecrawl ./brain/internal/productsearch",
-    "gofmt -w services/brain/internal/repoignore services/brain/internal/codecrawl services/brain/internal/productsearch",
+    "just check",
+    "go test ./services/brain/internal/repoignore ./services/brain/internal/codecrawl ./services/brain/internal/productsearch -count=1",
+    "go vet ./services/brain/internal/repoignore ./services/brain/internal/codecrawl ./services/brain/internal/productsearch",
     "git diff --check"
   ],
   "risks": [
-    "Ignore-pattern semantics can accidentally hide useful source if negation or rooted patterns are mishandled.",
-    "Changing ranking may alter established search ordering.",
-    "Large repositories may spend time reading multiple ignore files unless matcher loading remains per crawl."
+    "Publication evidence must remain bound to the committed head.",
+    "Full hosted test suite has pre-existing missing evidence fixture failures outside this change."
   ],
   "issue_ids": [
     "2"
   ],
-  "created_at": "2026-08-08T18:05:41.165Z",
+  "created_at": "2026-08-08T18:16:53.081Z",
   "tier": "T1",
-  "stage": "preflight",
+  "stage": "finalize",
   "phases": [
     {
       "id": "spec-lock",
-      "title": "Lock ignore and relevance behavior"
+      "title": "Lock finalization scope"
+    },
+    {
+      "id": "issue",
+      "title": "Confirm issue tracking"
     },
     {
       "id": "context",
-      "title": "Inspect crawl and search boundaries"
+      "title": "Confirm committed context"
     },
     {
       "id": "red-proof",
-      "title": "Add failing tests"
+      "title": "Confirm executable proof"
     },
     {
       "id": "implementation",
-      "title": "Implement shared policy and ranking"
+      "title": "Confirm implementation"
     },
     {
       "id": "paired-review",
-      "title": "Review ignore semantics and ranking"
+      "title": "Confirm paired review"
     },
     {
       "id": "preflight",
-      "title": "Run tests and static checks"
+      "title": "Confirm local preflight"
     },
     {
       "id": "fresh-eyes",
@@ -67,7 +68,7 @@
     },
     {
       "id": "finalize",
-      "title": "Finalize changes"
+      "title": "Finalize publication"
     },
     {
       "id": "land",
