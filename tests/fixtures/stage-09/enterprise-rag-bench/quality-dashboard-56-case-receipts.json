@@ -1,0 +1,2027 @@
+{
+  "candidate": {
+    "components": {
+      "attribution": {
+        "counts": {
+          "both": 2,
+          "generator_only": 7,
+          "neither": 38,
+          "retriever_only": 7,
+          "unknown": 2
+        },
+        "n_scored": 56
+      },
+      "by_type": {
+        "completeness": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.79,
+            "n": 8,
+            "no_answer_count": 1,
+            "no_answer_rate": 0.125
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "conflicting": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.77,
+            "n": 8,
+            "no_answer_count": 0,
+            "no_answer_rate": 0.0
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "constrained": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.78,
+            "n": 8,
+            "no_answer_count": 1,
+            "no_answer_rate": 0.125
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "intra_document": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.76,
+            "n": 8,
+            "no_answer_count": 0,
+            "no_answer_rate": 0.0
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "not_found": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.75,
+            "n": 8,
+            "no_answer_count": 0,
+            "no_answer_rate": 0.0
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "project_related": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.8,
+            "n": 8,
+            "no_answer_count": 1,
+            "no_answer_rate": 0.125
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "semantic": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.81,
+            "n": 8,
+            "no_answer_count": 1,
+            "no_answer_rate": 0.125
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        }
+      },
+      "citation_safety": {
+        "citation_offsets_preserved_rate": 1.0,
+        "n_scored": 56
+      },
+      "generator": {
+        "abstention_count": 7,
+        "abstention_rate": 0.125,
+        "claim_support_rate": 0.8,
+        "grounding_status_counts": {
+          "illegal_citations_stripped": 3,
+          "no_citations": 3,
+          "no_supported_claims": 5,
+          "ok": 45
+        },
+        "n_scored": 56,
+        "no_answer_count": 4,
+        "no_answer_rate": 0.071429
+      },
+      "non_official": true,
+      "non_steering": true,
+      "retriever": {
+        "citation_recall": 0.65,
+        "n_scored": 56,
+        "pool_at_1": 0.75,
+        "window_at_1": 0.7
+      },
+      "run_manifest": {
+        "commit": "fixture-commit",
+        "config_digest": "candidate-config",
+        "corpus_digest": "fixture-corpus",
+        "coverage": {
+          "scored": 56,
+          "total_questions": 56
+        },
+        "question_digest": "fixture-questions",
+        "schema_version": "stage09.erb.component_diagnostics.v1"
+      },
+      "schema_version": "stage09.erb.component_diagnostics.v1"
+    },
+    "cost": {
+      "by_type": {
+        "completeness": {
+          "avg_cost_per_question_usd": 0.02,
+          "n": 8,
+          "total_cost_usd": 0.16,
+          "total_tokens": 80000
+        },
+        "conflicting": {
+          "avg_cost_per_question_usd": 0.02,
+          "n": 8,
+          "total_cost_usd": 0.16,
+          "total_tokens": 80000
+        },
+        "constrained": {
+          "avg_cost_per_question_usd": 0.02,
+          "n": 8,
+          "total_cost_usd": 0.16,
+          "total_tokens": 80000
+        },
+        "intra_document": {
+          "avg_cost_per_question_usd": 0.02,
+          "n": 8,
+          "total_cost_usd": 0.16,
+          "total_tokens": 80000
+        },
+        "not_found": {
+          "avg_cost_per_question_usd": 0.02,
+          "n": 8,
+          "total_cost_usd": 0.16,
+          "total_tokens": 80000
+        },
+        "project_related": {
+          "avg_cost_per_question_usd": 0.02,
+          "n": 8,
+          "total_cost_usd": 0.16,
+          "total_tokens": 80000
+        },
+        "semantic": {
+          "avg_cost_per_question_usd": 0.02,
+          "n": 8,
+          "total_cost_usd": 0.16,
+          "total_tokens": 80000
+        }
+      },
+      "non_official": true,
+      "non_steering": true,
+      "prices": {
+        "currency": "USD",
+        "digest": "fixture-prices",
+        "estimated": true
+      },
+      "run_manifest": {
+        "commit": "fixture-commit",
+        "config_digest": "candidate-config",
+        "corpus_digest": "fixture-corpus",
+        "coverage": {
+          "scored": 56,
+          "total_questions": 56
+        },
+        "question_digest": "fixture-questions",
+        "schema_version": "stage09.erb.component_diagnostics.v1"
+      },
+      "run_summary": {
+        "avg_cost_per_question_usd": 0.02,
+        "calls": 112,
+        "cells": 56,
+        "cells_missing_usage": 2,
+        "cells_no_usage_data": 2,
+        "cells_with_usage": 54,
+        "input_tokens": 448000,
+        "output_tokens": 112000,
+        "total_cost_usd": 1.12,
+        "total_tokens": 560000,
+        "usage_coverage": 0.964286
+      },
+      "schema_version": "stage09.erb.cost_diagnostics.v1"
+    },
+    "label": "candidate",
+    "matrix": {
+      "manifest": {
+        "commit": "fixture-commit",
+        "config_digest": "candidate-config",
+        "corpus_digest": "fixture-corpus",
+        "coverage": {
+          "scored": 56,
+          "total_questions": 56
+        },
+        "question_digest": "fixture-questions",
+        "schema_version": "stage09.erb.retrieval_type_matrix.v1"
+      },
+      "matrix": {
+        "by_type": {
+          "completeness": {
+            "citation_recall": 0.63,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.73,
+            "window_at_1": 0.68
+          },
+          "conflicting": {
+            "citation_recall": 0.61,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.71,
+            "window_at_1": 0.66
+          },
+          "constrained": {
+            "citation_recall": 0.62,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.72,
+            "window_at_1": 0.67
+          },
+          "intra_document": {
+            "citation_recall": 0.6,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.7,
+            "window_at_1": 0.65
+          },
+          "not_found": {
+            "citation_recall": 0.59,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.69,
+            "window_at_1": 0.64
+          },
+          "project_related": {
+            "citation_recall": 0.64,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.74,
+            "window_at_1": 0.69
+          },
+          "semantic": {
+            "citation_recall": 0.65,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.75,
+            "window_at_1": 0.7
+          }
+        },
+        "citation_recall": 0.65,
+        "hit_rate": 0.75,
+        "metric_denominators": {
+          "cite": 48,
+          "hit": 56,
+          "mrr": 56,
+          "ndcg": 50,
+          "pool": 56,
+          "window": 50
+        },
+        "mrr": 0.62,
+        "n_scored": 56,
+        "ndcg": 0.68,
+        "pool_at_1": 0.75,
+        "schema_version": "stage09.erb.retrieval_type_matrix.v1",
+        "window_at_1": 0.7
+      },
+      "note": "sanitized passive retrieval fixture",
+      "schema_version": "stage09.erb.retrieval_type_matrix.v1"
+    },
+    "receipt": {
+      "failure_taxonomy": {
+        "by_category": {
+          "grounding": 1,
+          "judge": 0,
+          "protocol": 0,
+          "provider": 0,
+          "retrieval": 1,
+          "synthesis": 0,
+          "timeout": 2,
+          "unknown": 0
+        },
+        "schema_version": "stage09.erb.failure_taxonomy.v1"
+      },
+      "latency": {
+        "by_outcome": {
+          "failed": 2,
+          "ok": 52,
+          "timeout": 2
+        },
+        "cells_total": 56,
+        "commit": "fixture-commit",
+        "critical_path_total": {
+          "max_us": 2000000,
+          "mean_us": 1300000,
+          "n": 54,
+          "p50_us": 1200000,
+          "p95_us": 1800000
+        },
+        "manifest_digest": "manifest-candidate-config",
+        "non_official": true,
+        "per_cell": [
+          {
+            "outcome": "ok",
+            "question_id": "q001",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 1000000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q002",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 1010000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q003",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 1020000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q004",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 1030000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q005",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 1040000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q006",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 1050000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q007",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 1060000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q008",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 1070000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q009",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 1080000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q010",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 1090000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q011",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 1100000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q012",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 1110000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q013",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 1120000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q014",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 1130000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q015",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 1140000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q016",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 1150000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q017",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 1160000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q018",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 1170000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q019",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 1180000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q020",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 1190000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q021",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 1200000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q022",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 1210000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q023",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 1220000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q024",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 1230000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q025",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 1240000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q026",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 1250000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q027",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 1260000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q028",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 1270000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q029",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 1280000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q030",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 1290000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q031",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 1300000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q032",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 1310000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q033",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1320000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q034",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1330000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q035",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1340000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q036",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1350000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q037",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1360000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q038",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1370000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q039",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1380000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q040",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1390000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q041",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1400000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q042",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1410000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q043",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1420000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q044",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1430000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q045",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1440000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q046",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1450000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q047",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1460000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q048",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1470000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q049",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1480000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q050",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1490000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q051",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1500000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q052",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1510000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q053",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1520000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q054",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1530000
+          },
+          {
+            "outcome": "timeout",
+            "question_id": "q055",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": null
+          },
+          {
+            "outcome": "failed",
+            "question_id": "q056",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": null
+          }
+        ],
+        "run_id": "fixture-candidate-config",
+        "schema_version": "stage09.erb.stage_latency.v1",
+        "tree": "fixture-tree"
+      },
+      "manifest": {
+        "commit": "fixture-commit",
+        "config_digest": "candidate-config",
+        "corpus_digest": "fixture-corpus",
+        "coverage": {
+          "cells": 56,
+          "coverage_pct": 100.0,
+          "failed": 4,
+          "total_questions": 56
+        },
+        "flags": {
+          "blind_plan": true,
+          "gold_free": true,
+          "official": false
+        },
+        "manifest_digest": "manifest-candidate-config",
+        "question_digest": "fixture-questions",
+        "run_id": "fixture-candidate-config",
+        "schema_version": "stage09.erb.run_manifest.v1",
+        "tree": "fixture-tree"
+      },
+      "non_claims": [
+        "official_evaluator_score",
+        "sota_claim",
+        "promotion"
+      ],
+      "official_claim": {
+        "blockers": [],
+        "status": "not_evaluated"
+      },
+      "rerank": {
+        "invariant_ok": true
+      },
+      "schema_version": "stage09.erb.run_receipt.v1"
+    },
+    "role": "candidate"
+  },
+  "cases": [
+    {
+      "question_id": "q001",
+      "question_type": "semantic"
+    },
+    {
+      "question_id": "q002",
+      "question_type": "semantic"
+    },
+    {
+      "question_id": "q003",
+      "question_type": "semantic"
+    },
+    {
+      "question_id": "q004",
+      "question_type": "semantic"
+    },
+    {
+      "question_id": "q005",
+      "question_type": "semantic"
+    },
+    {
+      "question_id": "q006",
+      "question_type": "semantic"
+    },
+    {
+      "question_id": "q007",
+      "question_type": "semantic"
+    },
+    {
+      "question_id": "q008",
+      "question_type": "semantic"
+    },
+    {
+      "question_id": "q009",
+      "question_type": "project_related"
+    },
+    {
+      "question_id": "q010",
+      "question_type": "project_related"
+    },
+    {
+      "question_id": "q011",
+      "question_type": "project_related"
+    },
+    {
+      "question_id": "q012",
+      "question_type": "project_related"
+    },
+    {
+      "question_id": "q013",
+      "question_type": "project_related"
+    },
+    {
+      "question_id": "q014",
+      "question_type": "project_related"
+    },
+    {
+      "question_id": "q015",
+      "question_type": "project_related"
+    },
+    {
+      "question_id": "q016",
+      "question_type": "project_related"
+    },
+    {
+      "question_id": "q017",
+      "question_type": "completeness"
+    },
+    {
+      "question_id": "q018",
+      "question_type": "completeness"
+    },
+    {
+      "question_id": "q019",
+      "question_type": "completeness"
+    },
+    {
+      "question_id": "q020",
+      "question_type": "completeness"
+    },
+    {
+      "question_id": "q021",
+      "question_type": "completeness"
+    },
+    {
+      "question_id": "q022",
+      "question_type": "completeness"
+    },
+    {
+      "question_id": "q023",
+      "question_type": "completeness"
+    },
+    {
+      "question_id": "q024",
+      "question_type": "completeness"
+    },
+    {
+      "question_id": "q025",
+      "question_type": "constrained"
+    },
+    {
+      "question_id": "q026",
+      "question_type": "constrained"
+    },
+    {
+      "question_id": "q027",
+      "question_type": "constrained"
+    },
+    {
+      "question_id": "q028",
+      "question_type": "constrained"
+    },
+    {
+      "question_id": "q029",
+      "question_type": "constrained"
+    },
+    {
+      "question_id": "q030",
+      "question_type": "constrained"
+    },
+    {
+      "question_id": "q031",
+      "question_type": "constrained"
+    },
+    {
+      "question_id": "q032",
+      "question_type": "constrained"
+    },
+    {
+      "question_id": "q033",
+      "question_type": "conflicting"
+    },
+    {
+      "question_id": "q034",
+      "question_type": "conflicting"
+    },
+    {
+      "question_id": "q035",
+      "question_type": "conflicting"
+    },
+    {
+      "question_id": "q036",
+      "question_type": "conflicting"
+    },
+    {
+      "question_id": "q037",
+      "question_type": "conflicting"
+    },
+    {
+      "question_id": "q038",
+      "question_type": "conflicting"
+    },
+    {
+      "question_id": "q039",
+      "question_type": "conflicting"
+    },
+    {
+      "question_id": "q040",
+      "question_type": "conflicting"
+    },
+    {
+      "question_id": "q041",
+      "question_type": "intra_document"
+    },
+    {
+      "question_id": "q042",
+      "question_type": "intra_document"
+    },
+    {
+      "question_id": "q043",
+      "question_type": "intra_document"
+    },
+    {
+      "question_id": "q044",
+      "question_type": "intra_document"
+    },
+    {
+      "question_id": "q045",
+      "question_type": "intra_document"
+    },
+    {
+      "question_id": "q046",
+      "question_type": "intra_document"
+    },
+    {
+      "question_id": "q047",
+      "question_type": "intra_document"
+    },
+    {
+      "question_id": "q048",
+      "question_type": "intra_document"
+    },
+    {
+      "question_id": "q049",
+      "question_type": "not_found"
+    },
+    {
+      "question_id": "q050",
+      "question_type": "not_found"
+    },
+    {
+      "question_id": "q051",
+      "question_type": "not_found"
+    },
+    {
+      "question_id": "q052",
+      "question_type": "not_found"
+    },
+    {
+      "question_id": "q053",
+      "question_type": "not_found"
+    },
+    {
+      "question_id": "q054",
+      "question_type": "not_found"
+    },
+    {
+      "question_id": "q055",
+      "question_type": "not_found"
+    },
+    {
+      "question_id": "q056",
+      "question_type": "not_found"
+    }
+  ],
+  "naive_rag": {
+    "components": {
+      "attribution": {
+        "counts": {
+          "both": 2,
+          "generator_only": 7,
+          "neither": 38,
+          "retriever_only": 7,
+          "unknown": 2
+        },
+        "n_scored": 56
+      },
+      "by_type": {
+        "completeness": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.61,
+            "n": 8,
+            "no_answer_count": 1,
+            "no_answer_rate": 0.125
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "conflicting": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.59,
+            "n": 8,
+            "no_answer_count": 1,
+            "no_answer_rate": 0.125
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "constrained": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.6,
+            "n": 8,
+            "no_answer_count": 1,
+            "no_answer_rate": 0.125
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "intra_document": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 0,
+            "abstention_rate": 0.0,
+            "claim_support_rate": 0.58,
+            "n": 8,
+            "no_answer_count": 1,
+            "no_answer_rate": 0.125
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "not_found": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 0,
+            "abstention_rate": 0.0,
+            "claim_support_rate": 0.57,
+            "n": 8,
+            "no_answer_count": 0,
+            "no_answer_rate": 0.0
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "project_related": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.62,
+            "n": 8,
+            "no_answer_count": 1,
+            "no_answer_rate": 0.125
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        },
+        "semantic": {
+          "attribution": {
+            "counts": {
+              "both": 0,
+              "generator_only": 1,
+              "neither": 6,
+              "retriever_only": 1,
+              "unknown": 0
+            },
+            "n": 8
+          },
+          "citation_safety": {
+            "n": 8
+          },
+          "generator": {
+            "abstention_count": 1,
+            "abstention_rate": 0.125,
+            "claim_support_rate": 0.63,
+            "n": 8,
+            "no_answer_count": 1,
+            "no_answer_rate": 0.125
+          },
+          "n": 8,
+          "retriever": {
+            "n": 8
+          }
+        }
+      },
+      "citation_safety": {
+        "citation_offsets_preserved_rate": 1.0,
+        "n_scored": 56
+      },
+      "generator": {
+        "abstention_count": 5,
+        "abstention_rate": 0.089286,
+        "claim_support_rate": 0.62,
+        "grounding_status_counts": {
+          "illegal_citations_stripped": 5,
+          "no_citations": 6,
+          "no_supported_claims": 10,
+          "ok": 35
+        },
+        "n_scored": 56,
+        "no_answer_count": 6,
+        "no_answer_rate": 0.107143
+      },
+      "non_official": true,
+      "non_steering": true,
+      "retriever": {
+        "citation_recall": 0.45,
+        "n_scored": 56,
+        "pool_at_1": 0.6,
+        "window_at_1": 0.55
+      },
+      "run_manifest": {
+        "commit": "fixture-commit",
+        "config_digest": "naive-config",
+        "corpus_digest": "fixture-corpus",
+        "coverage": {
+          "scored": 56,
+          "total_questions": 56
+        },
+        "question_digest": "fixture-questions",
+        "schema_version": "stage09.erb.component_diagnostics.v1"
+      },
+      "schema_version": "stage09.erb.component_diagnostics.v1"
+    },
+    "cost": {
+      "by_type": {
+        "completeness": {
+          "avg_cost_per_question_usd": 0.01,
+          "n": 8,
+          "total_cost_usd": 0.08,
+          "total_tokens": 40000
+        },
+        "conflicting": {
+          "avg_cost_per_question_usd": 0.01,
+          "n": 8,
+          "total_cost_usd": 0.08,
+          "total_tokens": 40000
+        },
+        "constrained": {
+          "avg_cost_per_question_usd": 0.01,
+          "n": 8,
+          "total_cost_usd": 0.08,
+          "total_tokens": 40000
+        },
+        "intra_document": {
+          "avg_cost_per_question_usd": 0.01,
+          "n": 8,
+          "total_cost_usd": 0.08,
+          "total_tokens": 40000
+        },
+        "not_found": {
+          "avg_cost_per_question_usd": 0.01,
+          "n": 8,
+          "total_cost_usd": 0.08,
+          "total_tokens": 40000
+        },
+        "project_related": {
+          "avg_cost_per_question_usd": 0.01,
+          "n": 8,
+          "total_cost_usd": 0.08,
+          "total_tokens": 40000
+        },
+        "semantic": {
+          "avg_cost_per_question_usd": 0.01,
+          "n": 8,
+          "total_cost_usd": 0.08,
+          "total_tokens": 40000
+        }
+      },
+      "non_official": true,
+      "non_steering": true,
+      "prices": {
+        "currency": "USD",
+        "digest": "fixture-prices",
+        "estimated": true
+      },
+      "run_manifest": {
+        "commit": "fixture-commit",
+        "config_digest": "naive-config",
+        "corpus_digest": "fixture-corpus",
+        "coverage": {
+          "scored": 56,
+          "total_questions": 56
+        },
+        "question_digest": "fixture-questions",
+        "schema_version": "stage09.erb.component_diagnostics.v1"
+      },
+      "run_summary": {
+        "avg_cost_per_question_usd": 0.01,
+        "calls": 56,
+        "cells": 56,
+        "cells_missing_usage": 2,
+        "cells_no_usage_data": 2,
+        "cells_with_usage": 54,
+        "input_tokens": 224000,
+        "output_tokens": 56000,
+        "total_cost_usd": 0.56,
+        "total_tokens": 280000,
+        "usage_coverage": 0.964286
+      },
+      "schema_version": "stage09.erb.cost_diagnostics.v1"
+    },
+    "label": "naive-rag",
+    "matrix": {
+      "manifest": {
+        "commit": "fixture-commit",
+        "config_digest": "naive-config",
+        "corpus_digest": "fixture-corpus",
+        "coverage": {
+          "scored": 56,
+          "total_questions": 56
+        },
+        "question_digest": "fixture-questions",
+        "schema_version": "stage09.erb.retrieval_type_matrix.v1"
+      },
+      "matrix": {
+        "by_type": {
+          "completeness": {
+            "citation_recall": 0.43,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.58,
+            "window_at_1": 0.53
+          },
+          "conflicting": {
+            "citation_recall": 0.41,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.56,
+            "window_at_1": 0.51
+          },
+          "constrained": {
+            "citation_recall": 0.42,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.57,
+            "window_at_1": 0.52
+          },
+          "intra_document": {
+            "citation_recall": 0.4,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.55,
+            "window_at_1": 0.5
+          },
+          "not_found": {
+            "citation_recall": 0.39,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.54,
+            "window_at_1": 0.49
+          },
+          "project_related": {
+            "citation_recall": 0.44,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.59,
+            "window_at_1": 0.54
+          },
+          "semantic": {
+            "citation_recall": 0.45,
+            "metric_denominators": {
+              "cite": 7,
+              "pool": 8,
+              "window": 7
+            },
+            "n": 8,
+            "pool_at_1": 0.6,
+            "window_at_1": 0.55
+          }
+        },
+        "citation_recall": 0.45,
+        "hit_rate": 0.6,
+        "metric_denominators": {
+          "cite": 48,
+          "hit": 56,
+          "mrr": 56,
+          "ndcg": 50,
+          "pool": 56,
+          "window": 50
+        },
+        "mrr": 0.42,
+        "n_scored": 56,
+        "ndcg": 0.5,
+        "pool_at_1": 0.6,
+        "schema_version": "stage09.erb.retrieval_type_matrix.v1",
+        "window_at_1": 0.55
+      },
+      "note": "sanitized passive retrieval fixture",
+      "schema_version": "stage09.erb.retrieval_type_matrix.v1"
+    },
+    "receipt": {
+      "failure_taxonomy": {
+        "by_category": {
+          "grounding": 1,
+          "judge": 0,
+          "protocol": 1,
+          "provider": 0,
+          "retrieval": 1,
+          "synthesis": 0,
+          "timeout": 3,
+          "unknown": 0
+        },
+        "schema_version": "stage09.erb.failure_taxonomy.v1"
+      },
+      "latency": {
+        "by_outcome": {
+          "failed": 3,
+          "ok": 50,
+          "timeout": 3
+        },
+        "cells_total": 56,
+        "commit": "fixture-commit",
+        "critical_path_total": {
+          "max_us": 1400000,
+          "mean_us": 900000,
+          "n": 54,
+          "p50_us": 850000,
+          "p95_us": 1200000
+        },
+        "manifest_digest": "manifest-naive-config",
+        "non_official": true,
+        "per_cell": [
+          {
+            "outcome": "ok",
+            "question_id": "q001",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 700000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q002",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 710000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q003",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 720000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q004",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 730000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q005",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 740000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q006",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 750000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q007",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 760000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q008",
+            "question_type": "semantic",
+            "stages": {},
+            "total_us": 770000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q009",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 780000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q010",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 790000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q011",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 800000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q012",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 810000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q013",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 820000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q014",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 830000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q015",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 840000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q016",
+            "question_type": "project_related",
+            "stages": {},
+            "total_us": 850000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q017",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 860000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q018",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 870000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q019",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 880000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q020",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 890000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q021",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 900000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q022",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 910000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q023",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 920000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q024",
+            "question_type": "completeness",
+            "stages": {},
+            "total_us": 930000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q025",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 940000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q026",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 950000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q027",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 960000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q028",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 970000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q029",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 980000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q030",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 990000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q031",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 1000000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q032",
+            "question_type": "constrained",
+            "stages": {},
+            "total_us": 1010000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q033",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1020000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q034",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1030000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q035",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1040000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q036",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1050000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q037",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1060000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q038",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1070000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q039",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1080000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q040",
+            "question_type": "conflicting",
+            "stages": {},
+            "total_us": 1090000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q041",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1100000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q042",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1110000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q043",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1120000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q044",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1130000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q045",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1140000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q046",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1150000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q047",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1160000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q048",
+            "question_type": "intra_document",
+            "stages": {},
+            "total_us": 1170000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q049",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1180000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q050",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1190000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q051",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1200000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q052",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1210000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q053",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1220000
+          },
+          {
+            "outcome": "ok",
+            "question_id": "q054",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": 1230000
+          },
+          {
+            "outcome": "timeout",
+            "question_id": "q055",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": null
+          },
+          {
+            "outcome": "failed",
+            "question_id": "q056",
+            "question_type": "not_found",
+            "stages": {},
+            "total_us": null
+          }
+        ],
+        "run_id": "fixture-naive-config",
+        "schema_version": "stage09.erb.stage_latency.v1",
+        "tree": "fixture-tree"
+      },
+      "manifest": {
+        "commit": "fixture-commit",
+        "config_digest": "naive-config",
+        "corpus_digest": "fixture-corpus",
+        "coverage": {
+          "cells": 56,
+          "coverage_pct": 100.0,
+          "failed": 6,
+          "total_questions": 56
+        },
+        "flags": {
+          "blind_plan": true,
+          "gold_free": true,
+          "official": false
+        },
+        "manifest_digest": "manifest-naive-config",
+        "question_digest": "fixture-questions",
+        "run_id": "fixture-naive-config",
+        "schema_version": "stage09.erb.run_manifest.v1",
+        "tree": "fixture-tree"
+      },
+      "non_claims": [
+        "official_evaluator_score",
+        "sota_claim",
+        "promotion"
+      ],
+      "official_claim": {
+        "blockers": [],
+        "status": "not_evaluated"
+      },
+      "rerank": {
+        "invariant_ok": true
+      },
+      "schema_version": "stage09.erb.run_receipt.v1"
+    },
+    "role": "naive_rag"
+  },
+  "schema_version": "stage09.erb.quality_dashboard_fixture.v1"
+}

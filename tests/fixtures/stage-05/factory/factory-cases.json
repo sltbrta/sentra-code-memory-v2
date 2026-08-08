@@ -1,0 +1,234 @@
+{
+  "schemaVersion": "ouroboros.stage05.factory-cases.v1",
+  "corpus": "Stage 03 mixed-P5 committed fixture (Go lane)",
+  "baseGitOid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "requiredGateKinds": ["BUILD", "TEST", "DOCS", "SECURITY"],
+  "cases": [
+    {
+      "caseId": "happy-path-retained",
+      "category": "happy_path",
+      "intent": {
+        "summary": "Rename the seeded marker accessor in two Go files and update their tests.",
+        "scopePaths": ["src/go/modify-00.go", "src/go/modify-01.go"]
+      },
+      "leaves": [
+        {"nodeId": "leaf-a", "ownedPaths": ["src/go/modify-00.go"]},
+        {"nodeId": "leaf-b", "ownedPaths": ["src/go/modify-01.go"]}
+      ],
+      "interference": "none",
+      "gates": [
+        {"kind": "BUILD", "required": true, "expectedStatus": "PASSED"},
+        {"kind": "TEST", "required": true, "expectedStatus": "PASSED"},
+        {"kind": "DOCS", "required": true, "expectedStatus": "PASSED"},
+        {"kind": "SECURITY", "required": true, "expectedStatus": "PASSED"}
+      ],
+      "obligations": [
+        {"language": "go", "docsRequired": true, "testsRequired": true}
+      ],
+      "expectedOutcome": "candidate_retained",
+      "expectedPublicReason": null,
+      "expectedRunState": "COMPLETED",
+      "expectedCandidateState": "RETAINED",
+      "canonicalUnchanged": true,
+      "note": "One approved intent becomes one two-leaf DAG and one verified, reviewed, retained atomic candidate; canonical Git is never mutated by the candidate boundary."
+    },
+    {
+      "caseId": "stale-base-rejected",
+      "category": "stale_base",
+      "intent": {
+        "summary": "Admit an intent pinned to a superseded Git base object.",
+        "scopePaths": ["src/go/modify-00.go"]
+      },
+      "leaves": [
+        {"nodeId": "leaf-a", "ownedPaths": ["src/go/modify-00.go"]}
+      ],
+      "interference": "stale_base",
+      "gates": [],
+      "obligations": [],
+      "expectedOutcome": "rejected",
+      "expectedPublicReason": "not_found_or_denied",
+      "expectedRunState": null,
+      "expectedCandidateState": null,
+      "canonicalUnchanged": true,
+      "note": "Admission revalidates the exact base; a stale base rejects with the static non-disclosing denial and no run opens."
+    },
+    {
+      "caseId": "stale-lease-rejected",
+      "category": "stale_lease",
+      "intent": {
+        "summary": "Commit a leaf result under an expired lease fence.",
+        "scopePaths": ["src/go/modify-00.go"]
+      },
+      "leaves": [
+        {"nodeId": "leaf-a", "ownedPaths": ["src/go/modify-00.go"]}
+      ],
+      "interference": "stale_lease",
+      "gates": [],
+      "obligations": [],
+      "expectedOutcome": "rejected",
+      "expectedPublicReason": "not_found_or_denied",
+      "expectedRunState": "RUNNING",
+      "expectedCandidateState": null,
+      "canonicalUnchanged": true,
+      "note": "An expired-fence commit cannot become canonical; the old holder may emit trace but never commits."
+    },
+    {
+      "caseId": "duplicate-message-replays",
+      "category": "duplicate_message",
+      "intent": {
+        "summary": "Retry admission with an identical idempotency key, then reuse the key with a different intent digest.",
+        "scopePaths": ["src/go/modify-00.go"]
+      },
+      "leaves": [
+        {"nodeId": "leaf-a", "ownedPaths": ["src/go/modify-00.go"]}
+      ],
+      "interference": "exact_replay",
+      "gates": [],
+      "obligations": [],
+      "expectedOutcome": "admitted",
+      "expectedPublicReason": null,
+      "expectedRunState": "PLANNING",
+      "expectedCandidateState": null,
+      "canonicalUnchanged": true,
+      "duplicateSemantics": {
+        "exactReplay": "original_outcome",
+        "conflictingReuse": "rejected"
+      },
+      "note": "An exact authenticated replay resolves the admitted key to its original outcome; a conflicting key reuse rejects without mutation."
+    },
+    {
+      "caseId": "leaf-escape-attempt-denied",
+      "category": "leaf_escape",
+      "intent": {
+        "summary": "A leased leaf requests a write outside its owned scope.",
+        "scopePaths": ["src/go/modify-00.go"]
+      },
+      "leaves": [
+        {"nodeId": "leaf-a", "ownedPaths": ["src/go/modify-00.go"]}
+      ],
+      "interference": "escape_write",
+      "escapeAttempt": {
+        "requestedPath": "src/typescript/modify-00.ts",
+        "grantPaths": ["src/go/modify-00.go"]
+      },
+      "gates": [
+        {"kind": "SECURITY", "required": true, "expectedStatus": "FAILED"}
+      ],
+      "obligations": [],
+      "expectedOutcome": "failed",
+      "expectedPublicReason": null,
+      "expectedRunState": "FAILED",
+      "expectedCandidateState": null,
+      "canonicalUnchanged": true,
+      "note": "The broker resolves paths component by component; an out-of-scope write denies before any effect and the run fails closed."
+    },
+    {
+      "caseId": "partial-edit-failure-discards-candidate",
+      "category": "partial_edit_failure",
+      "intent": {
+        "summary": "Apply ten normalized edits; fail the seventh.",
+        "scopePaths": [
+          "src/go/modify-00.go", "src/go/modify-01.go", "src/go/modify-02.go",
+          "src/go/modify-03.go", "src/go/modify-04.go", "src/go/add-00.go",
+          "src/go/add-01.go", "src/go/add-02.go", "src/go/add-03.go",
+          "src/go/add-04.go"
+        ]
+      },
+      "leaves": [
+        {"nodeId": "leaf-a", "ownedPaths": ["src/go/modify-00.go", "src/go/modify-01.go", "src/go/modify-02.go", "src/go/modify-03.go", "src/go/modify-04.go"]},
+        {"nodeId": "leaf-b", "ownedPaths": ["src/go/add-00.go", "src/go/add-01.go", "src/go/add-02.go", "src/go/add-03.go", "src/go/add-04.go"]}
+      ],
+      "interference": "late_edit_failure",
+      "editCount": 10,
+      "failureAtEdit": 7,
+      "gates": [],
+      "obligations": [
+        {"language": "go", "docsRequired": true, "testsRequired": true}
+      ],
+      "expectedOutcome": "candidate_rejected",
+      "expectedPublicReason": null,
+      "expectedRunState": "FAILED",
+      "expectedCandidateState": "REJECTED",
+      "rollbackReceipt": true,
+      "canonicalUnchanged": true,
+      "note": "Application is all-or-nothing: the isolated candidate is discarded, the rollback receipt is recorded, and the canonical worktree plus complete .git inventory stay byte-identical."
+    },
+    {
+      "caseId": "failed-gate-rejects-candidate",
+      "category": "failed_gate",
+      "intent": {
+        "summary": "The deterministic test gate fails on the isolated candidate.",
+        "scopePaths": ["src/go/modify-00.go"]
+      },
+      "leaves": [
+        {"nodeId": "leaf-a", "ownedPaths": ["src/go/modify-00.go"]}
+      ],
+      "interference": "gate_failure",
+      "gates": [
+        {"kind": "BUILD", "required": true, "expectedStatus": "PASSED"},
+        {"kind": "TEST", "required": true, "expectedStatus": "FAILED"},
+        {"kind": "DOCS", "required": true, "expectedStatus": "PENDING"},
+        {"kind": "SECURITY", "required": true, "expectedStatus": "PENDING"}
+      ],
+      "obligations": [
+        {"language": "go", "docsRequired": true, "testsRequired": true}
+      ],
+      "expectedOutcome": "candidate_rejected",
+      "expectedPublicReason": null,
+      "expectedRunState": "FAILED",
+      "expectedCandidateState": "REJECTED",
+      "rollbackReceipt": true,
+      "canonicalUnchanged": true,
+      "note": "A failed required gate makes verification impossible; the candidate cannot verify, review, or retain and is rejected."
+    },
+    {
+      "caseId": "revoke-mid-run-cancels",
+      "category": "revoke",
+      "intent": {
+        "summary": "Revoke the leaf grant while the run executes.",
+        "scopePaths": ["src/go/modify-00.go"]
+      },
+      "leaves": [
+        {"nodeId": "leaf-a", "ownedPaths": ["src/go/modify-00.go"]}
+      ],
+      "interference": "revoke_mid_run",
+      "gates": [],
+      "obligations": [],
+      "expectedOutcome": "cancelled",
+      "expectedPublicReason": null,
+      "expectedRunState": "CANCELLED",
+      "expectedCandidateState": null,
+      "pendingEffectsDenied": true,
+      "canonicalUnchanged": true,
+      "note": "Revocation preempts at a safe point, pending effects reauthorize against current policy and deny, and the run reaches the terminal cancelled state."
+    },
+    {
+      "caseId": "rollback-after-reject-restores",
+      "category": "rollback",
+      "intent": {
+        "summary": "Reject a verified candidate and roll it back deterministically.",
+        "scopePaths": ["src/go/rename-00.go", "src/go/modify-01.go"]
+      },
+      "leaves": [
+        {"nodeId": "leaf-a", "ownedPaths": ["src/go/rename-00.go", "src/go/modify-01.go"]}
+      ],
+      "interference": "reject_after_verify",
+      "gates": [
+        {"kind": "BUILD", "required": true, "expectedStatus": "PASSED"},
+        {"kind": "TEST", "required": true, "expectedStatus": "PASSED"},
+        {"kind": "DOCS", "required": true, "expectedStatus": "PASSED"},
+        {"kind": "SECURITY", "required": true, "expectedStatus": "PASSED"}
+      ],
+      "obligations": [
+        {"language": "go", "docsRequired": true, "testsRequired": true}
+      ],
+      "expectedOutcome": "rolled_back",
+      "expectedPublicReason": null,
+      "expectedRunState": "FAILED",
+      "expectedCandidateState": "REJECTED",
+      "rollbackReceipt": true,
+      "canonicalUnchanged": true,
+      "note": "Rollback discards the candidate through its frozen rollback artifact and receipt; canonical Git was never touched, so there is nothing to restore. The scope deliberately includes the rename pre-image src/go/rename-00.go to pin pre-image resolution against the committed tree."
+    }
+  ]
+}

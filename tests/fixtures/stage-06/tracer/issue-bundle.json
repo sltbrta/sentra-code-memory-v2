@@ -1,0 +1,16 @@
+{
+  "acceptance": [
+    "MarkerLabel renamed to AuthorizedMarkerLabel",
+    "tests updated and green",
+    "no live Sentra/SFS claim"
+  ],
+  "body": "Rename MarkerLabel to AuthorizedMarkerLabel and update the unit test. Synthetic fixture only.",
+  "labels": [
+    "tracer-001",
+    "synthetic"
+  ],
+  "nature": "synthetic-hermetic",
+  "schemaVersion": "tracer-001/issue-bundle/v1",
+  "title": "Bounded Go rename of MarkerLabel for Tracer 001 factory handoff",
+  "tracerId": "tracer-001"
+}

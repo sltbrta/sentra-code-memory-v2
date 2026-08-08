@@ -1,0 +1,7 @@
+"""Stage 07 meeting-transcript fixtures."""
+
+filegroup(
+    name = "transcript_fixture",
+    srcs = glob(["transcript/**"]),
+    visibility = ["//visibility:public"],
+)

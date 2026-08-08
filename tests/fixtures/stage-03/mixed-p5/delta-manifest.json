@@ -1,0 +1,532 @@
+{
+  "schemaVersion": "ouroboros.stage03.mixed-p5-delta.v1",
+  "pathCounting": "Each operation is one repository-relative delta record; a rename is one record with oldPath and newPath endpoints. The manifest has 100 records and 125 distinct path endpoints.",
+  "operations": [
+    {
+      "kind": "add",
+      "language": "go",
+      "newPath": "src/go/add-00.go"
+    },
+    {
+      "kind": "add",
+      "language": "go",
+      "newPath": "src/go/add-01.go"
+    },
+    {
+      "kind": "add",
+      "language": "go",
+      "newPath": "src/go/add-02.go"
+    },
+    {
+      "kind": "add",
+      "language": "go",
+      "newPath": "src/go/add-03.go"
+    },
+    {
+      "kind": "add",
+      "language": "go",
+      "newPath": "src/go/add-04.go"
+    },
+    {
+      "kind": "add",
+      "language": "typescript",
+      "newPath": "src/typescript/add-00.ts"
+    },
+    {
+      "kind": "add",
+      "language": "typescript",
+      "newPath": "src/typescript/add-01.ts"
+    },
+    {
+      "kind": "add",
+      "language": "typescript",
+      "newPath": "src/typescript/add-02.ts"
+    },
+    {
+      "kind": "add",
+      "language": "typescript",
+      "newPath": "src/typescript/add-03.ts"
+    },
+    {
+      "kind": "add",
+      "language": "typescript",
+      "newPath": "src/typescript/add-04.ts"
+    },
+    {
+      "kind": "add",
+      "language": "python",
+      "newPath": "src/python/add-00.py"
+    },
+    {
+      "kind": "add",
+      "language": "python",
+      "newPath": "src/python/add-01.py"
+    },
+    {
+      "kind": "add",
+      "language": "python",
+      "newPath": "src/python/add-02.py"
+    },
+    {
+      "kind": "add",
+      "language": "python",
+      "newPath": "src/python/add-03.py"
+    },
+    {
+      "kind": "add",
+      "language": "python",
+      "newPath": "src/python/add-04.py"
+    },
+    {
+      "kind": "add",
+      "language": "rust",
+      "newPath": "src/rust/add-00.rs"
+    },
+    {
+      "kind": "add",
+      "language": "rust",
+      "newPath": "src/rust/add-01.rs"
+    },
+    {
+      "kind": "add",
+      "language": "rust",
+      "newPath": "src/rust/add-02.rs"
+    },
+    {
+      "kind": "add",
+      "language": "rust",
+      "newPath": "src/rust/add-03.rs"
+    },
+    {
+      "kind": "add",
+      "language": "rust",
+      "newPath": "src/rust/add-04.rs"
+    },
+    {
+      "kind": "add",
+      "language": "java",
+      "newPath": "src/java/add-00.java"
+    },
+    {
+      "kind": "add",
+      "language": "java",
+      "newPath": "src/java/add-01.java"
+    },
+    {
+      "kind": "add",
+      "language": "java",
+      "newPath": "src/java/add-02.java"
+    },
+    {
+      "kind": "add",
+      "language": "java",
+      "newPath": "src/java/add-03.java"
+    },
+    {
+      "kind": "add",
+      "language": "java",
+      "newPath": "src/java/add-04.java"
+    },
+    {
+      "kind": "modify",
+      "language": "go",
+      "oldPath": "src/go/modify-00.go"
+    },
+    {
+      "kind": "modify",
+      "language": "go",
+      "oldPath": "src/go/modify-01.go"
+    },
+    {
+      "kind": "modify",
+      "language": "go",
+      "oldPath": "src/go/modify-02.go"
+    },
+    {
+      "kind": "modify",
+      "language": "go",
+      "oldPath": "src/go/modify-03.go"
+    },
+    {
+      "kind": "modify",
+      "language": "go",
+      "oldPath": "src/go/modify-04.go"
+    },
+    {
+      "kind": "modify",
+      "language": "typescript",
+      "oldPath": "src/typescript/modify-00.ts",
+      "malformed": true
+    },
+    {
+      "kind": "modify",
+      "language": "typescript",
+      "oldPath": "src/typescript/modify-01.ts"
+    },
+    {
+      "kind": "modify",
+      "language": "typescript",
+      "oldPath": "src/typescript/modify-02.ts"
+    },
+    {
+      "kind": "modify",
+      "language": "typescript",
+      "oldPath": "src/typescript/modify-03.ts"
+    },
+    {
+      "kind": "modify",
+      "language": "typescript",
+      "oldPath": "src/typescript/modify-04.ts"
+    },
+    {
+      "kind": "modify",
+      "language": "python",
+      "oldPath": "src/python/modify-00.py"
+    },
+    {
+      "kind": "modify",
+      "language": "python",
+      "oldPath": "src/python/modify-01.py"
+    },
+    {
+      "kind": "modify",
+      "language": "python",
+      "oldPath": "src/python/modify-02.py"
+    },
+    {
+      "kind": "modify",
+      "language": "python",
+      "oldPath": "src/python/modify-03.py"
+    },
+    {
+      "kind": "modify",
+      "language": "python",
+      "oldPath": "src/python/modify-04.py"
+    },
+    {
+      "kind": "modify",
+      "language": "rust",
+      "oldPath": "src/rust/modify-00.rs"
+    },
+    {
+      "kind": "modify",
+      "language": "rust",
+      "oldPath": "src/rust/modify-01.rs"
+    },
+    {
+      "kind": "modify",
+      "language": "rust",
+      "oldPath": "src/rust/modify-02.rs"
+    },
+    {
+      "kind": "modify",
+      "language": "rust",
+      "oldPath": "src/rust/modify-03.rs"
+    },
+    {
+      "kind": "modify",
+      "language": "rust",
+      "oldPath": "src/rust/modify-04.rs"
+    },
+    {
+      "kind": "modify",
+      "language": "java",
+      "oldPath": "src/java/modify-00.java"
+    },
+    {
+      "kind": "modify",
+      "language": "java",
+      "oldPath": "src/java/modify-01.java"
+    },
+    {
+      "kind": "modify",
+      "language": "java",
+      "oldPath": "src/java/modify-02.java"
+    },
+    {
+      "kind": "modify",
+      "language": "java",
+      "oldPath": "src/java/modify-03.java"
+    },
+    {
+      "kind": "modify",
+      "language": "java",
+      "oldPath": "src/java/modify-04.java"
+    },
+    {
+      "kind": "rename",
+      "language": "go",
+      "oldPath": "src/go/rename-00.go",
+      "newPath": "src/go/renamed-00.go"
+    },
+    {
+      "kind": "rename",
+      "language": "go",
+      "oldPath": "src/go/rename-01.go",
+      "newPath": "src/go/renamed-01.go"
+    },
+    {
+      "kind": "rename",
+      "language": "go",
+      "oldPath": "src/go/rename-02.go",
+      "newPath": "src/go/renamed-02.go"
+    },
+    {
+      "kind": "rename",
+      "language": "go",
+      "oldPath": "src/go/rename-03.go",
+      "newPath": "src/go/renamed-03.go"
+    },
+    {
+      "kind": "rename",
+      "language": "go",
+      "oldPath": "src/go/rename-04.go",
+      "newPath": "src/go/renamed-04.go"
+    },
+    {
+      "kind": "rename",
+      "language": "typescript",
+      "oldPath": "src/typescript/rename-00.ts",
+      "newPath": "src/typescript/renamed-00.ts"
+    },
+    {
+      "kind": "rename",
+      "language": "typescript",
+      "oldPath": "src/typescript/rename-01.ts",
+      "newPath": "src/typescript/renamed-01.ts"
+    },
+    {
+      "kind": "rename",
+      "language": "typescript",
+      "oldPath": "src/typescript/rename-02.ts",
+      "newPath": "src/typescript/renamed-02.ts"
+    },
+    {
+      "kind": "rename",
+      "language": "typescript",
+      "oldPath": "src/typescript/rename-03.ts",
+      "newPath": "src/typescript/renamed-03.ts"
+    },
+    {
+      "kind": "rename",
+      "language": "typescript",
+      "oldPath": "src/typescript/rename-04.ts",
+      "newPath": "src/typescript/renamed-04.ts"
+    },
+    {
+      "kind": "rename",
+      "language": "python",
+      "oldPath": "src/python/rename-00.py",
+      "newPath": "src/python/renamed-00.py"
+    },
+    {
+      "kind": "rename",
+      "language": "python",
+      "oldPath": "src/python/rename-01.py",
+      "newPath": "src/python/renamed-01.py"
+    },
+    {
+      "kind": "rename",
+      "language": "python",
+      "oldPath": "src/python/rename-02.py",
+      "newPath": "src/python/renamed-02.py"
+    },
+    {
+      "kind": "rename",
+      "language": "python",
+      "oldPath": "src/python/rename-03.py",
+      "newPath": "src/python/renamed-03.py"
+    },
+    {
+      "kind": "rename",
+      "language": "python",
+      "oldPath": "src/python/rename-04.py",
+      "newPath": "src/python/renamed-04.py"
+    },
+    {
+      "kind": "rename",
+      "language": "rust",
+      "oldPath": "src/rust/rename-00.rs",
+      "newPath": "src/rust/renamed-00.rs"
+    },
+    {
+      "kind": "rename",
+      "language": "rust",
+      "oldPath": "src/rust/rename-01.rs",
+      "newPath": "src/rust/renamed-01.rs"
+    },
+    {
+      "kind": "rename",
+      "language": "rust",
+      "oldPath": "src/rust/rename-02.rs",
+      "newPath": "src/rust/renamed-02.rs"
+    },
+    {
+      "kind": "rename",
+      "language": "rust",
+      "oldPath": "src/rust/rename-03.rs",
+      "newPath": "src/rust/renamed-03.rs"
+    },
+    {
+      "kind": "rename",
+      "language": "rust",
+      "oldPath": "src/rust/rename-04.rs",
+      "newPath": "src/rust/renamed-04.rs"
+    },
+    {
+      "kind": "rename",
+      "language": "java",
+      "oldPath": "src/java/rename-00.java",
+      "newPath": "src/java/renamed-00.java"
+    },
+    {
+      "kind": "rename",
+      "language": "java",
+      "oldPath": "src/java/rename-01.java",
+      "newPath": "src/java/renamed-01.java"
+    },
+    {
+      "kind": "rename",
+      "language": "java",
+      "oldPath": "src/java/rename-02.java",
+      "newPath": "src/java/renamed-02.java"
+    },
+    {
+      "kind": "rename",
+      "language": "java",
+      "oldPath": "src/java/rename-03.java",
+      "newPath": "src/java/renamed-03.java"
+    },
+    {
+      "kind": "rename",
+      "language": "java",
+      "oldPath": "src/java/rename-04.java",
+      "newPath": "src/java/renamed-04.java"
+    },
+    {
+      "kind": "delete",
+      "language": "go",
+      "oldPath": "src/go/delete-00.go"
+    },
+    {
+      "kind": "delete",
+      "language": "go",
+      "oldPath": "src/go/delete-01.go"
+    },
+    {
+      "kind": "delete",
+      "language": "go",
+      "oldPath": "src/go/delete-02.go"
+    },
+    {
+      "kind": "delete",
+      "language": "go",
+      "oldPath": "src/go/delete-03.go"
+    },
+    {
+      "kind": "delete",
+      "language": "go",
+      "oldPath": "src/go/delete-04.go"
+    },
+    {
+      "kind": "delete",
+      "language": "typescript",
+      "oldPath": "src/typescript/delete-00.ts"
+    },
+    {
+      "kind": "delete",
+      "language": "typescript",
+      "oldPath": "src/typescript/delete-01.ts"
+    },
+    {
+      "kind": "delete",
+      "language": "typescript",
+      "oldPath": "src/typescript/delete-02.ts"
+    },
+    {
+      "kind": "delete",
+      "language": "typescript",
+      "oldPath": "src/typescript/delete-03.ts"
+    },
+    {
+      "kind": "delete",
+      "language": "typescript",
+      "oldPath": "src/typescript/delete-04.ts"
+    },
+    {
+      "kind": "delete",
+      "language": "python",
+      "oldPath": "src/python/delete-00.py"
+    },
+    {
+      "kind": "delete",
+      "language": "python",
+      "oldPath": "src/python/delete-01.py"
+    },
+    {
+      "kind": "delete",
+      "language": "python",
+      "oldPath": "src/python/delete-02.py"
+    },
+    {
+      "kind": "delete",
+      "language": "python",
+      "oldPath": "src/python/delete-03.py"
+    },
+    {
+      "kind": "delete",
+      "language": "python",
+      "oldPath": "src/python/delete-04.py"
+    },
+    {
+      "kind": "delete",
+      "language": "rust",
+      "oldPath": "src/rust/delete-00.rs"
+    },
+    {
+      "kind": "delete",
+      "language": "rust",
+      "oldPath": "src/rust/delete-01.rs"
+    },
+    {
+      "kind": "delete",
+      "language": "rust",
+      "oldPath": "src/rust/delete-02.rs"
+    },
+    {
+      "kind": "delete",
+      "language": "rust",
+      "oldPath": "src/rust/delete-03.rs"
+    },
+    {
+      "kind": "delete",
+      "language": "rust",
+      "oldPath": "src/rust/delete-04.rs"
+    },
+    {
+      "kind": "delete",
+      "language": "java",
+      "oldPath": "src/java/delete-00.java"
+    },
+    {
+      "kind": "delete",
+      "language": "java",
+      "oldPath": "src/java/delete-01.java"
+    },
+    {
+      "kind": "delete",
+      "language": "java",
+      "oldPath": "src/java/delete-02.java"
+    },
+    {
+      "kind": "delete",
+      "language": "java",
+      "oldPath": "src/java/delete-03.java"
+    },
+    {
+      "kind": "delete",
+      "language": "java",
+      "oldPath": "src/java/delete-04.java"
+    }
+  ]
+}

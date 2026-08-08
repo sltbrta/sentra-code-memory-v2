@@ -1,0 +1,8 @@
+// Package marker is the hermetic Tracer 001 supporting-span source (stale arm).
+// Synthetic only: not a Sentra/SFS live reconstruction.
+package marker
+
+// MarkerLabel returns a superseded marker string that must fail SPAN_STALE checks.
+func MarkerLabel() string {
+	return "tracer-001-stale-marker-superseded"
+}

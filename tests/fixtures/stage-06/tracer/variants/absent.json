@@ -1,0 +1,20 @@
+{
+  "kind": "absent",
+  "actorPrincipalId": {
+    "namespace": "tracer-001",
+    "value": "principal-a"
+  },
+  "aclEpoch": 1,
+  "sourcePath": "src/marker/missing.go",
+  "sourceRelative": null,
+  "expect": {
+    "outcome": "abstain",
+    "publicReason": "not_found_or_denied",
+    "reasonCode": "SPAN_ABSENT",
+    "shardResult": "SPAN_MISMATCH"
+  },
+  "variantDigest": {
+    "algorithm": "sha256",
+    "hex": "328a0a605877e526b2e0932044026e06c4be4d26f6cd41e5793d8511c8295542"
+  }
+}

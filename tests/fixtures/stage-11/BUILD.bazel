@@ -1,0 +1,11 @@
+"""Small tracked inputs for the deterministic Stage 11 multimodal fixture."""
+
+filegroup(
+    name = "multimodal_cases",
+    srcs = glob(["multimodal/**"]),
+    visibility = [
+        "//services/gateway/authorityprocess:__pkg__",
+        "//tests/stage-11/contracts:__pkg__",
+        "//tools/stage-11:__pkg__",
+    ],
+)

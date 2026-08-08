@@ -1,0 +1,40 @@
+{
+  "baseGitOid": "02354ff3b1740905347f538de22ac20f96b25668",
+  "dynamicLeafMax": 3,
+  "dynamicLeafMin": 1,
+  "expectedN": 2,
+  "language": "go",
+  "leaves": [
+    {
+      "nodeId": "leaf-impl",
+      "ownedPaths": [
+        "src/marker/marker.go"
+      ]
+    },
+    {
+      "nodeId": "leaf-test",
+      "ownedPaths": [
+        "src/marker/marker_test.go"
+      ]
+    }
+  ],
+  "nature": "synthetic-hermetic",
+  "requiredGateKinds": [
+    "BUILD",
+    "TEST",
+    "DOCS",
+    "SECURITY"
+  ],
+  "schemaVersion": "tracer-001/change-intent/v1",
+  "scopePaths": [
+    "src/marker/marker.go",
+    "src/marker/marker_test.go"
+  ],
+  "summary": "Rename MarkerLabel to AuthorizedMarkerLabel and update its unit test.",
+  "verifier": {
+    "expectSymbolAbsent": "MarkerLabel",
+    "expectSymbolPresent": "AuthorizedMarkerLabel",
+    "kind": "go_test",
+    "package": "./src/marker"
+  }
+}

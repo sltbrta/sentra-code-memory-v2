@@ -1,0 +1,27 @@
+{
+  "schema_version": "ouroboros.stage07.transcript-fixture.v1",
+  "title": "Sprint planning",
+  "source_scope": "fixture-meeting",
+  "started_at_ms": 1700000000000,
+  "ended_at_ms": 1700000900000,
+  "segments": [
+    {
+      "start_millis": 0,
+      "end_millis": 5000,
+      "text": "We will ship the billing service next week.",
+      "speaker_label": "s1"
+    },
+    {
+      "start_millis": 5000,
+      "end_millis": 12000,
+      "text": "Action item: notify the finance team about the rollout.",
+      "speaker_label": "s2"
+    },
+    {
+      "start_millis": 12000,
+      "end_millis": 18000,
+      "text": "Partial note: recording interrupted after this span.",
+      "speaker_label": "s1"
+    }
+  ]
+}

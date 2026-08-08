@@ -1,0 +1,3 @@
+pub fn anchor() -> &'static str {
+    "ouroboros-stage-03"
+}

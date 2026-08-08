@@ -1,0 +1,11 @@
+"""Small tracked inputs for the deterministic Stage 04 grounding fixture."""
+
+filegroup(
+    name = "grounding_cases",
+    srcs = glob(["grounding/**"]),
+    visibility = [
+        "//services/brain/internal/query:__pkg__",
+        "//services/gateway/authorityprocess:__pkg__",
+        "//tests/stage-04/contracts:__pkg__",
+    ],
+)

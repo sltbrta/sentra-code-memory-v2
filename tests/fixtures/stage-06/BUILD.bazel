@@ -1,0 +1,11 @@
+"""Hermetic synthetic Stage 06 tracer fixture (content-addressed digests)."""
+
+filegroup(
+    name = "tracer_manifest",
+    srcs = glob(["tracer/**"]),
+    visibility = [
+        "//tests/tracers/tracer-001/admission:__pkg__",
+        "//tests/tracers/tracer-001/contracts:__pkg__",
+        "//tests/tracers/tracer-001/fixtures:__pkg__",
+    ],
+)

@@ -1,0 +1,20 @@
+{
+  "kind": "authorized",
+  "actorPrincipalId": {
+    "namespace": "tracer-001",
+    "value": "principal-a"
+  },
+  "aclEpoch": 1,
+  "sourcePath": "src/marker/marker.go",
+  "sourceRelative": "source/src/marker/marker.go",
+  "expect": {
+    "outcome": "cited_answer",
+    "publicReason": "",
+    "reasonCode": "",
+    "shardResult": "OK"
+  },
+  "variantDigest": {
+    "algorithm": "sha256",
+    "hex": "6424b240a1569a794b313b49b99745a3d49b626a7e689fc390d7ec6b8a435eed"
+  }
+}

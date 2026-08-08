@@ -1,0 +1,20 @@
+{
+  "kind": "stale",
+  "actorPrincipalId": {
+    "namespace": "tracer-001",
+    "value": "principal-a"
+  },
+  "aclEpoch": 1,
+  "sourcePath": "src/marker/marker.go",
+  "sourceRelative": "source/src/marker/marker_stale.go.fixture",
+  "expect": {
+    "outcome": "abstain",
+    "publicReason": "not_found_or_denied",
+    "reasonCode": "SPAN_STALE",
+    "shardResult": "DIGEST_MISMATCH"
+  },
+  "variantDigest": {
+    "algorithm": "sha256",
+    "hex": "a94e23785f6be90919cddb6deea9d743ec250627bba8d3ed8c38cbdf5633155c"
+  }
+}

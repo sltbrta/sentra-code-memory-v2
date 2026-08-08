@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "ouroboros.stage04.grounding-cases.v1",
+  "corpus": "Stage 03 mixed-P5 fixture: admitted generation 1 (tree A) and reconciled generation 2 (tree B)",
+  "cases": [
+    {
+      "caseId": "answered-go-anchor",
+      "category": "answered",
+      "query": "Which Go function in src/go/modify-00.go returns the stage marker?",
+      "pinnedGeneration": "current",
+      "freshness": "best_effort",
+      "interference": "none",
+      "expectedStatus": "answered",
+      "expectedCitations": [
+        {"path": "src/go/modify-00.go", "startLine": 3, "startColumn": 1, "endLine": 3, "endColumn": 53}
+      ],
+      "expectedReasons": [],
+      "note": "Answerable from a syntax-aware Go occurrence in the current generation."
+    },
+    {
+      "caseId": "answered-typescript-anchor",
+      "category": "answered",
+      "query": "What does the exported anchor constant in src/typescript/add-00.ts return?",
+      "pinnedGeneration": "current",
+      "freshness": "best_effort",
+      "interference": "none",
+      "expectedStatus": "answered",
+      "expectedCitations": [
+        {"path": "src/typescript/add-00.ts", "startLine": 1, "startColumn": 1, "endLine": 1, "endColumn": 58}
+      ],
+      "expectedReasons": [],
+      "note": "Answerable from a TypeScript occurrence added by the reconciled generation."
+    },
+    {
+      "caseId": "answered-python-anchor",
+      "category": "answered",
+      "query": "What does anchor() return in src/python/modify-00.py?",
+      "pinnedGeneration": "current",
+      "freshness": "complete_generation",
+      "interference": "none",
+      "expectedStatus": "answered",
+      "expectedCitations": [
+        {"path": "src/python/modify-00.py", "startLine": 6, "startColumn": 5, "endLine": 6, "endColumn": 32}
+      ],
+      "expectedReasons": [],
+      "note": "Answerable from a Python occurrence under the complete-generation freshness mode."
+    },
+    {
+      "caseId": "partial-malformed-lane",
+      "category": "partial",
+      "query": "Compare the anchor returned by src/go/modify-00.go with the function in src/typescript/modify-00.ts.",
+      "pinnedGeneration": "current",
+      "freshness": "best_effort",
+      "interference": "none",
+      "expectedStatus": "partial",
+      "expectedCitations": [
+        {"path": "src/go/modify-00.go", "startLine": 3, "startColumn": 1, "endLine": 3, "endColumn": 53}
+      ],
+      "expectedReasons": ["lane_degraded"],
+      "note": "The malformed TypeScript lane is lexically degraded; supported Go claims remain with declared degradation."
+    },
+    {
+      "caseId": "partial-stale-best-effort",
+      "category": "partial",
+      "query": "What did src/go/delete-00.go return before it was deleted?",
+      "pinnedGeneration": "stale",
+      "freshness": "best_effort",
+      "interference": "none",
+      "expectedStatus": "partial",
+      "expectedCitations": [
+        {"path": "src/go/delete-00.go", "startLine": 3, "startColumn": 1, "endLine": 3, "endColumn": 53}
+      ],
+      "expectedReasons": ["stale_support"],
+      "note": "Best-effort serves the pinned stale generation with explicit stale disclosure."
+    },
+    {
+      "caseId": "absent-billing-support",
+      "category": "absent",
+      "query": "What does the billing service return for an overdue invoice?",
+      "pinnedGeneration": "current",
+      "freshness": "best_effort",
+      "interference": "none",
+      "expectedStatus": "abstained",
+      "expectedCitations": [],
+      "expectedReasons": ["absent_support"],
+      "note": "No billing evidence exists in the corpus; the answer abstains."
+    },
+    {
+      "caseId": "absent-rust-router",
+      "category": "absent",
+      "query": "Find the Rust HTTP router registration in this corpus.",
+      "pinnedGeneration": "current",
+      "freshness": "abstain_if_stale",
+      "interference": "none",
+      "expectedStatus": "abstained",
+      "expectedCitations": [],
+      "expectedReasons": ["absent_support"],
+      "note": "No router evidence exists; absence is indistinguishable from denial."
+    },
+    {
+      "caseId": "stale-abstain-deleted",
+      "category": "stale",
+      "query": "What does src/go/delete-00.go return?",
+      "pinnedGeneration": "stale",
+      "freshness": "abstain_if_stale",
+      "interference": "none",
+      "expectedStatus": "abstained",
+      "expectedCitations": [],
+      "expectedReasons": ["stale_support"],
+      "note": "Abstain-if-stale refuses to serve the superseded generation silently."
+    },
+    {
+      "caseId": "stale-abstain-renamed",
+      "category": "stale",
+      "query": "Which function lives at src/go/rename-00.go?",
+      "pinnedGeneration": "stale",
+      "freshness": "abstain_if_stale",
+      "interference": "none",
+      "expectedStatus": "abstained",
+      "expectedCitations": [],
+      "expectedReasons": ["stale_support"],
+      "note": "The pinned generation predates the rename; freshness policy abstains."
+    },
+    {
+      "caseId": "denied-relationship",
+      "category": "denied",
+      "query": "Which Go function in src/go/modify-00.go returns the stage marker?",
+      "pinnedGeneration": "current",
+      "freshness": "best_effort",
+      "interference": "denied_relationship",
+      "expectedStatus": "abstained",
+      "expectedCitations": [],
+      "expectedReasons": ["absent_support"],
+      "note": "Denied support is publicly identical to absent support; no existence detail leaks."
+    },
+    {
+      "caseId": "denied-revoked-mid-query",
+      "category": "denied",
+      "query": "Which Go function in src/go/modify-00.go returns the stage marker?",
+      "pinnedGeneration": "current",
+      "freshness": "best_effort",
+      "interference": "revoked_mid_query",
+      "expectedStatus": "abstained",
+      "expectedCitations": [],
+      "expectedReasons": ["absent_support"],
+      "note": "Revocation during retrieval discards unauthorized claims and abstains without disclosure."
+    },
+    {
+      "caseId": "provider-failure-abstain",
+      "category": "provider_failure",
+      "query": "Which Go function in src/go/modify-00.go returns the stage marker?",
+      "pinnedGeneration": "current",
+      "freshness": "best_effort",
+      "interference": "provider_failure",
+      "expectedStatus": "abstained",
+      "expectedCitations": [],
+      "expectedReasons": ["synthesis_unavailable"],
+      "note": "A failed synthesis provider yields a stable abstention, never a silent fallback."
+    }
+  ]
+}

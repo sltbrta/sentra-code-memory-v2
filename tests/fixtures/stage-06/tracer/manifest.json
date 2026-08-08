@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "tracer-001/v1",
+  "tracerId": "tracer-001",
+  "pinStatus": "pinned",
+  "notes": "SYNTHETIC HERMETIC FIXTURE (S06-L1). Digests are content-addressed from committed bytes under tests/fixtures/stage-06/tracer/. This is NOT a live Sentra/SFS reconstruction pin. Live donor pin remains deferred; synthetic satisfies the deterministic replay half of dual-proof only. GitHub effect identity: fine_grained_pat (env surface only). Modal/model keys deferred.",
+  "tenantId": {
+    "namespace": "tracer-001",
+    "value": "tenant-synthetic-a"
+  },
+  "authorizedPrincipalId": {
+    "namespace": "tracer-001",
+    "value": "principal-a"
+  },
+  "deniedPrincipalId": {
+    "namespace": "tracer-001",
+    "value": "principal-b"
+  },
+  "sfsSnapshotDigest": {
+    "algorithm": "sha256",
+    "hex": "f4f91a71ae0fa73a999ce9f8afce86b3e433296df04de7360cb3666941d62283"
+  },
+  "issueBundleDigest": {
+    "algorithm": "sha256",
+    "hex": "44202f00664ff4249e84d00796baaf634bae5a5fdbc6cc07b4a8bd9c86433e66"
+  },
+  "aclEpoch": 1,
+  "sourceRevisionDigest": {
+    "algorithm": "sha256",
+    "hex": "f9bf1da549cda813c1719b94e89cbefedf6fbb559da01d78f32df2819e1f2f57"
+  },
+  "baseGitOid": "02354ff3b1740905347f538de22ac20f96b25668",
+  "workflowDigest": {
+    "algorithm": "sha256",
+    "hex": "2654991bc2dfb48c85a9e0e8dbc53c930e2921a6fe3d1dcfbd209ad794784762"
+  },
+  "configDigest": {
+    "algorithm": "sha256",
+    "hex": "d72a4a9d18b8ef0d6b261591397dc41dd5f20c8df69542ea2ecd016fb17ef9a9"
+  },
+  "policyDigest": {
+    "algorithm": "sha256",
+    "hex": "7b2039fd876a66dd4d88e35876602e4636189f428b5d6a32466d51cc3512d02e"
+  },
+  "supportingSpanPath": "src/marker/marker.go",
+  "supportingSpanBytes": {
+    "startByte": 254,
+    "endByte": 293
+  },
+  "supportingSpanLines": {
+    "startLine": 7,
+    "endLine": 8
+  },
+  "supportingSpanDigest": {
+    "algorithm": "sha256",
+    "hex": "061161584aa133c37c16b82a94b3c051534eca374b2566da192ac4aa1a66837b"
+  },
+  "supportingAnchorDigest": {
+    "algorithm": "sha256",
+    "hex": "845264a8fe72c6ac6acf7b129ac7529a4325d333cd13c2a3365697321d29de06"
+  },
+  "dynamicLeafMin": 1,
+  "dynamicLeafMax": 3,
+  "variants": [
+    {
+      "kind": "authorized",
+      "variantDigest": {
+        "algorithm": "sha256",
+        "hex": "6424b240a1569a794b313b49b99745a3d49b626a7e689fc390d7ec6b8a435eed"
+      },
+      "expectedPublicReason": "",
+      "reasonCode": ""
+    },
+    {
+      "kind": "absent",
+      "variantDigest": {
+        "algorithm": "sha256",
+        "hex": "328a0a605877e526b2e0932044026e06c4be4d26f6cd41e5793d8511c8295542"
+      },
+      "expectedPublicReason": "not_found_or_denied",
+      "reasonCode": "SPAN_ABSENT"
+    },
+    {
+      "kind": "stale",
+      "variantDigest": {
+        "algorithm": "sha256",
+        "hex": "a94e23785f6be90919cddb6deea9d743ec250627bba8d3ed8c38cbdf5633155c"
+      },
+      "expectedPublicReason": "not_found_or_denied",
+      "reasonCode": "SPAN_STALE"
+    },
+    {
+      "kind": "unauthorized",
+      "variantDigest": {
+        "algorithm": "sha256",
+        "hex": "80549b2aedfedf5d3f07e05b2f2c9e07cc1530a2a8f6c38cd9d4a8616373e046"
+      },
+      "expectedPublicReason": "not_found_or_denied",
+      "reasonCode": "SPAN_UNAUTHORIZED"
+    },
+    {
+      "kind": "revoked",
+      "variantDigest": {
+        "algorithm": "sha256",
+        "hex": "bb51abcf4d64845b1ae5ee20f53be1564a31d49f4dd2fae89f3175195efe3e57"
+      },
+      "expectedPublicReason": "not_found_or_denied",
+      "reasonCode": "SPAN_REVOKED"
+    }
+  ],
+  "configSurface": {
+    "modalAuthSecretRef": "keychain:modal-personal",
+    "githubEffectIdentityKind": "fine_grained_pat",
+    "githubIdentitySecretRef": "keychain:github-effect-pat",
+    "implementerModelFamily": "openai",
+    "reviewerModelFamily": "gemini",
+    "openaiSecretRef": "keychain:openai",
+    "geminiSecretRef": "keychain:gemini",
+    "modalTtlSeconds": 1800,
+    "budgetsDigest": {
+      "algorithm": "sha256",
+      "hex": "cb252b394000e95a6c2a4ac8ecd8b07e395eb0e2485cdea009fafcfd4dc3dc11"
+    },
+    "retentionDigest": {
+      "algorithm": "sha256",
+      "hex": "a835c3442bdfb89c54ee82dbc898810b79606f1cc746314028170c71ee026d8a"
+    },
+    "configurationDigest": {
+      "algorithm": "sha256",
+      "hex": "d72a4a9d18b8ef0d6b261591397dc41dd5f20c8df69542ea2ecd016fb17ef9a9"
+    }
+  },
+  "manifestDigest": {
+    "algorithm": "sha256",
+    "hex": "c8a9a9610450a3aab5fb7dfd7b6daf714607847b65e2b776bc7c43a983e37c56"
+  }
+}

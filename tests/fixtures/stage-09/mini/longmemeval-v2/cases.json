@@ -1,0 +1,74 @@
+{
+  "schema_version": "stage09.longmemeval-v2.mini.v1",
+  "benchmark": "longmemeval-v2",
+  "benchmark_version": "v2",
+  "scope": "mini_fixture_only",
+  "full_matrix": "deferred_DEF-007",
+  "development_case_ids": ["lme-mini-01", "lme-mini-02", "lme-mini-03"],
+  "holdout_case_ids": ["lme-mini-holdout-01"],
+  "required_comparisons": [
+    "no_memory",
+    "direct_retrieval",
+    "current_brain"
+  ],
+  "cases": [
+    {
+      "case_id": "lme-mini-01",
+      "split": "development",
+      "ability": "single_session_user",
+      "question": "What city does the user live in?",
+      "memory_facts": ["User lives in Kyoto."],
+      "gold_answer": "Kyoto",
+      "baseline_answers": {
+        "no_memory": "",
+        "direct_retrieval": "Kyoto",
+        "current_brain": "Kyoto"
+      }
+    },
+    {
+      "case_id": "lme-mini-02",
+      "split": "development",
+      "ability": "multi_session",
+      "question": "What is the user's preferred editor?",
+      "memory_facts": [
+        "Session A: user tried vim.",
+        "Session B: user settled on helix."
+      ],
+      "gold_answer": "helix",
+      "baseline_answers": {
+        "no_memory": "",
+        "direct_retrieval": "helix",
+        "current_brain": "helix"
+      }
+    },
+    {
+      "case_id": "lme-mini-03",
+      "split": "development",
+      "ability": "knowledge_update",
+      "question": "What is the current project name?",
+      "memory_facts": [
+        "Old name was Orpheus.",
+        "Project was renamed to Ouroboros."
+      ],
+      "gold_answer": "Ouroboros",
+      "baseline_answers": {
+        "no_memory": "",
+        "direct_retrieval": "Orpheus",
+        "current_brain": "Ouroboros"
+      }
+    },
+    {
+      "case_id": "lme-mini-holdout-01",
+      "split": "holdout",
+      "ability": "temporal_reasoning",
+      "question": "When was the last deploy?",
+      "memory_facts": ["Last deploy: 2026-07-01 09:00 UTC."],
+      "gold_answer": "2026-07-01 09:00 UTC",
+      "baseline_answers": {
+        "no_memory": "",
+        "direct_retrieval": "2026-07-01 09:00 UTC",
+        "current_brain": "2026-07-01 09:00 UTC"
+      }
+    }
+  ]
+}

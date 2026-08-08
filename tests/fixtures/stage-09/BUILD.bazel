@@ -1,0 +1,11 @@
+"""Stage 09 sealed fixtures (mini TB/LongMem + EnterpriseRAG pin)."""
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "fixtures",
+    srcs = glob([
+        "mini/**",
+        "enterprise-rag-bench/**",
+    ]),
+)

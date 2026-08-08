@@ -1,0 +1,15 @@
+"""Small tracked inputs for the deterministic Stage 03 mixed-P5 fixture."""
+
+filegroup(
+    name = "mixed_p5_seed",
+    srcs = glob(["mixed-p5/**"]),
+    visibility = [
+        "//services/brain/internal/codeindex:__pkg__",
+        "//services/brain/internal/ingestion:__pkg__",
+        "//services/brain/internal/query:__pkg__",
+        "//services/gateway/authorityprocess:__pkg__",
+        "//tests/stage-03/contracts:__pkg__",
+        "//tests/stage-04/contracts:__pkg__",
+        "//tests/stage-05/contracts:__pkg__",
+    ],
+)

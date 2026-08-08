@@ -1,0 +1,10 @@
+"""Small tracked inputs for the deterministic Stage 05 factory fixture."""
+
+filegroup(
+    name = "factory_cases",
+    srcs = glob(["factory/**"]),
+    visibility = [
+        "//services/brain/internal/factory:__pkg__",
+        "//tests/stage-05/contracts:__pkg__",
+    ],
+)
