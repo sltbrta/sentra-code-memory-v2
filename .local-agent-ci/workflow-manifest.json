@@ -1,0 +1,97 @@
+{
+  "schema": "pi-agent:workflow-manifest:v1",
+  "run_id": "20260808T164908Z-inspect-ouroboros-and-create-standalone-21885",
+  "head": "6692c0ad501593963211748f33075b6874b9cfb0",
+  "workflow": "standalone-code-memory-extraction",
+  "scope": "Create a self-contained standalone copy of Ouroboros' code-memory and code-intelligence backend under github.com/sltbrta/sentra-code-memory-v2. Preserve committed implementation parity for code crawl, durable incremental indexing, exact symbol indexing, code serving verbs, memory cortex/storage, hosted/local model clients, concurrency/worker pools, hardening, and low-latency warm paths. Add a simple coding-agent CLI with direct commands and JSONL protocol, rewrite module/import identities so no runtime/build dependency remains on Ouroboros, document independent setup and operation, run parity and smoke checks, and publish the initialized GitHub repository.",
+  "non_goals": [
+    "Do not copy the macOS Spotlight app, TUI, evaluation/media worker, deployment stacks, or unrelated company-only UI surfaces.",
+    "Do not claim benchmark parity beyond checks run locally.",
+    "Do not add a remote service requirement for local indexing/search/memory.",
+    "Do not modify the source Ouroboros checkout."
+  ],
+  "affected_files": [
+    "services/**",
+    "packages/contracts/**",
+    "workers/code-index/**",
+    "services/brain/cmd/sentra-code-memory/**",
+    "docs/**",
+    "README.md",
+    "go.work",
+    "justfile",
+    "go.mod",
+    "github workflows"
+  ],
+  "acceptance_commands": [
+    "go test ./...",
+    "go vet ./...",
+    "go run ./services/brain/cmd/sentra-code-memory --help",
+    "go run ./services/brain/cmd/sentra-code-memory catalog",
+    "go test ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/memory"
+  ],
+  "risks": [
+    "Large wholesale extraction may retain stale Ouroboros import paths or generated metadata.",
+    "Some copied services may assume monorepo Bazel/workspace files or unavailable external model credentials.",
+    "Changing generated protobuf import strings can break descriptors or consumers.",
+    "A public repository can expose accidental secrets or local artifacts if the source selection is wrong.",
+    "Full source parity may include more backend surface than the minimum code-only CLI needs."
+  ],
+  "issue_ids": [
+    "1"
+  ],
+  "created_at": "2026-08-08T16:58:27.954Z",
+  "tier": "T2",
+  "stage": "spec-lock",
+  "phases": [
+    {
+      "id": "spec-lock",
+      "title": "Scope and workflow lock"
+    },
+    {
+      "id": "issue",
+      "title": "GitHub issue and repository initialization"
+    },
+    {
+      "id": "context",
+      "title": "Extract committed backend source"
+    },
+    {
+      "id": "red-proof",
+      "title": "Add CLI contract tests and prove red"
+    },
+    {
+      "id": "implementation",
+      "title": "Rewrite identities and implement standalone CLI"
+    },
+    {
+      "id": "paired-review",
+      "title": "Review extraction boundaries and test oracle"
+    },
+    {
+      "id": "preflight",
+      "title": "Run Go and CLI preflight"
+    },
+    {
+      "id": "fresh-eyes",
+      "title": "Independent final review"
+    },
+    {
+      "id": "finalize",
+      "title": "Finalize repository publication"
+    },
+    {
+      "id": "land",
+      "title": "Commit and push"
+    },
+    {
+      "id": "cleanup",
+      "title": "Cleanup and verify"
+    }
+  ],
+  "required_receipts": [
+    "preflight",
+    "review",
+    "cleanup",
+    "escape"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "unknown",
+  "one_shot": true,
+  "rule": "hook.soft.GOFMT",
+  "reason": "Three copied Ouroboros files are pre-existing gofmt-hook findings; keep wholesale source parity and run targeted gofmt after extraction review.",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "user",
+  "approved_at": "2026-08-08T16:55:26.525Z"
+}

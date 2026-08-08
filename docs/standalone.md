@@ -47,4 +47,4 @@ Indexing and search are local filesystem operations. The CLI does not upload
 working-tree source. Hosted retrieval/model calls are opt-in through the copied
 client configuration. Paths must be explicitly supplied, cache writes are
 atomic/durable, and malformed JSONL requests return a bounded error response.
-Run `go test ./...` before publishing a built binary.
+Run the focused CLI/code-memory checks from the root README before publishing a built binary. The repository is a Go workspace, so use `go test ./services/... ./packages/contracts/...` when you intentionally need the full extracted backend; some authority tests require an optional pinned Bun executable and some evidence fixtures are not part of the local CLI preflight.
