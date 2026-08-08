@@ -1,0 +1,39 @@
+# Modularity allow-list for wholesale parity extraction.
+# Generated contracts and mature backend files are preserved verbatim; re-audit on expiry.
+
+packages/contracts/gen/ts/buf/validate/validate_pb.ts
+# generated Buf/Protobuf output; regenerate rather than split by hand
+# expires: 2026-09-19
+packages/contracts/gen/ts/ouroboros/contracts/v1/connectors_pb.ts
+# generated contract output; regenerate rather than split by hand
+# expires: 2026-09-19
+packages/contracts/gen/ts/ouroboros/contracts/v1/factory_pb.ts
+# generated contract output; regenerate rather than split by hand
+# expires: 2026-09-19
+packages/contracts/gen/ts/ouroboros/contracts/v1/ingestion_pb.ts
+# generated contract output; regenerate rather than split by hand
+# expires: 2026-09-19
+packages/contracts/gen/ts/ouroboros/contracts/v1/meetings_pb.ts
+# generated contract output; regenerate rather than split by hand
+# expires: 2026-09-19
+packages/contracts/gen/ts/ouroboros/contracts/v1/multimodal_pb.ts
+# generated contract output; regenerate rather than split by hand
+# expires: 2026-09-19
+packages/contracts/gen/ts/ouroboros/contracts/v1/tracer_pb.ts
+# generated contract output; regenerate rather than split by hand
+# expires: 2026-09-19
+services/brain/internal/connector/delegated_test.go
+# copied parity test; split only with source contract changes
+# expires: 2026-09-19
+services/brain/internal/hosted/answer.go
+# mature retrieval/answer pipeline; split is a future standalone refactor
+# expires: 2026-09-19
+services/brain/internal/hosted/ground.go
+# mature grounding pipeline; split is a future standalone refactor
+# expires: 2026-09-19
+services/brain/internal/hosted/retrieve.go
+# mature residual retrieval stack; split residual vs interactive next
+# expires: 2026-09-19
+services/brain/internal/hosted/retrieve_interactive.go
+# mature interactive retrieval stack; split after standalone parity settles
+# expires: 2026-09-19
