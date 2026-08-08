@@ -2200,7 +2200,7 @@ const file_ouroboros_contracts_v1_ingestion_proto_rawDesc = "" +
 	"SearchCode\x12).ouroboros.contracts.v1.SearchCodeRequest\x1a*.ouroboros.contracts.v1.SearchCodeResponse\x12r\n" +
 	"\x0fReconcileSource\x12..ouroboros.contracts.v1.ReconcileSourceRequest\x1a/.ouroboros.contracts.v1.ReconcileSourceResponse\x12i\n" +
 	"\fRevokeSource\x12+.ouroboros.contracts.v1.RevokeSourceRequest\x1a,.ouroboros.contracts.v1.RevokeSourceResponseB\x81\x02\n" +
-	"\x1acom.ouroboros.contracts.v1B\x0eIngestionProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"\x1acom.ouroboros.contracts.v1B\x0eIngestionProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_ingestion_proto_rawDescOnce sync.Once

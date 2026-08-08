@@ -2359,7 +2359,7 @@ const file_ouroboros_contracts_v1_multimodal_proto_rawDesc = "" +
 	"\x15GetMultimodalEvidence\x124.ouroboros.contracts.v1.GetMultimodalEvidenceRequest\x1a5.ouroboros.contracts.v1.GetMultimodalEvidenceResponse\x12\x87\x01\n" +
 	"\x16RevokeMultimodalSource\x125.ouroboros.contracts.v1.RevokeMultimodalSourceRequest\x1a6.ouroboros.contracts.v1.RevokeMultimodalSourceResponse\x12\x84\x01\n" +
 	"\x15PurgeMultimodalSource\x124.ouroboros.contracts.v1.PurgeMultimodalSourceRequest\x1a5.ouroboros.contracts.v1.PurgeMultimodalSourceResponseB\x82\x02\n" +
-	"\x1acom.ouroboros.contracts.v1B\x0fMultimodalProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"\x1acom.ouroboros.contracts.v1B\x0fMultimodalProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_multimodal_proto_rawDescOnce sync.Once

@@ -2533,7 +2533,7 @@ const file_ouroboros_contracts_v1_tracer_proto_rawDesc = "" +
 	"%TRACER_SHARD_RESULT_CODE_UTF8_INVALID\x10\x03\x12,\n" +
 	"(TRACER_SHARD_RESULT_CODE_DIGEST_MISMATCH\x10\x04\x12*\n" +
 	"&TRACER_SHARD_RESULT_CODE_SPAN_MISMATCH\x10\x05B\xfe\x01\n" +
-	"\x1acom.ouroboros.contracts.v1B\vTracerProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"\x1acom.ouroboros.contracts.v1B\vTracerProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_tracer_proto_rawDescOnce sync.Once

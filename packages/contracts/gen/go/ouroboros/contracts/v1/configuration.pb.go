@@ -424,7 +424,7 @@ const file_ouroboros_contracts_v1_configuration_proto_rawDesc = "" +
 	"\x19APPLICATION_MODE_NEXT_RUN\x10\x02\x12#\n" +
 	"\x1fAPPLICATION_MODE_RESTART_DAEMON\x10\x03\x12\x1c\n" +
 	"\x18APPLICATION_MODE_REINDEX\x10\x04B\x85\x02\n" +
-	"\x1acom.ouroboros.contracts.v1B\x12ConfigurationProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"\x1acom.ouroboros.contracts.v1B\x12ConfigurationProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_configuration_proto_rawDescOnce sync.Once

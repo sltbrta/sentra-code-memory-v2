@@ -996,7 +996,7 @@ const file_ouroboros_contracts_v1_local_authority_proto_rawDesc = "" +
 	"\x17ExecuteAuthorityCommand\x126.ouroboros.contracts.v1.ExecuteAuthorityCommandRequest\x1a7.ouroboros.contracts.v1.ExecuteAuthorityCommandResponse\x12c\n" +
 	"\n" +
 	"ReadStatus\x12).ouroboros.contracts.v1.ReadStatusRequest\x1a*.ouroboros.contracts.v1.ReadStatusResponseB\x86\x02\n" +
-	"\x1acom.ouroboros.contracts.v1B\x13LocalAuthorityProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"\x1acom.ouroboros.contracts.v1B\x13LocalAuthorityProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_local_authority_proto_rawDescOnce sync.Once

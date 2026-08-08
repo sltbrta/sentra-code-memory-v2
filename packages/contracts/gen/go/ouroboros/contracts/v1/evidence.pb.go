@@ -1524,7 +1524,7 @@ const file_ouroboros_contracts_v1_evidence_proto_rawDesc = "" +
 	"\x1eAUTHORITY_CLASS_USER_ASSERTION\x10\x05\x12\"\n" +
 	"\x1eAUTHORITY_CLASS_MODEL_PROPOSAL\x10\x06\x12#\n" +
 	"\x1fAUTHORITY_CLASS_DERIVED_SUMMARY\x10\aB\x80\x02\n" +
-	"\x1acom.ouroboros.contracts.v1B\rEvidenceProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"\x1acom.ouroboros.contracts.v1B\rEvidenceProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_evidence_proto_rawDescOnce sync.Once

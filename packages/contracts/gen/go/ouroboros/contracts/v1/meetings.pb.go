@@ -2654,7 +2654,7 @@ const file_ouroboros_contracts_v1_meetings_proto_rawDesc = "" +
 	"\fQueryMeeting\x12+.ouroboros.contracts.v1.QueryMeetingRequest\x1a,.ouroboros.contracts.v1.QueryMeetingResponse\x12l\n" +
 	"\rRevokeMeeting\x12,.ouroboros.contracts.v1.RevokeMeetingRequest\x1a-.ouroboros.contracts.v1.RevokeMeetingResponse\x12i\n" +
 	"\fPurgeMeeting\x12+.ouroboros.contracts.v1.PurgeMeetingRequest\x1a,.ouroboros.contracts.v1.PurgeMeetingResponseB\x80\x02\n" +
-	"\x1acom.ouroboros.contracts.v1B\rMeetingsProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"\x1acom.ouroboros.contracts.v1B\rMeetingsProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_meetings_proto_rawDescOnce sync.Once

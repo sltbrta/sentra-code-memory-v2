@@ -651,7 +651,7 @@ const file_ouroboros_contracts_v1_security_proto_rawDesc = "" +
 	"\x05grant\x18\x02 \x01(\v2'.ouroboros.contracts.v1.CapabilityGrantR\x05grant\x12'\n" +
 	"\x0fidempotency_key\x18\x03 \x01(\tR\x0eidempotencyKey\x12R\n" +
 	"\rauthorization\x18\x04 \x01(\v2,.ouroboros.contracts.v1.AuthorizationReceiptR\rauthorizationB\x80\x02\n" +
-	"\x1acom.ouroboros.contracts.v1B\rSecurityProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"\x1acom.ouroboros.contracts.v1B\rSecurityProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_security_proto_rawDescOnce sync.Once

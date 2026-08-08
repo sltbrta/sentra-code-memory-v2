@@ -460,7 +460,7 @@ const file_ouroboros_contracts_v1_tools_proto_rawDesc = "" +
 	"\x1aTOOL_FORMAT_WASI_COMPONENT\x10\x01\x12\x19\n" +
 	"\x15TOOL_FORMAT_OCI_IMAGE\x10\x02B\xfd\x01\n" +
 	"\x1acom.ouroboros.contracts.v1B\n" +
-	"ToolsProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"ToolsProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_tools_proto_rawDescOnce sync.Once

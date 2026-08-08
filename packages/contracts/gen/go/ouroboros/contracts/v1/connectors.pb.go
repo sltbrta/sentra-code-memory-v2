@@ -2854,7 +2854,7 @@ const file_ouroboros_contracts_v1_connectors_proto_rawDesc = "" +
 	"\x16QueryConnectorEvidence\x125.ouroboros.contracts.v1.QueryConnectorEvidenceRequest\x1a6.ouroboros.contracts.v1.QueryConnectorEvidenceResponse\x12r\n" +
 	"\x0fRevokeConnector\x12..ouroboros.contracts.v1.RevokeConnectorRequest\x1a/.ouroboros.contracts.v1.RevokeConnectorResponse\x12o\n" +
 	"\x0ePurgeConnector\x12-.ouroboros.contracts.v1.PurgeConnectorRequest\x1a..ouroboros.contracts.v1.PurgeConnectorResponseB\x82\x02\n" +
-	"\x1acom.ouroboros.contracts.v1B\x0fConnectorsProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"\x1acom.ouroboros.contracts.v1B\x0fConnectorsProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_connectors_proto_rawDescOnce sync.Once

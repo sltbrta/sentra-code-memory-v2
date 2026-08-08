@@ -1914,7 +1914,7 @@ const file_ouroboros_contracts_v1_query_proto_rawDesc = "" +
 	"GetHistory\x12).ouroboros.contracts.v1.GetHistoryRequest\x1a*.ouroboros.contracts.v1.GetHistoryResponse\x12`\n" +
 	"\tGetStatus\x12(.ouroboros.contracts.v1.GetStatusRequest\x1a).ouroboros.contracts.v1.GetStatusResponseB\xfd\x01\n" +
 	"\x1acom.ouroboros.contracts.v1B\n" +
-	"QueryProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"QueryProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_query_proto_rawDescOnce sync.Once

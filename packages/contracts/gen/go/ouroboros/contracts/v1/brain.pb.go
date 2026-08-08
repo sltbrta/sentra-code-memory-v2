@@ -699,7 +699,7 @@ const file_ouroboros_contracts_v1_brain_proto_rawDesc = "" +
 	"\x15ANSWER_STATUS_PARTIAL\x10\x02\x12\x1b\n" +
 	"\x17ANSWER_STATUS_ABSTAINED\x10\x03B\xfd\x01\n" +
 	"\x1acom.ouroboros.contracts.v1B\n" +
-	"BrainProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"BrainProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_brain_proto_rawDescOnce sync.Once

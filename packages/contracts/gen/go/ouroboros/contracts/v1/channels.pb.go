@@ -462,7 +462,7 @@ const file_ouroboros_contracts_v1_channels_proto_rawDesc = "" +
 	"request_id\x18\x01 \x01(\v2\".ouroboros.contracts.v1.IdentifierR\trequestId\x12O\n" +
 	"\x0feffect_approval\x18\x02 \x01(\v2&.ouroboros.contracts.v1.EffectApprovalR\x0eeffectApproval\x12?\n" +
 	"\rauthorized_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\fauthorizedAtB\x80\x02\n" +
-	"\x1acom.ouroboros.contracts.v1B\rChannelsProtoP\x01ZYgithub.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
+	"\x1acom.ouroboros.contracts.v1B\rChannelsProtoP\x01ZYgithub.com/sltbrta/ouroboros/packages/contracts/gen/go/ouroboros/contracts/v1;contractsv1\xa2\x02\x03OCX\xaa\x02\x16Ouroboros.Contracts.V1\xca\x02\x16Ouroboros\\Contracts\\V1\xe2\x02\"Ouroboros\\Contracts\\V1\\GPBMetadata\xea\x02\x18Ouroboros::Contracts::V1b\x06proto3"
 
 var (
 	file_ouroboros_contracts_v1_channels_proto_rawDescOnce sync.Once
