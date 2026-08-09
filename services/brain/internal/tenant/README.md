@@ -1,6 +1,7 @@
 # tenant
 
-**Phase 4** multi-tenant **local-file MVP**: registry, brain paths, fail-closed isolation.
+**Phase 4** multi-tenant **local-file MVP**: registry, brain paths, fail-closed
+isolation.
 
 ## Surfaces
 

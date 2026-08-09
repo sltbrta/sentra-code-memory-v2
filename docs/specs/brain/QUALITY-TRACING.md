@@ -10,7 +10,7 @@ input.
 The public operations emit these finite span names:
 
 | Span | Boundary |
-|---|---|
+| --- | --- |
 | `ouroboros.brain.answer` | one `AnswerOpts` call |
 | `ouroboros.brain.ingest` | one batch or burst upsert |
 | `ouroboros.brain.retrieve` | each initial or bounded answer-time retrieve |
@@ -49,7 +49,7 @@ longer than 64 bytes. Counts are clamped to `0..1000`; estimated cost is clamped
 to `0..1,000,000,000` micro-USD. No span events or links are emitted.
 
 | Span | Sanitized attributes (when available) |
-|---|---|
+| --- | --- |
 | answer | component, mode, outcome, provider, freshness, estimated micro-USD, citation count, claim count, abstained |
 | ingest | component, arm, outcome, freshness, input count, output count |
 | retrieve | component, arm, outcome, freshness, input/output count, cache hit |

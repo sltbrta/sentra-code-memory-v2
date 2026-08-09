@@ -11,7 +11,8 @@ tracked accepted compatibility decision and a separately reviewed explicit Buf
 build command. Ordinary compatible changes must pass against this descriptor
 without changing it.
 
-The Stage 11 A0 replacement (on top of Stage 06 tracer) was built from the accepted additive multimodal contract with:
+The Stage 11 A0 replacement (on top of Stage 06 tracer) was built from the
+accepted additive multimodal contract with:
 
 ```sh
 buf build --config buf.yaml proto --as-file-descriptor-set \

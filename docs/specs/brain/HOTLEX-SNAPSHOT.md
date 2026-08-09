@@ -79,7 +79,8 @@ target contains a validated legacy gob, `SaveGob` first preserves its exact
 bytes atomically at `<target>.rollback.gob`; an invalid or cross-brain legacy
 source rejects migration instead of being overwritten. For a fresh projection,
 `SaveGobWithRollback` and CLI `--rollback-gob <path>` explicitly dual-write a
-legacy rollback image before HOTLEX2. `SnapshotFormat` and hosted/CLI logs report
+legacy rollback image before HOTLEX2. `SnapshotFormat` and hosted/CLI logs
+report
 the successfully validated `hotlex2` or `legacy-gob` format rather than guessing
 from the `.gob` extension.
 
@@ -119,14 +120,17 @@ OUROBOROS_ERB_HOTLEX_GENERATION=<generation> product-brain serve
    and generation; its `SnapshotFormat` must be `legacy-gob`. Keep a copy of the
    HOTLEX2 file for diagnosis.
 3. Atomically rename/copy the rollback gob onto the exact path configured in
-   the old binary, then restart that gob-only binary. Do not point the old binary
+   the old binary, then restart that gob-only binary. Do not point the old
+binary
    at HOTLEX2 bytes merely because the filename ends in `.gob`.
 4. To roll forward again, stop the old writer, retain the rollback gob, publish
    a freshly scoped HOTLEX2 candidate, and verify the startup format/scope log.
 
 The rollback image is a serving projection, not the authority. Local mode can
-also rebuild from its durable chunk store. Tests exercise automatic preservation,
-explicit dual-write, decoding with the legacy gob wire shape, format diagnostics,
+also rebuild from its durable chunk store. Tests exercise automatic
+preservation,
+explicit dual-write, decoding with the legacy gob wire shape, format
+diagnostics,
 and legacy fallback.
 
 ## ACL, citations, and blind evaluation

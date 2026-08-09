@@ -1,9 +1,11 @@
 # Projection propagation SLOs
 
 Status for issue #316: **[planned targets, offline verifier and deterministic
-drills, fail-closed query provider boundary]**. The targets below are v1 commitments, not
+drills, fail-closed query provider boundary]**. The targets below are v1
+commitments, not
 achieved product claims
-(same posture as the [performance delivery contract](../performance/README.md)). The
+(same posture as the [performance delivery contract](../performance/README.md)).
+The
 verification helpers are offline-only: they consume receipt-backed samples and
 never touch live infrastructure.
 
@@ -65,7 +67,7 @@ telemetry or a universal detector-quality claim.
 ## Dimensions
 
 | Propagation | EventAt (canonical) | ReflectedAt (projection) |
-|---|---|---|
+| --- | --- | --- |
 | `freshness` | complete generation published | projection serves that generation |
 | `deletion` | tombstone appended | residual derived data purged from the projection |
 | `permission_change` | ACL epoch bumped | no read path can still emit under the prior epoch |
@@ -73,7 +75,7 @@ telemetry or a universal detector-quality claim.
 ## v1 targets per projection
 
 | Projection | Propagation | p50 | p95 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `lexical` | `freshness` | 10 s | 60 s |
 | `lexical` | `deletion` | — | 60 s |
 | `lexical` | `permission_change` | — | 5 s |
@@ -103,7 +105,7 @@ reported operations (`index`, `update`, `delete`, and `permission_change`) for
 each answer-path surface:
 
 | Surface | Inherited budget profile |
-|---|---|
+| --- | --- |
 | `lexical` | lexical |
 | `dense` | dense |
 | `graph` | ontology |
@@ -138,7 +140,8 @@ must have a complete receipt on all six surfaces: compliance requires exact
 Fixtures cover initial index, update, delete, ACL revocation, failed then
 successful retry, stale-worker completion, and one-surface partial failure.
 
-`AdmitEvidence` is the offline receipt-admission decision helper. It requires the
+`AdmitEvidence` is the offline receipt-admission decision helper. It requires
+the
 latest generation and ACL event to have an exact, within-p95 receipt on every
 required surface at the observation time. It denies a superseded generation,
 missing/late/failed surface, or stale ACL epoch. A canonical tombstone denies

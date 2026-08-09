@@ -14,4 +14,5 @@ lowercase 64-hex SHA-256 values, and opaque scope keys use length prefixes.
 `MemoryRepository` is a deterministic test adapter, not production authority.
 Stage 2 integration supplies the SQLite metadata repository.
 
-Acceptance label: `//services/brain/internal/evidenceledger:evidenceledger_test`.
+Acceptance label:
+`//services/brain/internal/evidenceledger:evidenceledger_test`.

@@ -4,7 +4,8 @@
 
 **Date:** 2026-07-29  
 **Status:** living target list (not a claim of completion)  
-**Session:** [handover 2026-07-29](../handover/2026-07-29-SESSION-HANDOVER-STRUCTURE-BRAIN-CLOSEOUT.md)  
+**Session:** [handover
+2026-07-29](../handover/2026-07-29-SESSION-HANDOVER-STRUCTURE-BRAIN-CLOSEOUT.md)
 **Latency companion:** [latency deep dive](2026-07-29-latency-deep-dive.md)
 
 Soft gold only unless noted. **Not** official ERB judge / SOTA / promotion.
@@ -20,7 +21,8 @@ Soft gold only unless noted. **Not** official ERB judge / SOTA / promotion.
 | `erb-random40-llmmq-20260729-0203` | 0.9375 | 0.9375 | 0.92 | + LLM multi-query (Groq×24) |
 | hard-8 remaining v9 | 1.0 | 1.0 | — | earlier cite@90 hard set |
 
-**Persistent soft-gold misses (random-40):** `qst_0202` (semantic), `qst_0414` (conflicting_info).
+**Persistent soft-gold misses (random-40):** `qst_0202` (semantic), `qst_0414`
+(conflicting_info).
 
 ---
 
@@ -29,16 +31,22 @@ Soft gold only unless noted. **Not** official ERB judge / SOTA / promotion.
 ### F-0202 — lexicon + multi-chunk CRM
 
 - Question: **spending freeze** date for EU finance/fraud opportunity.
-- Gold `dsid_1faf80f5…` (Deepwell): **budget freeze** on **2026-01-20** lives on later chunk.
+- Gold `dsid_1faf80f5…` (Deepwell): **budget freeze** on **2026-01-20** lives on
+  later chunk.
 - BM25 on “spending freeze” ranks wrong finance docs; model invents dates.
-- **Shipped mitigations (branch):** synonym expand (`budget freeze`, Deepwell bags); rare-id FTS; deep multi-chunk hydrate; `stripUngroundedFacts` for dates/money not in pack; prompt semantic note.
+- **Shipped mitigations (branch):** synonym expand (`budget freeze`, Deepwell
+  bags); rare-id FTS; deep multi-chunk hydrate; `stripUngroundedFacts` for
+  dates/money not in pack; prompt semantic note.
 
 ### F-0414 — conflict correction buried
 
 - Question: INC-9821 OOM vs driver/kernel launch stalls.
-- Gold pair includes late **telemetry correction**: stalls, **no sustained OOM**.
+- Gold pair includes late **telemetry correction**: stalls, **no sustained
+  OOM**.
 - Early thread is latency/5xx; HotLex fills with other GPU incidents.
-- **Shipped mitigations:** INC-9821/Crucible/stalls bags; `INC-####` rare-id; conflicting deep hydrate (6 chunks); agentic hydrate expand; conflict prompt prefers superseding revision.
+- **Shipped mitigations:** INC-9821/Crucible/stalls bags; `INC-####` rare-id;
+  conflicting deep hydrate (6 chunks); agentic hydrate expand; conflict prompt
+  prefers superseding revision.
 
 ---
 
@@ -113,7 +121,9 @@ Soft gold only unless noted. **Not** official ERB judge / SOTA / promotion.
 
 ## 6. Evidence pointers
 
-- Random-40 soft gold: `docs/stages/stage-09/evidence/enterprise-rag-bench/live-llm/erb-random40-*.gold-compare.json`
+- Random-40 soft gold:
+  `docs/stages/stage-09/evidence/enterprise-rag-bench/live-llm/erb-random40-*.gold-compare.json`
 - Web smoke: `…/web-smoke-all-20260729-v6.json`
-- Hosted code: `services/brain/internal/hosted/{multiquery,retrieve,retrieve_interactive,agentic,ground,answer,llm_multiquery}.go`
+- Hosted code:
+  `services/brain/internal/hosted/{multiquery,retrieve,retrieve_interactive,agentic,ground,answer,llm_multiquery}.go`
 - Web: `deploy/modal/company-brain-web/`

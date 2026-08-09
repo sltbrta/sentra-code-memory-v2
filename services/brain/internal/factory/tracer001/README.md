@@ -8,7 +8,8 @@ Tracer 001 one-layer factory workflow. No gateway, TUI, runner, or live GitHub.
 The Stage 05 factory lives under `services/brain/internal/factory` (Go kernel)
 and `services/broker/internal/factory` (runner/effects). There is no TypeScript
 `services/factory/` tree. This package is the Stage 06 L2 compiler leaf that
-the implementation packet originally named `services/factory/src/workflows/tracer-001/`.
+the implementation packet originally named
+`services/factory/src/workflows/tracer-001/`.
 
 ## API
 

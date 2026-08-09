@@ -10,7 +10,8 @@
 
 ## What this is
 
-Local Apple Silicon (or host) inference that speaks **OpenAI-compatible HTTP** so
+Local Apple Silicon (or host) inference that speaks **OpenAI-compatible HTTP**
+so
 residual company brain can go fully offline:
 
 | Substrate | Endpoint used |
@@ -81,8 +82,10 @@ fallbacks when a specialized endpoint is not running.
 
 - [Liquid LFM model library](https://docs.liquid.ai/lfm/models/complete-library)
 - [Liquid LFM2.5-VL-1.6B](https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B)
-- [Google Gemma MLX integration](https://ai.google.dev/gemma/docs/integrations/mlx)
-- [Qwen3-VL embedding/reranker](https://huggingface.co/Qwen/Qwen3-VL-Reranker-2B)
+- [Google Gemma MLX
+  integration](https://ai.google.dev/gemma/docs/integrations/mlx)
+- [Qwen3-VL
+  embedding/reranker](https://huggingface.co/Qwen/Qwen3-VL-Reranker-2B)
 
 ## Relation to hosted default
 

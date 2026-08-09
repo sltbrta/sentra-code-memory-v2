@@ -2,7 +2,8 @@
 
 Status for issue #313: **contract, bounded scoring seam, and hosted calibration
 wiring implemented; no production certification is claimed.** Grounded-answer
-contracts always expose one `FactualConsistencyScore`, but a numeric score is valid only
+contracts always expose one `FactualConsistencyScore`, but a numeric score is
+valid only
 when its status is `SCORED` and it carries an exact scorer version, calibration
 ID, and SHA-256 calibration-artifact digest.
 

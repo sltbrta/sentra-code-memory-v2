@@ -114,7 +114,8 @@ identity, ACL, citation, or gold values. Reproducible fixed-workload and pinned
 blind before/after evidence is in
 [`RERANK-CACHE-EVIDENCE.md`](../../../../docs/stages/stage-09/evidence/enterprise-rag-bench/RERANK-CACHE-EVIDENCE.md).
 
-Issues #313 and #324 (`faithfulness.go`) apply the final answer-level acceptance gate.
+Issues #313 and #324 (`faithfulness.go`) apply the final answer-level acceptance
+gate.
 It uses authorized company passages and grounded claims only, deterministically
 filters unsupported claims, and otherwise abstains with empty claims/citations.
 Accepted and repaired answers expose a calibrated `factual_consistency` score

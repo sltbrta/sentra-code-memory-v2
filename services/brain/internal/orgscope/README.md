@@ -134,7 +134,8 @@ is always false.
   mid-flight offboarding,
   revocation, or deny overlay forces re-evaluation against the mutated
   policy; an unsettled policy denies fail-closed
-  (`TestOffboardingWinsInFlightReads`, `TestConcurrentReadsRevocationAndErasureRace`).
+  (`TestOffboardingWinsInFlightReads`,
+`TestConcurrentReadsRevocationAndErasureRace`).
 - Integrity-checked restore: `Restore` recomputes the unkeyed SHA-256 checksum
   over canonical (id-sorted) backup contents and rejects modification unless
   the checksum is recomputed. The checksum is not a signature or provenance
@@ -145,7 +146,8 @@ is always false.
 - In-flight erase wins: `Query`/`History` revalidate item and tombstone state
   after `Resolve` and before returning snippets, and never re-seed cache or
   session projections with tombstoned ids
-  (`TestInFlightEraseFailsClosedInQuery`, `TestInFlightEraseFailsClosedInHistory`).
+  (`TestInFlightEraseFailsClosedInQuery`,
+`TestInFlightEraseFailsClosedInHistory`).
 
 ## Issue #311 hermetic evidence (this slice)
 
@@ -203,7 +205,8 @@ No live filesystem inventory, PostgreSQL RLS, vector service, HotLex volume,
 OpenFGA cloud tuples, network SCIM endpoint, KMS crypto-shred, production
 graph/claims/cache/object erasure, or multi-region backup certification. Those
 remain open under #311 (parent #306, gate #307) and
-DEF-015 — see [DEFERRED-AND-NON-GOALS](../../../../docs/roadmap/DEFERRED-AND-NON-GOALS.md).
+DEF-015 — see
+[DEFERRED-AND-NON-GOALS](../../../../docs/roadmap/DEFERRED-AND-NON-GOALS.md).
 
 The built-in #312 matrix uses only this package's hermetic in-process store,
 directory, authority, queue-entry contract, and deterministic identifier-only

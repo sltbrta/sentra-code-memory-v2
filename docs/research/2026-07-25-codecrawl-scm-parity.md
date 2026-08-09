@@ -1,6 +1,9 @@
-> **Historical snapshot** — see [REMAINING-GAPS.md](../roadmap/REMAINING-GAPS.md) / [memory README](../../services/brain/internal/memory/README.md) for current truth (2026-07-27 residual cortex).
-
 # codecrawl vs Sentra Code Memory — functionality parity
+
+> **Historical snapshot** — see
+> [REMAINING-GAPS.md](../roadmap/REMAINING-GAPS.md) / [memory
+> README](../../services/brain/internal/memory/README.md) for current truth
+> (2026-07-27 residual cortex).
 
 **Date:** 2026-07-25  
 **Donors:** SCM `/Users/sammy/Developer/Sentra_Research/sentra-code-memory`  
@@ -46,8 +49,10 @@ and **mtime-stamp warm refresh** latency advantages.
 ## Refresh policy (latency-preserving)
 
 1. **Stamps** (`mtime_ns` + `size`) stored per file in gob.  
-2. Warm `OpenOrRefresh`: if **all stamps match** → return index with **0 bytes read**.  
-3. Dirty files: content hash + re-tokenize only those; reuse subgraphs for the rest.  
+2. Warm `OpenOrRefresh`: if **all stamps match** → return index with **0 bytes
+   read**.
+3. Dirty files: content hash + re-tokenize only those; reuse subgraphs for the
+   rest.
 4. `code-freshness`: stamp walk only (no token work).  
 5. `code-watch`: poll freshness → debounced OpenOrRefresh.
 
@@ -64,7 +69,8 @@ Still weak: pure interface tokens without path stem; not jump-to-def.
 ## Honest non-claims
 
 - Impact is **heuristic**, not call-graph / type-flow.  
-- No route/bridge synthesizer (SCM differentiator — adopt only if product needs it).  
+- No route/bridge synthesizer (SCM differentiator — adopt only if product needs
+  it).
 - No MCP server yet (CLI is the product operator surface).  
 - No hosted SCM org/worktree overlays.
 

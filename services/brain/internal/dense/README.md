@@ -9,7 +9,8 @@ gardener dense jobs. Rebuildable projection material — not authority.
 | **HNSW (FAISS-class local)** | `hnsw.go` | Pure Go, no CGo; `dense=faiss` default in residual |
 | FAISS CGo hook | `faiss_cgo.go` | Build `-tags faiss` when libfaiss linked |
 
-HTTP FAISS sidecars live in `hosted/dense_faiss.go` (`OUROBOROS_BRAIN_DENSE_URL`).
+HTTP FAISS sidecars live in `hosted/dense_faiss.go`
+(`OUROBOROS_BRAIN_DENSE_URL`).
 
 ## Local ANN contract
 

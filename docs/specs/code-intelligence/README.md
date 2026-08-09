@@ -37,7 +37,8 @@ static structure but do not rewrite it. Agent-inferred edges remain proposals
 until confirmed. Every edge records source lane, snapshot, tool/config version,
 provenance, authority, confidence, time, ACL, and counterevidence.
 
-Use [LSP `WorkspaceEdit`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/)
+Use [LSP
+`WorkspaceEdit`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/)
 as an interoperability envelope, [SCIP](https://github.com/scip-code/scip) as
 the compiler-accurate snapshot format, and tree-sitter/stack-graph algorithms
 as broad-language fallbacks. GitHub's stack-graphs implementation is archived,

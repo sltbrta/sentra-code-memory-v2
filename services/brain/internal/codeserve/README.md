@@ -18,7 +18,8 @@ See `Catalog()` — `code_index`, `code_search`, `code_find_relevant`,
 
 ## Non-goals
 
-SCM session continuation packets — [SCM-SESSION-PRODUCT.md](../../../../docs/specs/product/SCM-SESSION-PRODUCT.md).
+SCM session continuation packets —
+[SCM-SESSION-PRODUCT.md](../../../../docs/specs/product/SCM-SESSION-PRODUCT.md).
 
 ## Tests
 

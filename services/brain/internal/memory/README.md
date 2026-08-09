@@ -41,12 +41,14 @@ serve only walks precomputed edges (`ExpandRelations`) — no OpenIE at ask.
 Lean serve (HotLex + dense + structure SQL) remains **primary**. Global PageRank
 is computed offline over the doc co-occur graph during cortex maintenance and
 applied as a mild multiplicative boost after utility
-(`score *= 1 + 0.15 * pr_norm`). Not the primary ranker. Diag: `global_pr: true`.
+(`score *= 1 + 0.15 * pr_norm`). Not the primary ranker. Diag: `global_pr:
+true`.
 
 ### PageIndex (native, vectorless section arm)
 
 Inspired by [VectifyAI/PageIndex](https://github.com/VectifyAI/PageIndex) (MIT
-concepts), **reimplemented in Go** — no Python import. Deterministic hierarchical
+concepts), **reimplemented in Go** — no Python import. Deterministic
+hierarchical
 TOC per document (`#`/`##`, Title Case lines, numbered sections, paragraph
 clusters). Retrieve: token-match query against node titles/summaries → inject
 leaf section text as passages channel `pageindex`. **Optional LLM tree walk**
@@ -58,7 +60,8 @@ summary; walk uses the real user question).
 `seedMemoryAfterIngest` is **LIGHT**: `EnsureUtility` + `SetDocTexts` +
 `BindEpisode` only.
 
-Heavy cortex (`RunCortexMaintenance`): det/LLM OpenIE → **SeedRelationsFromClaims**
+Heavy cortex (`RunCortexMaintenance`): det/LLM OpenIE →
+**SeedRelationsFromClaims**
 → prose co-occur + `phrase:` HippoRAG seeds → PageIndex → global PageRank →
 community/RAPTOR/GraphRAG — called from `RunGardenerWave` (post-wave) and
 `gardener --lifecycle`. REM re-extract also reseeds TemporalRelations.

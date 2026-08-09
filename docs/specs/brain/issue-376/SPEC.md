@@ -8,7 +8,8 @@ query provider: hard-coded `2048`), forcing long, multi-fact answers and the
 direct-answer lead-in to truncate before the model finished. The Modal web
 UI was also rendering the raw answer string as `textContent`, so the
 synthesizer's Markdown (bold, code, lists) showed up as literal markers in
-the page, while the same answer rendered correctly elsewhere. A gold-tier MedThink RPO smoke case (`What is the MedThink gold-tier RPO?`)
+the page, while the same answer rendered correctly elsewhere. A gold-tier
+MedThink RPO smoke case (`What is the MedThink gold-tier RPO?`)
 previously recorded a model-prior answer when retrieval was empty, while the
 older smoke assertion did not require the supported value and a citation.
 

@@ -45,7 +45,8 @@ server using Liquid `LFM2.5-VL-1.6B-8bit` with Gemma 4 `e2b-it-4bit` fallback.
 The configured multimodal retrieval pair is Qwen3-VL Embedding 2B 4-bit plus
 Qwen3-VL Reranker 2B 4-bit. Install runtimes with
 `scripts/requirements-mlx.txt`; see [docs/installation.md](docs/installation.md)
-and [docs/runbooks/MLX-LOCAL-INFERENCE.md](docs/runbooks/MLX-LOCAL-INFERENCE.md).
+and
+[docs/runbooks/MLX-LOCAL-INFERENCE.md](docs/runbooks/MLX-LOCAL-INFERENCE.md).
 
 ## What is included
 
@@ -81,6 +82,8 @@ go vet ./services/brain/cmd/sentra-code-memory \
 
 The full extracted backend also retains authority/evaluation tests that require
 optional source-tree evidence or a pinned Bun toolchain; those are intentionally
-outside the local coding-agent CLI preflight. See [docs/standalone.md](docs/standalone.md)
-for the control-plane contract and [docs/specs/code-intelligence/README.md](docs/specs/code-intelligence/README.md)
+outside the local coding-agent CLI preflight. See
+[docs/standalone.md](docs/standalone.md)
+for the control-plane contract and
+[docs/specs/code-intelligence/README.md](docs/specs/code-intelligence/README.md)
 for the code-intelligence design.

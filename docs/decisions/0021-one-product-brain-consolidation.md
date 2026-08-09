@@ -22,7 +22,8 @@ turn_grep), multi-provider synth fallback, and quality-only query expand.
 1. **Single product brain** = Go `services/brain` surfaces:
    - company-doc: `hosted.Client` with store adapters only
      (`local_fs` | `memory` | `product_neon` | `path2`)
-   - product code: `codecrawl` via `product-brain code-*` / `productsearch` profile `code`
+   - product code: `codecrawl` via `product-brain code-*` / `productsearch`
+     profile `code`
    - facade: `productsearch` + `product-brain` CLI + `product-brain-eval`
 2. **Local and hosted are interchangeable backends**, not separate products.
 3. **Port before archive.** Dual Python engines move to

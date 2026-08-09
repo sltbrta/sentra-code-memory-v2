@@ -97,7 +97,8 @@ This package publishes atomic source-snapshot generations only. Product/current
 generation promotion across all five P5 readiness dimensions belongs to the
 Stage 3 integration tracked by issue #93. This package does not expose a network
 API, authenticate principals, manage the approved-root registry, persist SQLite
-rows or ArtifactVault bytes, traverse submodules, implement a filesystem watcher,
+rows or ArtifactVault bytes, traverse submodules, implement a filesystem
+watcher,
 index/search code, run compiler/LSP semantics, use embeddings/media/models,
 contact remotes, or perform distributed execution. It does not claim
 product-complete generation, arbitrary-root support, dirty-file ingestion,

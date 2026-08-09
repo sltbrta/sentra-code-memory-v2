@@ -12,7 +12,8 @@ cited range is bounded by the deterministic generated file content (seed lines
 plus the fixture comment line). The Stage 04 contract conformance test verifies
 that shape without implementing retrieval or synthesis.
 
-Two frozen non-disclosure rules anchor here: denied support and revoked-mid-query
+Two frozen non-disclosure rules anchor here: denied support and
+revoked-mid-query
 support must surface exactly the `absent_support` reason, identical to genuinely
 absent support; a failed provider must surface only `synthesis_unavailable`.
 

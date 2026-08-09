@@ -16,7 +16,8 @@ continual ingestion and async gardener.
 1. **Product is the only brand and the Stage superset.** Company-doc residual,
    codecrawl, exact codeindex, continual, and async gardener live on
    `product-brain`. Peer-auth authority RPCs (Git ingest, vault conversation,
-   QueryService, factory/meeting/multimodal/connector/tracer) live under **`product-brain authority`** (`services/gateway/authorityprocess`)
+   QueryService, factory/meeting/multimodal/connector/tracer) live under
+**`product-brain authority`** (`services/gateway/authorityprocess`)
    — not a second product binary.
 2. **Stage libraries are product substrate** under `services/` (codeindex,
    query, conversation, ingestion, localauthority, gateway *api). A frozen

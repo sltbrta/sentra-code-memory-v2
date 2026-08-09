@@ -32,7 +32,8 @@ surface carries only its opaque approved-root ID and never echoes this absolute
 path. Loading validates the path but is not a race-safe traversal; ingestion
 must retain a descriptor and use no-follow relative opens.
 
-The manifest carries only the fixed state paths, one approved source root, identifiers, Keychain references, numeric
+The manifest carries only the fixed state paths, one approved source root,
+identifiers, Keychain references, numeric
 bounds, relationships, and issued grant facts. It cannot contain encryption
 keys, credentials, source payloads, wildcard authority, delegation, expired
 grants, or arbitrary actions. The package does not provision Keychain items,

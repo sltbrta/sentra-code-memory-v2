@@ -4,7 +4,8 @@ The ordered SQL files are the canonical local SQLite schema contract.
 Migration 001 is immutable authority history; migration 002 adds durable
 ArtifactVault reservation, evidence, key-selection, and tombstone-receipt
 metadata without rewriting version 1. Migration 003 adds only Stage 03 source,
-approved-root reference, immutable source-revision identity, snapshot membership,
+approved-root reference, immutable source-revision identity, snapshot
+membership,
 generation/readiness, and tombstone metadata. Snapshot membership can reuse an
 unchanged revision while enforcing one source object and path digest per
 snapshot. Source and generation lifecycles are forward-only, and a current

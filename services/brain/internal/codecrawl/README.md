@@ -22,5 +22,6 @@ Exact P5 defs/refs live in sibling **codeindex** (`code-exact`).
 
 ## Non-goals
 
-Session latent memory — [SCM-SESSION-PRODUCT.md](../../../../docs/specs/product/SCM-SESSION-PRODUCT.md).
+Session latent memory —
+[SCM-SESSION-PRODUCT.md](../../../../docs/specs/product/SCM-SESSION-PRODUCT.md).
 Git-object authority for company ACL code is **ingestion** + authority process.

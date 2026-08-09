@@ -2,15 +2,19 @@
 
 # ADR 0024 — One residual pipeline; per-module substrate choice
 
-**Status:** Accepted; **MVP wiring shipped** (2026-07-27); CLI full-pipeline bind
+**Status:** Accepted; **MVP wiring shipped** (2026-07-27); CLI full-pipeline
+bind
 (create|ingest|ask|gardener via `OpenResidual`) closed same day.  
 **Date:** 2026-07-27  
-**Context:** Local vs “hosted” was described as profiles/adapters; Sammy clarified the
+**Context:** Local vs “hosted” was described as profiles/adapters; Sammy
+clarified the
 intended model is **one process, one flow**, with **local vs remote only as
 pluggable substrates per module**, not two product paths.
 
-**MVP shipped surface:** `hosted.SubstrateConfig` + `ApplySubstrates` / `OpenResidual` /
-`OpenMemoryWithSubstrates`; CLI `create|ingest|ask|gardener` share `OpenResidual`
+**MVP shipped surface:** `hosted.SubstrateConfig` + `ApplySubstrates` /
+`OpenResidual` /
+`OpenMemoryWithSubstrates`; CLI `create|ingest|ask|gardener` share
+`OpenResidual`
 with `--chunks`/`--backend`/`--queue`/`--cortex`/`--substrate-profile` and
 `OUROBOROS_BRAIN_*` env; queue rebind honors overrides after OpenLocal; solo FS
 and mixed (e.g. FS chunks + memory queue + FS cortex) proven on dual-cite +
@@ -29,7 +33,8 @@ utility ranking.
                 → retrieve multi-arm → ground / dual-cite / reinforce
    ```
 
-   Profiles (prod/quality/interactive) adjust **budgets**, not the pipeline shape.
+   Profiles (prod/quality/interactive) adjust **budgets**, not the pipeline
+shape.
 
 3. **No product divide named “local” vs “hosted.”**  
    Those words mean **where a module’s durable state lives**, not which brain
@@ -68,13 +73,16 @@ utility ranking.
 ### Positive
 
 - Mental model matches code direction (`hosted.Client` + adapters).
-- Laptop and team deploy share one pipeline; only durability/compute modules differ.
+- Laptop and team deploy share one pipeline; only durability/compute modules
+  differ.
 - Clear place to grow: implement `Queue` on Postgres without a “hosted product.”
-- Docker becomes **optional packaging of remote substrates**, not a second brain.
+- Docker becomes **optional packaging of remote substrates**, not a second
+  brain.
 
 ### Costs / work
 
-- Today several modules are still **implicitly bundled** (OpenLocal ⇒ FS chunks +
+- Today several modules are still **implicitly bundled** (OpenLocal ⇒ FS chunks
+  +
   SQLite gardener + FS cortex). Must evolve toward explicit binding.
 - Neon opens often **omit** full cortex attach — contract parity gap.
 - Docs that say “local path vs hosted path” need rephrasing toward substrates
@@ -124,7 +132,8 @@ operator checklists; that runbook describes **presets** under this ADR.
 | Writers | **Serialized** (one writer) | Concurrent + `SKIP LOCKED` claims |
 | Use | Default solo laptop | Local workers / team residual |
 
-Prefer **Postgres** when `OUROBOROS_BRAIN_WORKERS` > 1 for gardener drain under load.
+Prefer **Postgres** when `OUROBOROS_BRAIN_WORKERS` > 1 for gardener drain under
+load.
 Prefer **SQLite** when you want zero ops and accept single-writer queue physics.
 
 ## Implementation sequence (when prioritized)
@@ -142,12 +151,14 @@ Prefer **SQLite** when you want zero ops and accept single-writer queue physics.
 - ADR 0023 (unification program)  
 - [OPS-PROFILES-LOCAL-HOSTED.md](../runbooks/OPS-PROFILES-LOCAL-HOSTED.md)  
 - [STAGE-VS-PRODUCT.md](../specs/product/STAGE-VS-PRODUCT.md) (authority plane)  
-- [REMAINING-GAPS.md](../roadmap/REMAINING-GAPS.md) (scale/delta store follow-ons)
+- [REMAINING-GAPS.md](../roadmap/REMAINING-GAPS.md) (scale/delta store
+  follow-ons)
 
 ## Status vocabulary
 
 - **Accepted** as direction.  
-- **Shipped (MVP)** in code: independent bind for chunks/queue/cortex; CLI verbs on
+- **Shipped (MVP)** in code: independent bind for chunks/queue/cortex; CLI verbs
+  on
   one open path; unit + launch evidence for solo + one mix.  
 - Still open: Postgres queue/cortex impls, optional YAML profile file — scale
   follow-ons, not a second residual product.

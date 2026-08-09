@@ -97,7 +97,8 @@ Focused tests prove: parallel wall < sum of arm walls with per-arm diagnostics
 present (arms pay genuinely different store latencies); deterministic window
 ordering across repeated runs under jittered driver latency; serial-mode
 equivalence on the full passage contract (text/score/channel/locator, not just
-identity) on a stub-free pool; stable offline-entity seeds overlap only after the
+identity) on a stub-free pool; stable offline-entity seeds overlap only after
+the
 exact seed sequence comparison and match env-forced serial on the full contract;
 the unstable offline-entity-stub seed-safety fallback (runs serially, matches
 env-forced serial on the full contract, reason stamped);
@@ -137,12 +138,14 @@ is claimed without a real pinned receipt.
 When `shouldSignalAgentic` returns `low_confidence` and `nSeedDocs >= 12`, the
 previous gate declined to escalate the request because the seed pool was dense
 (`signal_agentic_suppressed = "seed_dense_low_confidence"`). Dense seed pools
-with weak CE scores can still miss relevant documents that reformulation may recover.
+with weak CE scores can still miss relevant documents that reformulation may
+recover.
 The gate now forces at least one bounded ExpandLite round via
 `AgenticOptions.ForceExpand`; the existing profile/override round cap remains
 in force:
 
-- `agentOn = true`, `forceExpand = true`, diagnostic reason `forced_low_confidence`
+- `agentOn = true`, `forceExpand = true`, diagnostic reason
+  `forced_low_confidence`
 - `forceOne` is set inside `agenticExpand`, bypassing the local nSeed/gap skip
   for the first round
 - ACL, filter, and source scope are preserved; GoldDocIDs are never passed

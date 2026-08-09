@@ -3,9 +3,12 @@
 # Structure-brain foundation — research synthesis + stage gates
 
 **Branch:** `feat/structure-brain-foundation`  
-**Thesis:** Structure encodes intelligence. The **computed brain** (claims, bi-temporal edges, conflict, episodes, gardener lifecycle) is stage 0. Query polish without structure is a cold chunk shell.
+**Thesis:** Structure encodes intelligence. The **computed brain** (claims,
+bi-temporal edges, conflict, episodes, gardener lifecycle) is stage 0. Query
+polish without structure is a cold chunk shell.
 
-**Non-goal this phase:** Full-500 ERB leaderboard runs. Subset / unit / adversarial only until every stage gate is green.
+**Non-goal this phase:** Full-500 ERB leaderboard runs. Subset / unit /
+adversarial only until every stage gate is green.
 
 ---
 
@@ -25,7 +28,9 @@
 | Product co-occur edges (doc↔doc only, no bi-temporal) | `memory/edges.go`, product SQL | partial | TemporalRelations + path2 facts cover multi-hop; residual co-occur stays light |
 | Query path on path2 full-bench | HotLex/dense + path2 structure SQL | **active** | Structure arm + window/cite; subset hit-rate live |
 
-**Verdict:** Do **not** rewrite cortex. **Close the consume gap** and add **Graphiti-class bi-temporal relations** where claims alone are not enough for multi-hop graph walks.
+**Verdict:** Do **not** rewrite cortex. **Close the consume gap** and add
+**Graphiti-class bi-temporal relations** where claims alone are not enough for
+multi-hop graph walks.
 
 ---
 
@@ -92,7 +97,8 @@
 | **S5** | Window / cite / synth | Only after S4 |
 | **S6** | Integration + adversarial | Full pipeline mock + subset; then full-500 |
 
-**Remove if not earning keep:** duplicate co-occur indexes that never feed retrieve; QUALITY-only path2 structure gate; FORCE_PATH2_FTS disabling HotLex.
+**Remove if not earning keep:** duplicate co-occur indexes that never feed
+retrieve; QUALITY-only path2 structure gate; FORCE_PATH2_FTS disabling HotLex.
 
 ---
 
@@ -113,7 +119,8 @@ LEAN QUERY (everyday + ERB serve)
   coverage window → synth → ground → conflict dual-cite
 ```
 
-**Removed / demoted:** QUALITY-only path2 structure gate; FORCE_PATH2_FTS disabling HotLex;
+**Removed / demoted:** QUALITY-only path2 structure gate; FORCE_PATH2_FTS
+disabling HotLex;
 default unbounded multi-arm as the everyday ask path (QUALITY opt-in only);
 query-time OpenIE (left-shifted to gardener cortex + REM).
 
@@ -146,7 +153,8 @@ query-time OpenIE (left-shifted to gardener cortex + REM).
 ### Retained (explicit)
 
 - FS projection (`CreateLocal` / `OpenLocal`) — agent-friendly dir layout
-- One product path (`hosted.Client`) — ERB is a score surface, not a second pipeline
+- One product path (`hosted.Client`) — ERB is a score surface, not a second
+  pipeline
 - Bi-temporal claims, conflict ladder, dual-cite/abstain, gardener lifecycle
 
 ---
@@ -182,11 +190,13 @@ query-time OpenIE (left-shifted to gardener cortex + REM).
 | `TestPath2StructureLiveSubsetHitRate` | Neon: ≥60% probes path2_sql + structure_sql_promoted≥1 |
 | `TestS6AdversarialProductPathIntegration` | FS E2E adversarial: structure + contest + abstain cap + ground strip |
 
-**FS projection retained:** `CreateLocal` / `OpenLocal` dir layout unchanged (agent-friendly).
+**FS projection retained:** `CreateLocal` / `OpenLocal` dir layout unchanged
+(agent-friendly).
 
 ## 8. Non-claims
 
 - No SOTA / leaderboard score from this phase.
 - No second memory product brand.
 - Graphiti/Zep concepts only — reimplemented under product-brain.
-- Full-500 deferred until explicitly authorized (S6 unit adversarial is not a leaderboard run).
+- Full-500 deferred until explicitly authorized (S6 unit adversarial is not a
+  leaderboard run).

@@ -4,10 +4,13 @@
 
 **Date:** 2026-07-29  
 **Status:** analysis + backlog (not all implemented)  
-**Session:** [handover closeout](../handover/2026-07-29-SESSION-HANDOVER-STRUCTURE-BRAIN-CLOSEOUT.md)  
-**Quality companion:** [hardening + failure modes](2026-07-29-erb-hardening-and-failure-modes.md)
+**Session:** [handover
+closeout](../handover/2026-07-29-SESSION-HANDOVER-STRUCTURE-BRAIN-CLOSEOUT.md)
+**Quality companion:** [hardening + failure
+modes](2026-07-29-erb-hardening-and-failure-modes.md)
 
-Goal: **lean/light interactive p50 ≪ 15s warm**, cold first-hit bounded, QUALITY remains opt-in slow path.
+Goal: **lean/light interactive p50 ≪ 15s warm**, cold first-hit bounded, QUALITY
+remains opt-in slow path.
 
 ---
 
@@ -39,7 +42,8 @@ CE / retain                 <0.5s
 LLM synth                   1–8s    network + model
 ```
 
-Wall ≈ **max(cold, HotLex load) + sum(remaining sequential)**; hydrate∥structure already parallel on residual.
+Wall ≈ **max(cold, HotLex load) + sum(remaining sequential)**; hydrate∥structure
+already parallel on residual.
 
 ---
 
@@ -48,7 +52,8 @@ Wall ≈ **max(cold, HotLex load) + sum(remaining sequential)**; hydrate∥struc
 ### L1 — Keep answer cache hot **[shipped]**
 
 - Volume-backed cache TTL 24h; cache hit ~2s on smoke v6.
-- **Next:** pre-warm top-N demo questions on deploy; cache key must include mode+brain.
+- **Next:** pre-warm top-N demo questions on deploy; cache key must include
+  mode+brain.
 
 ### L2 — Never pay QUALITY on light **[shipped]**
 
@@ -68,13 +73,16 @@ Wall ≈ **max(cold, HotLex load) + sum(remaining sequential)**; hydrate∥struc
 
 ### L5 — HotLex load once per process **[shipped]**
 
-- Loaded at client open; ensure web reuses long-lived process (uvicorn workers=1).
+- Loaded at client open; ensure web reuses long-lived process (uvicorn
+  workers=1).
 - Avoid re-execing product-brain-eval if moving to in-process Go later.
 
 ### L6 — Replace subprocess eval with in-process Go HTTP **[planned, large]**
 
-- Today: web Python → spawn `product-brain-eval` per query (mmap + env each time).
-- **Dramatic win:** long-running Go serve binary with HotLex resident → shave 2–10s/query.
+- Today: web Python → spawn `product-brain-eval` per query (mmap + env each
+  time).
+- **Dramatic win:** long-running Go serve binary with HotLex resident → shave
+  2–10s/query.
 
 ### L7 — Streaming synth / first-token UX
 

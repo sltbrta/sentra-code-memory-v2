@@ -10,8 +10,10 @@
 [REMAINING-GAPS](../roadmap/REMAINING-GAPS.md) (walkable remaining inventory) ·
 [SYNTHESIS.md](SYNTHESIS.md) · [PAPER-LANDSCAPE.md](PAPER-LANDSCAPE.md)
 
-This is an **honest** assessment: what we are, what we are not, what human-memory
-and competitor systems do that we lack, and what to adopt **natively** (not wholesale).
+This is an **honest** assessment: what we are, what we are not, what
+human-memory
+and competitor systems do that we lack, and what to adopt **natively** (not
+wholesale).
 
 ---
 
@@ -24,7 +26,8 @@ and competitor systems do that we lack, and what to adopt **natively** (not whol
 | What closed (2026-07-27)? | Bi-temporal claims, utility→rank, C1 gate, episodes, PPR, PageIndex TOC, global PR *prior*, RAPTOR/community, agent STM/MTM/LTM, light ingest + async `RunCortexMaintenance` — see REMAINING-GAPS §1. |
 | Still open / non-goal | LLM REM, LLM PageIndex walk, SCM session product, OpenIE density, LongMemEval SOTA, dual-plane ACL merge — REMAINING-GAPS §2–§5. |
 
-We are a **local-first evidence-grounded company residual brain under one binary**,
+We are a **local-first evidence-grounded company residual brain under one
+binary**,
 not Mem0/Zep as the product, and not Lattice SMF desktop. Overclaiming “human
 memory” remains wrong; underclaiming residual cortex as “just a job queue” is
 also wrong after the closed loops.
@@ -106,7 +109,8 @@ consolidation, Ebbinghaus forgetting, reconsolidation):
 
 **Verdict:** Residual path is a **self-updating fact projection + multi-arm IR +
 async consolidation** under one binary. It is **not** a biological sleep system
-or agent session OS. For remaining gaps, walk [REMAINING-GAPS.md](../roadmap/REMAINING-GAPS.md).
+or agent session OS. For remaining gaps, walk
+[REMAINING-GAPS.md](../roadmap/REMAINING-GAPS.md).
 
 ---
 
@@ -164,7 +168,8 @@ trust model.
 | Authz | Zanzibar | We already align filter-before-fanout; keep |
 | Harness | AHE, OpenAI/Anthropic harness posts | Memory changes need holdout promotion too |
 
-Full paper index remains [SOURCES.yaml](SOURCES.yaml) / [PAPER-LANDSCAPE.md](PAPER-LANDSCAPE.md).
+Full paper index remains [SOURCES.yaml](SOURCES.yaml) /
+[PAPER-LANDSCAPE.md](PAPER-LANDSCAPE.md).
 
 ---
 
@@ -234,16 +239,19 @@ register with status stamps.
 | Forgetting / interference control | **3** | Half-life + NREM/REM quarantine + multi-valued policy |
 | Overall “company brain” | **~3.5** | One residual cortex under product-brain; not agent session product |
 
-**Interpretation:** Residual company brain is **one path** (`hosted` + `memory` +
+**Interpretation:** Residual company brain is **one path** (`hosted` + `memory`
++
 `gardener` under sole `product-brain`). Heavy cortex (extract, edges, PageIndex,
 global PR prior, community summaries) runs **async post-wave**, not on ingest.
-Global PageRank is a **weak prior only**; multi-arm IR remains primary. PageIndex
+Global PageRank is a **weak prior only**; multi-arm IR remains primary.
+PageIndex
 is native deterministic TOC (VectifyAI concepts, no Python). **Still open /
 deferred:** full LLM PageIndex tree walk, LLM REM re-encode, SCM session
 continuation packets, LongMemEval SOTA claims, merging authority QueryService
 into residual ask.
 
-*Scorecard refreshed 2026-07-27 after async cortex + PageIndex + global PR + agent tiers.*
+*Scorecard refreshed 2026-07-27 after async cortex + PageIndex + global PR +
+agent tiers.*
 
 ---
 
@@ -273,13 +281,16 @@ REM and second brands.
 - Zep/Graphiti: arxiv 2501.13956; github.com/getzep/graphiti  
 - HippoRAG / 2: arxiv 2405.14831, 2502.14802; github.com/osu-nlp-group/hipporag  
 - MemoryOS: arxiv 2506.06326 / EMNLP 2025; github.com/BAI-LAB/MemoryOS  
-- PageIndex concepts: github.com/VectifyAI/PageIndex (native Go reimplementation)  
-- In-repo: SYNTHESIS.md, PAPER-LANDSCAPE.md, LOCAL-ARCHAEOLOGY.md, Lattice GARDENER.md  
+- PageIndex concepts: github.com/VectifyAI/PageIndex (native Go
+  reimplementation)
+- In-repo: SYNTHESIS.md, PAPER-LANDSCAPE.md, LOCAL-ARCHAEOLOGY.md, Lattice
+  GARDENER.md
 - Product truth: ARCHITECTURE.md, memory/README.md, gardener/doc.go,
   DEFERRED-AND-NON-GOALS.md, REMAINING-GAPS.md, phase 01–05 specs
 
 ---
 
-*Refreshed 2026-07-27: async cortex maintenance, native PageIndex, global PR prior,
+*Refreshed 2026-07-27: async cortex maintenance, native PageIndex, global PR
+prior,
 bipartite PPR seeds, agent STM/MTM/LTM; P2 SCM session + LLM tree walk deferred;
 no LongMemEval SOTA claim; §1–§3 and §6 distinguish CLOSED vs remaining.*

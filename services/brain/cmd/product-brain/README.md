@@ -1,6 +1,7 @@
 # product-brain
 
-**Sole product CLI** (ADR 0022 / 0023). Residual company-doc IR + memory cortex +
+**Sole product CLI** (ADR 0022 / 0023). Residual company-doc IR + memory cortex
++
 code operator + authority process.
 
 ## Command groups

@@ -2,8 +2,10 @@
 
 # Brain service
 
-**Product-only** monorepo brain ([ADR 0022](../../docs/decisions/0022-product-only-retire-stage.md),
-[ADR 0023](../../docs/decisions/0023-unified-product-durability-and-program-ladder.md)).
+**Product-only** monorepo brain ([ADR
+0022](../../docs/decisions/0022-product-only-retire-stage.md),
+[ADR
+0023](../../docs/decisions/0023-unified-product-durability-and-program-ladder.md)).
 
 Maps: [ARCHITECTURE.md](../../ARCHITECTURE.md) ·
 [program](../../docs/specs/product/program/README.md) ·
@@ -71,11 +73,14 @@ HotLex, dense, d2q, cortex. Default serve ask is HotLex+dense+structure-SQL-hop
 FTS variant under a maximum 3s shared wall; parallel variants never multiply
 that wall. Product/default and official runs never use an unbounded FTS context.
 Dense/FTS phase-A fanout and path2 structure arms each share one child wall of
-the request; hop-2 and hydration inherit the same caller cancellation. Diagnostics
+the request; hop-2 and hydration inherit the same caller cancellation.
+Diagnostics
 keep `hot_lex_state=missing`, the full
 `neon_fts_fallback_outcome=hits|empty|partial_failure|timeout|canceled|error|skipped|not_started`
-set, and `retrieve_class=residual_opt_in` distinct. `*_caller_deadline_only=true`
-marks the explicit non-official BENCHMAX zero-budget posture; near-deadline path2
+set, and `retrieve_class=residual_opt_in` distinct.
+`*_caller_deadline_only=true`
+marks the explicit non-official BENCHMAX zero-budget posture; near-deadline
+path2
 work reports `path2_structure_budget_source=caller_deadline` and
 `path2_structure_near_deadline=true`. `OUROBOROS_ERB_FORCE_FTS` cannot remove
 the live bound; `OUROBOROS_ERB_FORCE_RESIDUAL` is an ablation route and is
@@ -84,10 +89,13 @@ reported as `retrieval_route_reason=force_residual`.
 **ADR 0024 substrates:** one residual pipeline; modules pluggable
 (`queue=sqlite|postgres`, `dense=sqlite|postgres|qdrant|faiss`,
 `llm|embed|ranker=hosted|mlx|none`). Hosted preferred when configured.
-**Local workers** (`OUROBOROS_BRAIN_WORKERS`) = burst fleet when residual is local.
-Env `OUROBOROS_BRAIN_GARDENER_AUTO=1` starts background enrich+cortex after open.  
+**Local workers** (`OUROBOROS_BRAIN_WORKERS`) = burst fleet when residual is
+local.
+Env `OUROBOROS_BRAIN_GARDENER_AUTO=1` starts background enrich+cortex after
+open.
 See [ARCHITECTURE](../../ARCHITECTURE.md) §3.2 ·
-[structure-brain foundation](../../docs/research/2026-07-28-structure-brain-foundation.md) ·
+[structure-brain
+foundation](../../docs/research/2026-07-28-structure-brain-foundation.md) ·
 [OPS-PROFILES](../../docs/runbooks/OPS-PROFILES-LOCAL-HOSTED.md).
 
 ## Package map (`internal/`)

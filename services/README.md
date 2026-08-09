@@ -23,7 +23,8 @@ go build -o product-brain ./brain/cmd/product-brain/
 ```
 
 Doctrine: [ADR 0022](../docs/decisions/0022-product-only-retire-stage.md) sole
-binary; [ADR 0023](../docs/decisions/0023-unified-product-durability-and-program-ladder.md)
+binary; [ADR
+0023](../docs/decisions/0023-unified-product-durability-and-program-ladder.md)
 unification ladder.
 
 ## Docs

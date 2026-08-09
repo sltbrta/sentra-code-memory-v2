@@ -79,7 +79,8 @@ or a production rollout claim.
 ## Deliberate non-claims
 
 - The local regex set is a testable baseline, not universal DLP, OCR, NER,
-  entropy detection, format-preserving tokenization, or regulatory certification.
+  entropy detection, format-preserving tokenization, or regulatory
+certification.
 - The in-memory guard is not durable encrypted storage, KMS, legal hold,
   production audit persistence, SCIM/OpenFGA authority, or a cross-store purge
   coordinator. Composition must persist policy receipts/tombstones and keep raw

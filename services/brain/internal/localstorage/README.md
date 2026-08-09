@@ -18,7 +18,8 @@ lineage. Tombstone immediately denies the record and deletes its rebuildable
 edges. `KeyReferences` reads current, historical, legacy, and unreadable epoch
 metadata. `InstallCurrentReference` creates one exact tenant-scoped current
 reference; exact retries succeed, while conflicting or multiple-current state
-fails closed. The operation accepts metadata only. On macOS, the runtime passes that concrete source to
+fails closed. The operation accepts metadata only. On macOS, the runtime passes
+that concrete source to
 `keyring.NewDarwinResolver`; this package never loads, creates, stores, logs, or
 falls back for root-key material.
 

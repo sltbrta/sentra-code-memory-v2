@@ -8,7 +8,8 @@ federation ambition). Live pipeline truth:
 [memory/README.md](../../../services/brain/internal/memory/README.md),
 [REMAINING-GAPS.md](../../roadmap/REMAINING-GAPS.md).
 Chunking contract: [CHUNKING-POLICY.md](CHUNKING-POLICY.md) (versioned 500/50
-baseline, structure-aware alternatives, `chunk-eval` golden harness — issue #332).
+baseline, structure-aware alternatives, `chunk-eval` golden harness — issue
+332).
 Projection propagation SLOs: [PROJECTION-SLOS.md](PROJECTION-SLOS.md)
 (freshness/deletion/permission-change targets per projection, fail-closed
 offline verifier — issue #316).
@@ -69,7 +70,8 @@ Grounded answers also expose answer-level factual-consistency as a typed
 version and calibration artifact digest; abstention and unknown are never
 interpreted as numeric zero. Hosted uses a small held-out synthetic,
 non-official calibration whose score may only tighten the final faithfulness
-gate. The bounded implementation, metrics, and explicit non-production posture are documented in
+gate. The bounded implementation, metrics, and explicit non-production posture
+are documented in
 [`services/brain/internal/factualconsistency`](../../../services/brain/internal/factualconsistency/README.md).
 
 ## 3. Continual ingestion
@@ -107,12 +109,16 @@ a complete generation.
 Memory is maintained by bounded agents and deterministic reactions:
 
 - **ingestion agent:** classifies and routes new evidence;
-- **linking agent:** proposes entities, relations, aliases, and code/company edges;
-- **contradiction agent:** finds incompatible claims and time/policy differences;
+- **linking agent:** proposes entities, relations, aliases, and code/company
+  edges;
+- **contradiction agent:** finds incompatible claims and time/policy
+  differences;
 - **propagation agent:** maintains dependencies needed for Cascade and Absence;
-- **deletion agent:** calculates lineage, denies immediately, and verifies purge;
+- **deletion agent:** calculates lineage, denies immediately, and verifies
+  purge;
 - **gardener:** consolidates, summarizes, decays, and proposes shortcuts;
-- **retrieval agent:** selects authorized brains/lanes under a token/cost budget;
+- **retrieval agent:** selects authorized brains/lanes under a token/cost
+  budget;
 - **critic:** challenges unsupported memories and promotion candidates.
 
 Deterministic code owns identities, versions, ACL, graph traversal bounds,
@@ -217,7 +223,8 @@ sketch, and expected cost.
    before query fan-out.
 2. Rank eligible brains using deterministic scope/lexical features, size, and
    expected relevance.
-3. Query a small initial set and expand only if coverage/confidence is insufficient.
+3. Query a small initial set and expand only if coverage/confidence is
+   insufficient.
 4. Send attenuated short-lived capabilities; remote brains authorize locally.
 5. Merge evidence references centrally, not unrestricted remote prose.
 6. Cache source-bound encrypted results by principal capability, ACL epoch,

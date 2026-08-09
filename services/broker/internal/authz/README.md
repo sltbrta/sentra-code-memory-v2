@@ -31,7 +31,9 @@ returns a client when `OUROBOROS_OPENFGA_API_URL` is set (also requires
   (`dual_run_test.go`).
 - Elevated live path: when `OUROBOROS_OPENFGA_API_URL` is set, the same company
   fixtures run against the configured server. Live durable-store lifecycle and
-  full external-service conformance remain [DEF-015](../../../../docs/roadmap/DEFERRED.md)
+  full external-service conformance remain
+[DEF-015](../../../../docs/roadmap/DEFERRED.md)
   residual (issue #72 partial).
 
-Policy administration UI is out of scope ([DEF-013](../../../../docs/roadmap/DEFERRED.md)).
+Policy administration UI is out of scope
+([DEF-013](../../../../docs/roadmap/DEFERRED.md)).

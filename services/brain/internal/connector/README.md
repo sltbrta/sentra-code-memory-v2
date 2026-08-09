@@ -1,7 +1,8 @@
 # connector
 
 Stage 08 source-connector **kernel** (GitHub connect semantics). Served via
-gateway connectorapi + authorityprocess. Product CLI surface remains authority RPC.
+gateway connectorapi + authorityprocess. Product CLI surface remains authority
+RPC.
 
 ## Delegated-permission retrieval for ACL-opaque scopes (issue #309)
 
@@ -10,7 +11,8 @@ scopes whose provider ACLs cannot be projected at ingest time. For a gated
 scope, `QueryConnectorEvidence` never serves admitted evidence on projection
 membership alone:
 
-- **Authenticated explicit grants** — the stable `DelegatedGrantPort` issues and revokes an
+- **Authenticated explicit grants** — the stable `DelegatedGrantPort` issues and
+  revokes an
   exact tenant/principal/scope `DelegatedGrant` (no wildcards, bounded
   lifetime, single-use ID). `DelegatedIssuerPort` resolves the administrator
   exclusively from trusted transport/session context; grant payload fields are
@@ -56,7 +58,8 @@ membership alone:
   as invalid. Stores retain revoked IDs so they cannot be resurrected; the
   memory reference store bounds this lifetime set.
 
-With `Config.Delegated == nil` (the default gateway composition) behavior is unchanged.
+With `Config.Delegated == nil` (the default gateway composition) behavior is
+unchanged.
 
 ## Active connector boundary and RPC contract limit
 

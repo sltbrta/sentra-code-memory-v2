@@ -59,14 +59,18 @@ remote artifact.
 - `gen/go/` — Go Protobuf message bindings;
 - `gen/ts/` — Protobuf-ES TypeScript message bindings;
 - `gen/jsonschema/` — strict bundled Draft 2020-12 projections for the selected
-  public-edge envelopes, query/answer, change, channel, local-authority, ingestion,
-  grounded-query, and factory request/response types. Other internal messages remain
+  public-edge envelopes, query/answer, change, channel, local-authority,
+ingestion,
+  grounded-query, and factory request/response types. Other internal messages
+remain
   Proto-only until a public edge actually needs them.
 
 `local_authority.proto` preserves the three Stage 02 operations.
-`ingestion.proto` adds only the five Stage 03 one-shot TUI operations. It accepts
+`ingestion.proto` adds only the five Stage 03 one-shot TUI operations. It
+accepts
 no filesystem path or client-authored root ID, implicitly selects the sole
-preapproved bootstrap root, pins committed Git inputs, and leaves authentication,
+preapproved bootstrap root, pins committed Git inputs, and leaves
+authentication,
 policy, SQLite, indexing, and ArtifactVault execution to later runtime leaves.
 `query.proto` adds only the four Stage 04 bounded query views. It pins one
 immutable Stage 03 generation per question, requires exact code anchors and
@@ -164,7 +168,8 @@ bounds, types, timestamps, and unknown properties.
 
 `tooling.yaml` records official source URLs, versions, commits, and licenses.
 Remote plugin versions and BSR revisions are pinned in `buf.gen.yaml`; no local
-`protoc` plugin is trusted. The generated projections are tracked source artifacts. Temporary
+`protoc` plugin is trusted. The generated projections are tracked source
+artifacts. Temporary
 Buf cache data belongs outside this repository and should be removed only when
 it was created for this task and is not shared by another active process.
 

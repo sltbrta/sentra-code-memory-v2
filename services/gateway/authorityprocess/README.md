@@ -20,4 +20,5 @@ Git / vault / factory half of the product superset.
 
 Unit: config/adapter/query (no Bun). Process tracers need `OUROBOROS_BUN_BIN`.
 
-Historical cmd snapshot: `archive/2026-07-stage-retirement/…/ouroboros-local-authority`.
+Historical cmd snapshot:
+`archive/2026-07-stage-retirement/…/ouroboros-local-authority`.

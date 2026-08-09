@@ -1,7 +1,10 @@
 <!-- markdownlint-disable -->
 
 
-> **Historical snapshot** — see [REMAINING-GAPS.md](../roadmap/REMAINING-GAPS.md) / [memory README](../../services/brain/internal/memory/README.md) for current truth (2026-07-27 residual cortex).
+> **Historical snapshot** — see
+> [REMAINING-GAPS.md](../roadmap/REMAINING-GAPS.md) / [memory
+> README](../../services/brain/internal/memory/README.md) for current truth
+> (2026-07-27 residual cortex).
 
 # Deferred SCM + memory E2E close
 
