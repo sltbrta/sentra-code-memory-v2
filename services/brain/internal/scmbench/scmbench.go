@@ -183,7 +183,15 @@ func Run(ctx context.Context, sc Scenario) (Report, error) {
 		dur := time.Since(t0)
 		// Normalize path-bearing response fields before accounting so checkout
 		// location does not masquerade as token savings.
-		raw, err := json.Marshal(normalizeValue(resp, sc.Root, sc.IndexCache))
+		wire, err := json.Marshal(resp)
+		if err != nil {
+			return rep, err
+		}
+		var decoded any
+		if err := json.Unmarshal(wire, &decoded); err != nil {
+			return rep, err
+		}
+		raw, err := json.Marshal(normalizeValue(decoded, sc.Root, sc.IndexCache))
 		if err != nil {
 			return rep, err
 		}

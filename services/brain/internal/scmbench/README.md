@@ -7,7 +7,7 @@ code-memory workflow (Phase 0: contracts, fixtures, benchmarks).
 
 Per workflow step through the `codeserve` protocol:
 
-- response bytes (exact, from the marshaled wire response)
+- normalized response bytes (wire JSON with local paths/timings scrubbed for comparison)
 - estimated tokens (`EstimateTokens`: fixed 4-bytes-per-token yardstick)
 - tool calls (one per protocol step)
 - latency in milliseconds (recorded, never asserted)
@@ -19,7 +19,7 @@ Per workflow step through the `codeserve` protocol:
 
 - No network providers, hosted inference, or cloud anything.
 - Deterministic fixtures and token accounting; safe to diff reports.
-- Latency is observational only — no timing assertions in tests.
+- Latency is observational only and excluded from normalized report comparisons.
 
 ## Usage
 

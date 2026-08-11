@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/scmbench"
@@ -127,8 +128,8 @@ func TestNormalizeDeterministic(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Before normalization: timing and absolute paths vary.
-	if rep.Totals.DurationMS == 0 {
-		t.Fatal("expected non-zero duration before normalize")
+	if rep.Totals.DurationMS < 0 {
+		t.Fatal("duration must not be negative")
 	}
 	// After normalization: durations zeroed, paths stable.
 	n := rep.Normalize(root, cache)
@@ -161,6 +162,14 @@ func TestNormalizeDeterministic(t *testing.T) {
 	}
 
 	otherRoot, otherCache := writeFixtureTree(t)
+	longRoot := filepath.Join(t.TempDir(), strings.Repeat("long-checkout-segment-", 8))
+	if err := os.MkdirAll(filepath.Dir(longRoot), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(otherRoot, longRoot); err != nil {
+		t.Fatal(err)
+	}
+	otherRoot = longRoot
 	other, err := scmbench.Run(context.Background(), workflowScenario(otherRoot, otherCache))
 	if err != nil {
 		t.Fatal(err)
