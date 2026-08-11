@@ -61,6 +61,63 @@ func TestEstimateTokensDeterministic(t *testing.T) {
 	}
 }
 
+func TestNaiveBaselineUsesCrawlerSourcePolicy(t *testing.T) {
+	t.Parallel()
+	root, _ := writeFixtureTree(t)
+	if err := os.WriteFile(filepath.Join(root, "ignored.txt"), []byte(strings.Repeat("x", 10000)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "ignored"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "ignored", "secret.go"), []byte(strings.Repeat("x", 10000)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("ignored/\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := scmbench.NaiveBaselineBytes(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := int64(0)
+	paths, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range paths {
+		if filepath.Ext(entry.Name()) != ".go" {
+			continue
+		}
+		st, err := os.Stat(filepath.Join(root, entry.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		want += st.Size()
+	}
+	if got != want {
+		t.Fatalf("baseline=%d want indexed source bytes=%d", got, want)
+	}
+}
+
+func TestFailedStepCannotMeasureSavings(t *testing.T) {
+	t.Parallel()
+	root, cache := writeFixtureTree(t)
+	rep, err := scmbench.Run(context.Background(), scmbench.Scenario{
+		Name: "failed", Root: root, IndexCache: cache,
+		Steps: []scmbench.Step{{Name: "bad", Verb: "not_a_real_verb"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.FailedSteps != 1 {
+		t.Fatalf("failed steps=%d want 1", rep.FailedSteps)
+	}
+	if err := rep.MeasureBaseline(root); err == nil {
+		t.Fatal("failed workflow must not report savings")
+	}
+}
+
 func TestWorkflowReport(t *testing.T) {
 	t.Parallel()
 	root, cache := writeFixtureTree(t)

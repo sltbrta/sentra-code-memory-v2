@@ -67,6 +67,43 @@ func UnrelatedPicnic() {}
 	}
 }
 
+func TestSymbolHopCapsInStablePathOrder(t *testing.T) {
+	root := t.TempDir()
+	files := map[string]string{
+		"seed.go": `package p
+func Seed() { Shared() }
+`,
+		"z.go": `package p
+func Shared() {}
+`,
+		"a.go": `package p
+func Shared() {}
+`,
+		"m.go": `package p
+func Shared() {}
+`,
+	}
+	for name, body := range files {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	idx, _, err := CrawlDir(root, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := idx.SymbolHop([]string{"seed.go"}, 2)
+	want := []string{"a.go", "m.go"}
+	if len(got) != len(want) {
+		t.Fatalf("hop=%v want=%v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("hop=%v want=%v", got, want)
+		}
+	}
+}
+
 func TestExtractGoSymbolsDefs(t *testing.T) {
 	defs, _, _ := extractGoSymbols("x.go", "package x\nfunc HelloWorld() {}\ntype FooBar struct{}\n")
 	has := map[string]bool{}

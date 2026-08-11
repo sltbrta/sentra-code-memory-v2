@@ -333,6 +333,7 @@ func (idx *Index) Expand(seeds []string, maxN int) []Hit {
 		}
 	}
 	seedFiles = uniqueStrings(seedFiles)
+	sort.Strings(seedFiles)
 	neighbors := idx.SymbolHop(seedFiles, maxN)
 	out := make([]Hit, 0, len(seedFiles)+len(neighbors))
 	for _, f := range seedFiles {
@@ -417,7 +418,9 @@ func (idx *Index) Impact(seed string, maxDepth, maxFiles int) ImpactReceipt {
 		}
 	}
 	seedFiles = uniqueStrings(seedFiles)
+	sort.Strings(seedFiles)
 	names = uniqueStrings(names)
+	sort.Strings(names)
 	rec.SymbolDefs = len(seedFiles)
 
 	// Direct: defining files first; refs ranked and capped (popular symbols
@@ -479,10 +482,16 @@ func (idx *Index) Impact(seed string, maxDepth, maxFiles int) ImpactReceipt {
 	// Import-neighbor expansion for seed file stems (capped).
 	impCap := 16
 	impN := 0
+	impPaths := make([]string, 0, len(idx.fileImps))
+	for path := range idx.fileImps {
+		impPaths = append(impPaths, path)
+	}
+	sort.Strings(impPaths)
 	for _, sf := range seedFiles {
 		base := filepath.Base(sf)
 		stem := strings.TrimSuffix(base, filepath.Ext(base))
-		for path, imps := range idx.fileImps {
+		for _, path := range impPaths {
+			imps := idx.fileImps[path]
 			if impN >= impCap {
 				break
 			}

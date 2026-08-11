@@ -15,11 +15,13 @@ package scmbench
 import (
 	"context"
 	"encoding/json"
-	"io/fs"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeserve"
 )
 
@@ -115,6 +117,7 @@ type Report struct {
 	Scenario          string       `json:"scenario"`
 	Steps             []StepMetric `json:"steps"`
 	Totals            Totals       `json:"totals"`
+	FailedSteps       int          `json:"failed_steps"`
 	BaselineBytes     int64        `json:"baseline_bytes"`
 	BaselineTokens    int          `json:"baseline_tokens"`
 	SavedBytes        int64        `json:"saved_bytes"`
@@ -135,31 +138,25 @@ func estimateBytes(n int64) int {
 	return int((n + 3) / 4)
 }
 
-// NaiveBaselineBytes sums the sizes of all regular files under root,
-// skipping dot-directories (.git, .sentra, .ouroboros, …). It is the cost
-// floor of an agent that reads the whole tree instead of using the index.
+// NaiveBaselineBytes sums the sizes of all source files the crawler would
+// index, using the same extension and repository-ignore policy. It is the
+// comparable cost floor of an agent that reads every indexed source file.
 func NaiveBaselineBytes(root string) (int64, error) {
+	paths, err := codecrawl.SourceFiles(root)
+	if err != nil {
+		return 0, err
+	}
 	var total int64
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	for _, path := range paths {
+		st, err := os.Stat(path)
 		if err != nil {
-			return err
+			return 0, err
 		}
-		if d.IsDir() {
-			if path != root && strings.HasPrefix(d.Name(), ".") {
-				return filepath.SkipDir
-			}
-			return nil
+		if st.Mode().IsRegular() {
+			total += st.Size()
 		}
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-		if info.Mode().IsRegular() {
-			total += info.Size()
-		}
-		return nil
-	})
-	return total, err
+	}
+	return total, nil
 }
 
 // Run executes the scenario through codeserve.Handle and measures each step.
@@ -168,6 +165,9 @@ func NaiveBaselineBytes(root string) (int64, error) {
 func Run(ctx context.Context, sc Scenario) (Report, error) {
 	rep := Report{Contract: codeserve.ContractID, Scenario: sc.Name}
 	for _, step := range sc.Steps {
+		if err := ctx.Err(); err != nil {
+			return rep, err
+		}
 		req := codeserve.Request{"verb": step.Verb}
 		if sc.Root != "" {
 			req["root"] = sc.Root
@@ -206,6 +206,9 @@ func Run(ctx context.Context, sc Scenario) (Report, error) {
 			DurationMS:    dur.Milliseconds(),
 		}
 		rep.Steps = append(rep.Steps, m)
+		if !m.OK {
+			rep.FailedSteps++
+		}
 		rep.Totals.ResponseBytes += m.ResponseBytes
 		rep.Totals.EstTokens += m.EstTokens
 		rep.Totals.ToolCalls += m.ToolCalls
@@ -234,6 +237,9 @@ func (rep Report) Normalize(root, cache string) Report {
 
 // MeasureBaseline fills the baseline and savings fields against root.
 func (rep *Report) MeasureBaseline(root string) error {
+	if rep.FailedSteps > 0 {
+		return fmt.Errorf("benchmark has %d failed step(s)", rep.FailedSteps)
+	}
 	b, err := NaiveBaselineBytes(root)
 	if err != nil {
 		return err
