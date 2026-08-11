@@ -32,7 +32,10 @@ func Handle(ctx context.Context, req Request) Response {
 		if verb == "" {
 			verb = string(VerbCatalog)
 		}
-		return okResp(verb, map[string]any{"verbs": Catalog(), "product_owned": true})
+		return okResp(verb, map[string]any{
+			"verbs": Catalog(), "specs": CatalogMetadata(),
+			"contract": ContractID, "product_owned": true,
+		})
 	case VerbCodeIndex:
 		return handleCodeIndex(req)
 	case VerbCodeSearch:
@@ -60,7 +63,8 @@ func Handle(ctx context.Context, req Request) Response {
 	default:
 		return Response{
 			"ok": false, "error": "unknown verb", "verb": verb,
-			"supported": Catalog(),
+			"error_code": string(ErrUnknownVerb),
+			"supported":  Catalog(),
 		}
 	}
 }
@@ -73,8 +77,20 @@ func okResp(verb string, extra map[string]any) Response {
 	return out
 }
 
+func codeErrResp(verb string, code ErrorCode, msg string) Response {
+	return Response{
+		"ok": false, "verb": verb, "error": msg,
+		"error_code": string(code), "product_owned": true,
+	}
+}
+
 func errResp(verb, msg string) Response {
-	return Response{"ok": false, "verb": verb, "error": msg, "product_owned": true}
+	return codeErrResp(verb, ErrInvalidRequest, msg)
+}
+
+// idxErrResp classifies durable-index load/refresh failures.
+func idxErrResp(verb string, err error) Response {
+	return codeErrResp(verb, ErrIndexUnavailable, err.Error())
 }
 
 func str(req Request, key string) string {
@@ -176,7 +192,7 @@ func handleCodeIndex(req Request) Response {
 	t0 := time.Now()
 	idx, st, wrote, meta, err := codecrawl.OpenOrRefresh(rootAbs, gobPath, workers, force)
 	if err != nil {
-		return errResp(string(VerbCodeIndex), err.Error())
+		return idxErrResp(string(VerbCodeIndex), err)
 	}
 	_ = idx
 	return okResp(string(VerbCodeIndex), map[string]any{
@@ -196,7 +212,7 @@ func handleCodeSearch(req Request) Response {
 	}
 	idx, rootAbs, gobPath, err := loadIndex(req)
 	if err != nil {
-		return errResp(string(VerbCodeSearch), err.Error())
+		return idxErrResp(string(VerbCodeSearch), err)
 	}
 	topK := intField(req, "top_k", 8)
 	if topK <= 0 {
@@ -217,7 +233,7 @@ func handleFindRelevant(req Request) Response {
 	}
 	idx, rootAbs, _, err := loadIndex(req)
 	if err != nil {
-		return errResp(string(VerbFindRelevant), err.Error())
+		return idxErrResp(string(VerbFindRelevant), err)
 	}
 	topK := intField(req, "top_k", 5)
 	preview := boolField(req, "preview", true)
@@ -239,7 +255,7 @@ func handleExpand(req Request) Response {
 	}
 	idx, _, _, err := loadIndex(req)
 	if err != nil {
-		return errResp(string(VerbExpand), err.Error())
+		return idxErrResp(string(VerbExpand), err)
 	}
 	// Expand via defs+refs of seed symbol (heuristic).
 	defs := idx.DefsOf(seed)
@@ -260,7 +276,7 @@ func handleImpact(req Request) Response {
 	}
 	idx, _, _, err := loadIndex(req)
 	if err != nil {
-		return errResp(string(VerbImpact), err.Error())
+		return idxErrResp(string(VerbImpact), err)
 	}
 	depth := intField(req, "max_depth", 3)
 	maxFiles := intField(req, "max_files", 64)
@@ -290,7 +306,7 @@ func handleFindRoute(req Request) Response {
 		req["no_refresh"] = false
 		idx, _, _, err = loadIndex(req)
 		if err != nil {
-			return errResp(string(VerbFindRoute), err.Error())
+			return idxErrResp(string(VerbFindRoute), err)
 		}
 	}
 	maxB := intField(req, "max_bridges", 12)
@@ -307,7 +323,7 @@ func handleFreshness(req Request) Response {
 	}
 	idx, meta, err := codecrawl.Load(gobPath)
 	if err != nil {
-		return errResp(string(VerbFreshness), err.Error())
+		return idxErrResp(string(VerbFreshness), err)
 	}
 	if rootAbs == "" {
 		rootAbs = meta.Root
@@ -348,7 +364,7 @@ func handleIngestPaths(req Request) Response {
 	if err != nil {
 		idx, _, _, meta, err = codecrawl.OpenOrRefresh(rootAbs, gobPath, 4, true)
 		if err != nil {
-			return errResp(string(VerbIngestPaths), err.Error())
+			return idxErrResp(string(VerbIngestPaths), err)
 		}
 	}
 	n, err := idx.IngestPaths(rootAbs, rels)
@@ -356,7 +372,7 @@ func handleIngestPaths(req Request) Response {
 		return errResp(string(VerbIngestPaths), err.Error())
 	}
 	if err := idx.Save(gobPath, rootAbs); err != nil {
-		return errResp(string(VerbIngestPaths), err.Error())
+		return codeErrResp(string(VerbIngestPaths), ErrInternal, err.Error())
 	}
 	return okResp(string(VerbIngestPaths), map[string]any{
 		"changed": n, "paths": rels, "gob_path": gobPath, "root": rootAbs,

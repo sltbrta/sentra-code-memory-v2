@@ -4,6 +4,7 @@ go_library(
     name = "codeserve",
     srcs = [
         "catalog.go",
+        "contract.go",
         "doc.go",
         "handle.go",
     ],
@@ -18,7 +19,11 @@ go_library(
 
 go_test(
     name = "codeserve_test",
-    srcs = ["handle_test.go"],
+    srcs = [
+        "conformance_test.go",
+        "contract_test.go",
+        "handle_test.go",
+    ],
     embed = [":codeserve"],
     tags = [
         "ouroboros_affected",

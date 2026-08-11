@@ -21,6 +21,17 @@ See `Catalog()` — `code_index`, `code_search`, `code_find_relevant`,
 SCM session continuation packets —
 [SCM-SESSION-PRODUCT.md](../../../../docs/specs/product/SCM-SESSION-PRODUCT.md).
 
+## Contracts
+
+`contract.go` holds the canonical typed request/response/error contracts
+(`ContractID = sentra-scm.codeserve/v1`), stable error codes, and
+`CatalogMetadata()` verb specs (surface, status, fields, aliases). The
+`catalog` verb returns both the legacy `verbs` list and typed `specs`.
+Planned verbs (`code_read`, `code_imports`, `code_watch` over JSONL) are
+typed now and gain handlers in later phases. `DecodeResponse` binds any
+wire response to its typed form; `contract_test.go` proves the typed
+contracts match live handler behavior against `testdata/scmfixture`.
+
 ## Tests
 
 `go test ./brain/internal/codeserve/`
