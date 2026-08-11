@@ -23,6 +23,21 @@ import (
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeserve"
 )
 
+// placeholderRoot is the sentinel value used to mask absolute paths in
+// normalized reports so the serialized output is machine-independent.
+const placeholderRoot = "<root>"
+
+// normalizePath replaces an absolute path prefix with a stable placeholder.
+func normalizePath(p, root string) string {
+	if root == "" || p == "" {
+		return p
+	}
+	if strings.HasPrefix(p, root) {
+		return placeholderRoot + p[len(root):]
+	}
+	return p
+}
+
 // Step is one protocol call in a workflow scenario.
 type Step struct {
 	Name string         `json:"name"`
@@ -150,6 +165,29 @@ func Run(ctx context.Context, sc Scenario) (Report, error) {
 		rep.Totals.DurationMS += m.DurationMS
 	}
 	return rep, nil
+}
+
+// Normalize returns a copy of the report suitable for deterministic
+// serialization: absolute paths are replaced with stable placeholders
+// and timing fields are zeroed. Response-byte savings are unaffected
+// because duration_ms is excluded from the normalized step payloads.
+func (rep Report) Normalize(root, cache string) Report {
+	n := rep
+	n.Totals.DurationMS = 0
+	steps := make([]StepMetric, len(rep.Steps))
+	for i, s := range rep.Steps {
+		s.DurationMS = 0
+		steps[i] = s
+	}
+	n.Steps = steps
+	// Normalize paths that embed machine-local roots.
+	if root != "" {
+		n.Scenario = normalizePath(n.Scenario, root)
+	}
+	if cache != "" {
+		n.Scenario = normalizePath(n.Scenario, cache)
+	}
+	return n
 }
 
 // MeasureBaseline fills the baseline and savings fields against root.

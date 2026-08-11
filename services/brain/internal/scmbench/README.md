@@ -29,5 +29,7 @@ go test ./services/brain/internal/scmbench/ -bench . -benchtime 20x
 ```
 
 Build a `Scenario` (root, index cache, ordered verb steps), call `Run`,
-then `MeasureBaseline(root)`. The resulting `Report` marshals to a stable
-JSON artifact suitable for committing or diffing across phases.
+then `MeasureBaseline(root)`. Call `Report.Normalize(root, cache)` before
+serializing to strip machine-local paths and zero timing fields so the
+output is deterministic across machines. The resulting JSON artifact is
+suitable for committing or diffing across phases.

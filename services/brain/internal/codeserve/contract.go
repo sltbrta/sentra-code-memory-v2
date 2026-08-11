@@ -46,18 +46,20 @@ type ErrorResponse struct {
 }
 
 // IndexSelector locates the durable code index shared by all read verbs.
+// Bool fields omit omitempty so explicit false is preserved on the wire.
 type IndexSelector struct {
 	Root       string `json:"root,omitempty"`
 	IndexCache string `json:"index_cache,omitempty"`
 	Workers    int    `json:"workers,omitempty"`
-	NoRefresh  bool   `json:"no_refresh,omitempty"`
-	Force      bool   `json:"force,omitempty"`
+	NoRefresh  bool   `json:"no_refresh"`
+	Force      bool   `json:"force"`
 }
 
 // --- Requests -------------------------------------------------------------
 
 // IndexRequest builds or refreshes the durable index (code_index).
 type IndexRequest struct {
+	Verb string `json:"verb"`
 	IndexSelector
 }
 
@@ -65,6 +67,7 @@ type IndexRequest struct {
 // long-running CLI command streaming WatchEvent lines; the JSONL verb is
 // planned (see CatalogMetadata).
 type WatchRequest struct {
+	Verb string `json:"verb"`
 	IndexSelector
 	IntervalMS     int  `json:"interval_ms,omitempty"`
 	DebounceMS     int  `json:"debounce_ms,omitempty"`
@@ -72,38 +75,44 @@ type WatchRequest struct {
 	RetryInitialMS int  `json:"retry_initial_ms,omitempty"`
 	RetryMaxMS     int  `json:"retry_max_ms,omitempty"`
 	MaxCycles      int  `json:"max_cycles,omitempty"`
-	FSNotify       bool `json:"fsnotify,omitempty"`
+	FSNotify       bool `json:"fsnotify"`
 }
 
 // FreshnessRequest probes workspace-vs-index drift (code_freshness).
 type FreshnessRequest struct {
+	Verb string `json:"verb"`
 	IndexSelector
 }
 
 // SearchRequest is the lexical search verb (code_search).
 type SearchRequest struct {
+	Verb string `json:"verb"`
 	IndexSelector
 	Q    string `json:"q"`
 	TopK int    `json:"top_k,omitempty"`
 }
 
 // FindRelevantRequest is the lean agent-facing top-k retrieval
-// (code_find_relevant). Preview defaults to true on the wire when omitted.
+// (code_find_relevant). Preview defaults to true on the wire when omitted;
+// omitempty is deliberately absent so explicit false survives marshaling.
 type FindRelevantRequest struct {
+	Verb string `json:"verb"`
 	IndexSelector
 	Q       string `json:"q"`
 	TopK    int    `json:"top_k,omitempty"`
-	Preview bool   `json:"preview,omitempty"`
+	Preview bool   `json:"preview"`
 }
 
 // ExpandRequest returns defs+refs neighborhoods of a seed (code_expand).
 type ExpandRequest struct {
+	Verb string `json:"verb"`
 	IndexSelector
 	Seed string `json:"seed"`
 }
 
 // ReadRequest reads a bounded source region (code_read; planned).
 type ReadRequest struct {
+	Verb string `json:"verb"`
 	IndexSelector
 	Path      string `json:"path"`
 	StartLine int    `json:"start_line,omitempty"`
@@ -112,6 +121,7 @@ type ReadRequest struct {
 
 // ImpactRequest computes the heuristic impact closure (code_impact).
 type ImpactRequest struct {
+	Verb string `json:"verb"`
 	IndexSelector
 	Seed     string `json:"seed"`
 	MaxDepth int    `json:"max_depth,omitempty"`
@@ -120,6 +130,7 @@ type ImpactRequest struct {
 
 // FindRouteRequest finds bridge files between two seeds (code_find_route).
 type FindRouteRequest struct {
+	Verb string `json:"verb"`
 	IndexSelector
 	From       string `json:"from"`
 	To         string `json:"to"`
@@ -129,6 +140,7 @@ type FindRouteRequest struct {
 // IngestPathsRequest incrementally re-indexes explicit paths
 // (code_ingest_paths). The wire also accepts a comma-separated string.
 type IngestPathsRequest struct {
+	Verb string `json:"verb"`
 	IndexSelector
 	Paths []string `json:"paths"`
 }
@@ -143,14 +155,34 @@ const (
 	ExactKindImport     ExactKind = "import"
 )
 
+// PingRequest is the liveness probe (ping).
+type PingRequest struct {
+	Verb string `json:"verb"`
+}
+
+// PingResponse is a liveness acknowledgment.
+type PingResponse struct {
+	ResponseMeta
+}
+
 // ExactRequest is the precise defs/refs/imports lane. code_defs and
 // code_refs are code_exact with Kind pinned; code_imports is planned as
 // the same pinning for ExactKindImport.
 type ExactRequest struct {
+	Verb string    `json:"verb"`
 	Root string    `json:"root"`
 	Q    string    `json:"q"`
 	Kind ExactKind `json:"kind,omitempty"`
 	TopK int       `json:"top_k,omitempty"`
+}
+
+// MemoryAskRequest queries the company-doc residual lane (memory_ask).
+type MemoryAskRequest struct {
+	Verb    string `json:"verb"`
+	Dir     string `json:"dir"`
+	Q       string `json:"q"`
+	Session string `json:"session,omitempty"`
+	TopK    int    `json:"top_k,omitempty"`
 }
 
 // --- Responses ------------------------------------------------------------

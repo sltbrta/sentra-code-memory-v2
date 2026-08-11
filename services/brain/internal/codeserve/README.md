@@ -26,7 +26,8 @@ SCM session continuation packets —
 `contract.go` holds the canonical typed request/response/error contracts
 (`ContractID = sentra-scm.codeserve/v1`), stable error codes, and
 `CatalogMetadata()` verb specs (surface, status, fields, aliases). The
-`catalog` verb returns both the legacy `verbs` list and typed `specs`.
+`catalog` verb returns the legacy `verbs` list; typed `specs` are opt-in
+via `detail: true` to keep the discovery response lean.
 Planned verbs (`code_read`, `code_imports`, `code_watch` over JSONL) are
 typed now and gain handlers in later phases. `DecodeResponse` binds any
 wire response to its typed form; `contract_test.go` proves the typed

@@ -7,8 +7,10 @@ package codeserve_test
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeserve"
@@ -95,10 +97,10 @@ func TestCatalogMetadataContract(t *testing.T) {
 }
 
 // TestCatalogVerbExposesSpecs: the live catalog verb carries the typed
-// metadata alongside the legacy verbs list (additive, back-compat).
+// metadata alongside the legacy verbs list when detail=true (opt-in).
 func TestCatalogVerbExposesSpecs(t *testing.T) {
 	t.Parallel()
-	resp := codeserve.Handle(context.Background(), codeserve.Request{"verb": "catalog"})
+	resp := codeserve.Handle(context.Background(), codeserve.Request{"verb": "catalog", "detail": true})
 	if resp["ok"] != true {
 		t.Fatalf("%v", resp)
 	}
@@ -110,7 +112,12 @@ func TestCatalogVerbExposesSpecs(t *testing.T) {
 	}
 	specs, ok := resp["specs"].([]codeserve.VerbSpec)
 	if !ok || len(specs) == 0 {
-		t.Fatalf("specs metadata missing: %T", resp["specs"])
+		t.Fatalf("specs metadata missing with detail=true: %T", resp["specs"])
+	}
+	// Default (no detail) omits specs.
+	lean := codeserve.Handle(context.Background(), codeserve.Request{"verb": "catalog"})
+	if lean["specs"] != nil {
+		t.Fatalf("specs should be opt-in by default: %v", lean)
 	}
 }
 
@@ -256,6 +263,126 @@ func TestResponseContractConformance(t *testing.T) {
 			t.Fatalf("imports lane: %+v", out)
 		}
 	})
+
+	t.Run("search", func(t *testing.T) {
+		req := sel()
+		req["verb"] = "code_search"
+		req["q"] = "Alpha"
+		out := decode[codeserve.SearchResponse](t, codeserve.Handle(ctx, req))
+		if !out.OK || out.Verb != "code_search" || out.Q != "Alpha" || len(out.Hits) == 0 {
+			t.Fatalf("%+v", out)
+		}
+		if out.SearchBackend != "codecrawl" {
+			t.Fatalf("backend: %+v", out)
+		}
+	})
+
+	t.Run("ping", func(t *testing.T) {
+		out := decode[codeserve.PingResponse](t, codeserve.Handle(ctx, codeserve.Request{"verb": "ping"}))
+		if !out.OK || out.Verb != "ping" || !out.ProductOwned {
+			t.Fatalf("%+v", out)
+		}
+	})
+
+	t.Run("memory_ask_error", func(t *testing.T) {
+		// memory_ask with missing dir must fail with a stable error code.
+		out := decode[codeserve.ErrorResponse](t, codeserve.Handle(ctx, codeserve.Request{
+			"verb": "memory_ask", "q": "test",
+		}))
+		if out.OK || out.ErrorCode != codeserve.ErrInvalidRequest {
+			t.Fatalf("%+v", out)
+		}
+		if !out.ProductOwned {
+			t.Fatalf("product_owned missing: %+v", out)
+		}
+	})
+
+	t.Run("catalog_specs_opt_in", func(t *testing.T) {
+		// Default catalog response is lean (no specs).
+		lean := codeserve.Handle(ctx, codeserve.Request{"verb": "catalog"})
+		if lean["specs"] != nil {
+			t.Fatalf("specs should be opt-in: %v", lean)
+		}
+		// detail=true returns specs.
+		detail := codeserve.Handle(ctx, codeserve.Request{"verb": "catalog", "detail": true})
+		specs, ok := detail["specs"].([]codeserve.VerbSpec)
+		if !ok || len(specs) == 0 {
+			t.Fatalf("detail request missing specs: %T", detail["specs"])
+		}
+	})
+}
+
+// TestRequestDispatchRoundTrip: typed request structs encode verb and
+// round-trip through JSON so callers can construct and marshal them.
+func TestRequestDispatchRoundTrip(t *testing.T) {
+	t.Parallel()
+	// Every live verb has a typed request struct that encodes its verb.
+	tests := []struct {
+		verb string
+		req  any
+	}{
+		{"ping", codeserve.PingRequest{Verb: "ping"}},
+		{"code_index", codeserve.IndexRequest{Verb: "code_index"}},
+		{"code_search", codeserve.SearchRequest{Verb: "code_search", Q: "Alpha"}},
+		{"code_find_relevant", codeserve.FindRelevantRequest{Verb: "code_find_relevant", Q: "Alpha", Preview: false}},
+		{"code_expand", codeserve.ExpandRequest{Verb: "code_expand", Seed: "Alpha"}},
+		{"code_impact", codeserve.ImpactRequest{Verb: "code_impact", Seed: "Alpha"}},
+		{"code_find_route", codeserve.FindRouteRequest{Verb: "code_find_route", From: "Alpha", To: "Beta"}},
+		{"code_freshness", codeserve.FreshnessRequest{Verb: "code_freshness"}},
+		{"code_ingest_paths", codeserve.IngestPathsRequest{Verb: "code_ingest_paths", Paths: []string{"a.go"}}},
+		{"code_exact", codeserve.ExactRequest{Verb: "code_exact", Root: "/tmp", Q: "Alpha"}},
+		{"memory_ask", codeserve.MemoryAskRequest{Verb: "memory_ask", Dir: "/tmp", Q: "test"}},
+	}
+	for _, tc := range tests {
+		raw, err := json.Marshal(tc.req)
+		if err != nil {
+			t.Fatalf("marshal %s: %v", tc.verb, err)
+		}
+		if !strings.Contains(string(raw), `"verb":"`+tc.verb+`"`) {
+			t.Fatalf("%s: verb key missing from %s", tc.verb, raw)
+		}
+		// Round-trip back into a map; verb must survive.
+		var rt map[string]any
+		if err := json.Unmarshal(raw, &rt); err != nil {
+			t.Fatalf("unmarshal %s: %v", tc.verb, err)
+		}
+		if rt["verb"] != tc.verb {
+			t.Fatalf("%s: verb round-trip mismatch: %v", tc.verb, rt["verb"])
+		}
+	}
+}
+
+// TestBoolExplicitFalse: explicit false survives JSON marshal for fields
+// where the zero value carries distinct meaning (preview, no_refresh, force).
+func TestBoolExplicitFalse(t *testing.T) {
+	t.Parallel()
+	// preview=false must appear on the wire.
+	req := codeserve.FindRelevantRequest{Verb: "code_find_relevant", Q: "x", Preview: false}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"preview":false`) {
+		t.Fatalf("preview=false missing: %s", raw)
+	}
+	// no_refresh=false must appear.
+	ir := codeserve.IndexRequest{Verb: "code_index", IndexSelector: codeserve.IndexSelector{NoRefresh: false}}
+	raw, err = json.Marshal(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"no_refresh":false`) {
+		t.Fatalf("no_refresh=false missing: %s", raw)
+	}
+	// force=false must appear.
+	ir.Force = false
+	raw, err = json.Marshal(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"force":false`) {
+		t.Fatalf("force=false missing: %s", raw)
+	}
 }
 
 // TestCompatibilityAliases: existing aliases keep working unchanged.

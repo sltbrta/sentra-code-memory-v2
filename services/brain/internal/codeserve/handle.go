@@ -32,10 +32,15 @@ func Handle(ctx context.Context, req Request) Response {
 		if verb == "" {
 			verb = string(VerbCatalog)
 		}
-		return okResp(verb, map[string]any{
-			"verbs": Catalog(), "specs": CatalogMetadata(),
-			"contract": ContractID, "product_owned": true,
-		})
+		extra := map[string]any{
+			"verbs": Catalog(), "contract": ContractID,
+			"product_owned": true,
+		}
+		// Specs are opt-in to keep the discovery response lean.
+		if boolField(req, "detail", false) || boolField(req, "specs", false) {
+			extra["specs"] = CatalogMetadata()
+		}
+		return okResp(verb, extra)
 	case VerbCodeIndex:
 		return handleCodeIndex(req)
 	case VerbCodeSearch:
@@ -62,9 +67,9 @@ func Handle(ctx context.Context, req Request) Response {
 		return handleFindRoute(req)
 	default:
 		return Response{
-			"ok": false, "error": "unknown verb", "verb": verb,
-			"error_code": string(ErrUnknownVerb),
-			"supported":  Catalog(),
+			"ok": false, "verb": verb, "error": "unknown verb",
+			"error_code": string(ErrUnknownVerb), "product_owned": true,
+			"supported": Catalog(),
 		}
 	}
 }
@@ -369,7 +374,7 @@ func handleIngestPaths(req Request) Response {
 	}
 	n, err := idx.IngestPaths(rootAbs, rels)
 	if err != nil {
-		return errResp(string(VerbIngestPaths), err.Error())
+		return codeErrResp(string(VerbIngestPaths), ErrInternal, err.Error())
 	}
 	if err := idx.Save(gobPath, rootAbs); err != nil {
 		return codeErrResp(string(VerbIngestPaths), ErrInternal, err.Error())

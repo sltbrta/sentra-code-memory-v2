@@ -118,6 +118,48 @@ func TestWorkflowReport(t *testing.T) {
 	}
 }
 
+func TestNormalizeDeterministic(t *testing.T) {
+	t.Parallel()
+	root, cache := writeFixtureTree(t)
+	rep, err := scmbench.Run(context.Background(), workflowScenario(root, cache))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Before normalization: timing and absolute paths vary.
+	if rep.Totals.DurationMS == 0 {
+		t.Fatal("expected non-zero duration before normalize")
+	}
+	// After normalization: durations zeroed, paths stable.
+	n := rep.Normalize(root, cache)
+	if n.Totals.DurationMS != 0 {
+		t.Fatalf("duration not zeroed: %+v", n.Totals)
+	}
+	for i, s := range n.Steps {
+		if s.DurationMS != 0 {
+			t.Fatalf("step %d duration not zeroed: %+v", i, s)
+		}
+	}
+	// Normalized report must round-trip through JSON.
+	raw, err := json.Marshal(n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rt scmbench.Report
+	if err := json.Unmarshal(raw, &rt); err != nil {
+		t.Fatal(err)
+	}
+	if rt.Totals.DurationMS != 0 {
+		t.Fatal("round-tripped normalized report has non-zero duration")
+	}
+	// Savings math is unaffected by normalization.
+	if err := n.MeasureBaseline(root); err != nil {
+		t.Fatal(err)
+	}
+	if n.SavedTokens <= 0 {
+		t.Fatal("normalized report must still show token savings")
+	}
+}
+
 // BenchmarkFindRelevantStep measures the warm find_relevant step. Run with:
 //
 //	go test ./services/brain/internal/scmbench/ -bench . -benchtime 10x
