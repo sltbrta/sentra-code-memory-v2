@@ -35,4 +35,4 @@ contracts match live handler behavior against `testdata/scmfixture`.
 
 ## Tests
 
-`go test ./brain/internal/codeserve/`
+`go test ./services/brain/internal/codeserve/`

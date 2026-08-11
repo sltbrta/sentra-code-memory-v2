@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/scmbench"
@@ -157,6 +158,18 @@ func TestNormalizeDeterministic(t *testing.T) {
 	}
 	if n.SavedTokens <= 0 {
 		t.Fatal("normalized report must still show token savings")
+	}
+
+	otherRoot, otherCache := writeFixtureTree(t)
+	other, err := scmbench.Run(context.Background(), workflowScenario(otherRoot, otherCache))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := other.MeasureBaseline(otherRoot); err != nil {
+		t.Fatal(err)
+	}
+	if got := other.Normalize(otherRoot, otherCache); !reflect.DeepEqual(n, got) {
+		t.Fatalf("normalized reports differ across checkout paths:\nleft=%+v\nright=%+v", n, got)
 	}
 }
 

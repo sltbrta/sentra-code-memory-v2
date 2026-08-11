@@ -348,7 +348,7 @@ func CatalogMetadata() []VerbSpec {
 		{Name: string(VerbPing), Status: StatusStable, Surface: "jsonl",
 			Summary: "liveness probe"},
 		{Name: string(VerbCatalog), Status: StatusStable, Surface: "jsonl",
-			Summary: "verb discovery; returns verbs and specs"},
+			Summary: "lean verb discovery; detailed specs are opt-in"},
 		{Name: string(VerbCodeIndex), Status: StatusStable, Surface: "jsonl",
 			Summary:  "build or refresh the durable code index",
 			Required: []string{"root"},

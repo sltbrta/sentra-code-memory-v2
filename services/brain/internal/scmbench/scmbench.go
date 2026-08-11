@@ -32,10 +32,47 @@ func normalizePath(p, root string) string {
 	if root == "" || p == "" {
 		return p
 	}
-	if strings.HasPrefix(p, root) {
-		return placeholderRoot + p[len(root):]
+	if p == root {
+		return placeholderRoot
+	}
+	prefix := root
+	if !strings.HasSuffix(prefix, string(filepath.Separator)) {
+		prefix += string(filepath.Separator)
+	}
+	if strings.HasPrefix(p, prefix) {
+		return placeholderRoot + string(filepath.Separator) + p[len(prefix):]
 	}
 	return p
+}
+
+func normalizeValue(value any, roots ...string) any {
+	switch v := value.(type) {
+	case string:
+		for _, root := range roots {
+			if normalized := normalizePath(v, root); normalized != v {
+				v = normalized
+			}
+		}
+		return v
+	case map[string]any:
+		out := make(map[string]any, len(v))
+		for key, item := range v {
+			if key == "duration_ms" {
+				out[key] = float64(0)
+				continue
+			}
+			out[key] = normalizeValue(item, roots...)
+		}
+		return out
+	case []any:
+		out := make([]any, len(v))
+		for i, item := range v {
+			out[i] = normalizeValue(item, roots...)
+		}
+		return out
+	default:
+		return value
+	}
 }
 
 // Step is one protocol call in a workflow scenario.
@@ -144,7 +181,9 @@ func Run(ctx context.Context, sc Scenario) (Report, error) {
 		t0 := time.Now()
 		resp := codeserve.Handle(ctx, req)
 		dur := time.Since(t0)
-		raw, err := json.Marshal(resp)
+		// Normalize path-bearing response fields before accounting so checkout
+		// location does not masquerade as token savings.
+		raw, err := json.Marshal(normalizeValue(resp, sc.Root, sc.IndexCache))
 		if err != nil {
 			return rep, err
 		}
@@ -180,13 +219,8 @@ func (rep Report) Normalize(root, cache string) Report {
 		steps[i] = s
 	}
 	n.Steps = steps
-	// Normalize paths that embed machine-local roots.
-	if root != "" {
-		n.Scenario = normalizePath(n.Scenario, root)
-	}
-	if cache != "" {
-		n.Scenario = normalizePath(n.Scenario, cache)
-	}
+	// Normalize paths that embed machine-local roots in the scenario label too.
+	n.Scenario = normalizePath(normalizePath(n.Scenario, root), cache)
 	return n
 }
 

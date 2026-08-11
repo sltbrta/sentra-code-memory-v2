@@ -25,6 +25,7 @@ go_test(
         "handle_test.go",
     ],
     embed = [":codeserve"],
+    data = glob(["testdata/**"]),
     tags = [
         "ouroboros_affected",
         "ouroboros_check",
