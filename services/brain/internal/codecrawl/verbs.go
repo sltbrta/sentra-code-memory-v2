@@ -143,8 +143,13 @@ func (idx *Index) RefsOf(name string) []string {
 		out = append(out, idx.symbols.Refs[name]...)
 		out = append(out, idx.symbols.Refs[low]...)
 	}
-	for path, refs := range idx.fileRefs {
-		for _, r := range refs {
+	refPaths := make([]string, 0, len(idx.fileRefs))
+	for path := range idx.fileRefs {
+		refPaths = append(refPaths, path)
+	}
+	sort.Strings(refPaths)
+	for _, path := range refPaths {
+		for _, r := range idx.fileRefs[path] {
 			if strings.EqualFold(r, name) {
 				out = append(out, path)
 			}
@@ -271,17 +276,19 @@ func (idx *Index) resolveSeedFiles(seed string) []string {
 		if _, ok := idx.files[seed]; ok {
 			return []string{seed}
 		}
-		// Prefix match.
-		var out []string
+		// Prefix match. Sort before applying the cap so path aliases resolve
+		// reproducibly across map iterations.
+		matches := make([]string, 0)
 		for p := range idx.files {
 			if strings.HasSuffix(p, seed) || strings.Contains(p, seed) {
-				out = append(out, p)
-			}
-			if len(out) >= 5 {
-				break
+				matches = append(matches, p)
 			}
 		}
-		return out
+		sort.Strings(matches)
+		if len(matches) > 5 {
+			matches = matches[:5]
+		}
+		return matches
 	}
 	// Symbol name.
 	var out []string

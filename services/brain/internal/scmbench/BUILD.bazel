@@ -6,6 +6,7 @@ go_library(
     importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/scmbench",
     visibility = ["//services/brain:__subpackages__"],
     deps = [
+        "//services/brain/internal/codecrawl",
         "//services/brain/internal/codeserve",
     ],
 )

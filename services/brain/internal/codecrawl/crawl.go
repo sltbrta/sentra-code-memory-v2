@@ -151,10 +151,6 @@ func (l *localIndex) mergeInto(idx *Index) {
 	}
 }
 
-// CrawlDir walks root with N workers and builds an inverted token index.
-//
-// Each worker accumulates a private inverted map and merges once at the end so
-// the crawl loop never holds a shared mutex on the hot path (G8 multi-crawler).
 // SourceFiles returns the absolute source paths that the crawler would index.
 // It is shared by measurements so baselines compare the same ignore and
 // extension policy as the actual index.
@@ -202,6 +198,10 @@ func SourceFiles(root string) ([]string, error) {
 	return paths, nil
 }
 
+// CrawlDir walks root with N workers and builds an inverted token index.
+//
+// Each worker accumulates a private inverted map and merges once at the end so
+// the crawl loop never holds a shared mutex on the hot path (G8 multi-crawler).
 func CrawlDir(root string, workers int) (*Index, Stats, error) {
 	if workers < 1 {
 		workers = 1

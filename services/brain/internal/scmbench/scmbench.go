@@ -34,15 +34,14 @@ func normalizePath(p, root string) string {
 	if root == "" || p == "" {
 		return p
 	}
+	p = filepath.ToSlash(p)
+	root = filepath.ToSlash(root)
 	if p == root {
 		return placeholderRoot
 	}
-	prefix := root
-	if !strings.HasSuffix(prefix, string(filepath.Separator)) {
-		prefix += string(filepath.Separator)
-	}
+	prefix := strings.TrimSuffix(root, "/") + "/"
 	if strings.HasPrefix(p, prefix) {
-		return placeholderRoot + string(filepath.Separator) + p[len(prefix):]
+		return placeholderRoot + "/" + p[len(prefix):]
 	}
 	return p
 }
