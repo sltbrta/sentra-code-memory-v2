@@ -1,31 +1,66 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-1786558239419",
-  "head": "4e901e70ce4313f89781b9880b8e9cbffbc85686",
+  "run_id": "run-1786559752566",
+  "head": "ec202e79e0d0251b16556719fc49069b88a34ed1",
   "implementer_session": "019ff62e-14d8-78d7-83c3-3d2c496adb6b",
-  "workflow": "publish-parity-audit",
-  "scope": "Publish the post-P6 parity audit artifact and keep its cited remaining-work backlog discoverable.",
+  "workflow": "complete-post-p6-parity-backlog",
+  "scope": "Implement all actionable post-P6 parity issues #41-#48 end to end: trust and read security, durable index safety, code retrieval/ranking, typed multi-language authority, transactional ChangeSet application, repo map/structural/query ergonomics, memory/session/lifecycle parity decision and surfaces, and repeatable benchmarks.",
   "non_goals": [
-    "Do not implement any of the backlog items in this documentation-only change.",
-    "Do not alter runtime code or generated contracts."
+    "Do not implement hosted tenancy, billing, cloud deployment, remote overlays, or enterprise regional isolation; those remain explicit deferred non-goals.",
+    "Do not implement the full session latent-memory product unless the parity decision issue determines a bounded local surface is required.",
+    "Do not add external dependencies unless already available or strictly necessary for an acceptance-tested capability.",
+    "Do not weaken existing fail-closed security or honesty labels."
   ],
   "affected_files": [
-    "docs/research/2026-08-12-parity-audit-and-remaining-work.md"
+    "services/brain/internal/adapters/http.go",
+    "services/brain/internal/adapters/mcp.go",
+    "services/brain/internal/codeserve/catalog.go",
+    "services/brain/internal/codeserve/contract.go",
+    "services/brain/internal/codeserve/handle.go",
+    "services/brain/internal/codeserve/README.md",
+    "services/brain/internal/codecrawl/persist.go",
+    "services/brain/internal/codecrawl/search.go",
+    "services/brain/internal/codecrawl/verbs.go",
+    "services/brain/internal/codecrawl/symbol.go",
+    "services/brain/internal/codecrawl/edges.go",
+    "services/brain/internal/workflow/changeset.go",
+    "services/brain/internal/contextpack/",
+    "services/brain/internal/sessionlog/",
+    "services/brain/internal/memory/",
+    "services/brain/internal/scmbench/",
+    "services/brain/cmd/sentra-code-memory/",
+    "docs/",
+    "justfile",
+    ".gitignore"
   ],
   "acceptance_commands": [
+    "go test ./services/...",
+    "go vet ./services/...",
+    "cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml",
+    "just check-all",
+    "just cli-smoke",
     "git diff --check",
-    "markdownlint-cli2 docs/research/2026-08-12-parity-audit-and-remaining-work.md"
+    "markdownlint-cli2 docs/ services/brain/README.md services/brain/internal/codeserve/README.md"
   ],
   "risks": [
-    "The audit could overstate parity if evidence is not distinguished from inference.",
-    "Documentation-only publication must not be mistaken for implementation of backlog issues."
+    "This is a broad multi-issue change touching public contracts, security, persistence, retrieval, and workflow application semantics.",
+    "Native language parsers, external rerankers, and LSP/SCIP integrations may be unavailable; fallback behavior must remain explicit and tested.",
+    "Changing local HTTP/MCP trust defaults can affect existing clients; preserve safe loopback defaults and document migration.",
+    "Transactional filesystem changes can lose work if stale-base and rollback checks are incomplete."
   ],
   "issue_ids": [
-    "49"
+    "41",
+    "42",
+    "43",
+    "44",
+    "45",
+    "46",
+    "47",
+    "48"
   ],
-  "created_at": "2026-08-12T18:10:39.419Z",
-  "tier": "T0",
-  "stage": "preflight",
+  "created_at": "2026-08-12T18:35:52.566Z",
+  "tier": "T2",
+  "stage": "red-proof",
   "phases": [
     {
       "id": "spec-lock",
@@ -48,12 +83,16 @@
       "title": "Implementation"
     },
     {
+      "id": "paired-review",
+      "title": "Paired review"
+    },
+    {
       "id": "preflight",
       "title": "Preflight"
     },
     {
       "id": "fresh-eyes",
-      "title": "Fresh eyes"
+      "title": "Fresh-eyes review"
     },
     {
       "id": "finalize",
@@ -61,7 +100,7 @@
     },
     {
       "id": "land",
-      "title": "Land"
+      "title": "Stack land"
     },
     {
       "id": "cleanup",
@@ -69,6 +108,7 @@
     }
   ],
   "required_receipts": [
+    "preflight",
     "review",
     "cleanup"
   ]
