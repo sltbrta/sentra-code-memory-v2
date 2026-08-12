@@ -18,6 +18,9 @@ const (
 	VerbCodeExact    Verb = "code_exact"
 	VerbCodeDefs     Verb = "code_defs"
 	VerbCodeRefs     Verb = "code_refs"
+	VerbCodeRead     Verb = "code_read"
+	VerbCodeImports  Verb = "code_imports"
+	VerbCodeWatch    Verb = "code_watch"
 	VerbMemoryAsk    Verb = "memory_ask" // residual company-doc; not code
 )
 
@@ -37,6 +40,9 @@ func Catalog() []string {
 		string(VerbCodeExact),
 		string(VerbCodeDefs),
 		string(VerbCodeRefs),
+		string(VerbCodeRead),
+		string(VerbCodeImports),
+		string(VerbCodeWatch),
 		string(VerbMemoryAsk),
 	}
 }

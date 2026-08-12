@@ -4,6 +4,7 @@
 // # Scope
 //
 //   - Index / search / find-relevant / expand / impact / find-route / freshness
+//   - Bounded read / imports / watch operator verbs
 //   - Exact P5 via productsearch ProfileCodeExact
 //   - Optional memory_ask for company residual (same process, different store)
 //

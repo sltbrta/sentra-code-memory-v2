@@ -1,68 +1,93 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "20260811T212251Z-consolidate-scm-ouroboros-parity-and-res-25934",
-  "head": "e9d7c3e19e63e96bc07f98341c4984015d74a052",
-  "implementer_session": "019ff331-5c49-7b44-b672-44e4cd5f7568",
-  "workflow": "canonical-go-local-first-scm-phases-1-5-vertical-slices",
-  "scope": "Publish reviewed Phase 1-5 local-first Go vertical slices from phase1-5-vertical-slices. Preserve default JSONL/CLI behavior; phase 6 remains deferred.",
+  "run_id": "run-1786541878028",
+  "head": "a75881f1b09cf2e5ae26dfc62df272bd223cc0d0",
+  "implementer_session": "019ff62e-14d8-78d7-83c3-3d2c496adb6b",
+  "workflow": "finish-jsonl-code-parity",
+  "scope": "Complete remaining local code-operator parity by making bounded code_read, code_imports, and bounded JSONL code_watch live in the canonical codeserve protocol, with compatibility-preserving catalog/contract updates, safe path and resource bounds, tests, and documentation.",
   "non_goals": [
-    "Phase 6 hosted sync, tenancy, remote overlays, cloud deployment",
-    "New external dependencies or hosted inference",
-    "Changing default JSONL/CLI behavior",
-    "Unreviewed implementation changes"
+    "Do not add hosted sync, tenancy, remote overlays, or session continuation memory.",
+    "Do not change legacy response shapes for existing verbs.",
+    "Do not replace the existing codecrawl watcher implementation.",
+    "Do not add external model/provider dependencies."
   ],
   "affected_files": [
-    "README.md",
-    "docs/architecture.md",
-    "justfile",
-    "services/brain/cmd/sentra-code-memory/**",
-    "services/brain/internal/adapters/**",
-    "services/brain/internal/codecrawl/**",
-    "services/brain/internal/codeserve/**",
-    "services/brain/internal/contextpack/**",
-    "services/brain/internal/savings/**",
-    "services/brain/internal/sessionlog/**",
-    "services/brain/internal/workflow/**"
+    "services/brain/internal/codeserve/catalog.go",
+    "services/brain/internal/codeserve/contract.go",
+    "services/brain/internal/codeserve/handle.go",
+    "services/brain/internal/codeserve/README.md",
+    "services/brain/internal/codeserve/contract_test.go",
+    "services/brain/internal/codeserve/conformance_test.go",
+    "services/brain/internal/codeserve/handle_test.go",
+    "services/brain/internal/codeserve/read_watch_test.go",
+    "services/brain/cmd/sentra-code-memory/main.go",
+    "services/brain/internal/codeserve/BUILD.bazel",
+    "services/brain/internal/codeserve/doc.go",
+    "services/brain/internal/adapters/mcp.go",
+    "services/brain/internal/adapters/adapters_test.go",
+    "services/brain/cmd/sentra-code-memory/README.md"
   ],
   "acceptance_commands": [
-    "just ci",
-    "just check",
-    "go test -race ./services/brain/internal/contextpack ./services/brain/internal/codeserve ./services/brain/internal/codecrawl ./services/brain/internal/sessionlog ./services/brain/internal/workflow ./services/brain/internal/adapters ./services/brain/internal/savings",
-    "go vet ./services/brain/internal/contextpack ./services/brain/internal/codeserve ./services/brain/internal/codecrawl ./services/brain/internal/sessionlog ./services/brain/internal/workflow ./services/brain/internal/adapters ./services/brain/internal/savings",
-    "git diff --check"
+    "go test ./services/...",
+    "go vet ./services/...",
+    "cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml",
+    "just cli-smoke"
   ],
   "risks": [
-    "HTTP/MCP timeout context is not yet threaded through all legacy codecrawl verbs",
-    "Local source reads and workers require bounded/path-safe handling",
-    "Typed graph snapshots require backward compatibility",
-    "Session/evidence persistence must remain source-safe"
+    "Public JSONL catalog and verb behavior changes can break consumers if aliases or response envelopes drift.",
+    "Source reads and watcher requests must remain bounded and symlink-safe.",
+    "A watch request must not hang indefinitely when called through JSONL or tests."
   ],
   "issue_ids": [
-    "36"
+    "39"
   ],
-  "created_at": "2026-08-12T02:20:54.959Z",
+  "created_at": "2026-08-12T13:37:58.028Z",
   "tier": "T2",
-  "stage": "land",
+  "stage": "preflight",
   "phases": [
     {
-      "id": "phase-1",
-      "title": "Local workflow and token controls"
+      "id": "spec-lock",
+      "title": "Spec lock"
     },
     {
-      "id": "phase-2",
-      "title": "Typed graph and code intelligence"
+      "id": "issue",
+      "title": "Issue tracking"
     },
     {
-      "id": "phase-3",
-      "title": "Retrieval, cache, and savings"
+      "id": "context",
+      "title": "Repository context"
     },
     {
-      "id": "phase-4",
-      "title": "Session memory and provenance"
+      "id": "red-proof",
+      "title": "Red proof"
     },
     {
-      "id": "phase-5",
-      "title": "Workflow evidence, ChangeSet, local adapters"
+      "id": "implementation",
+      "title": "Implementation"
+    },
+    {
+      "id": "paired-review",
+      "title": "Paired review"
+    },
+    {
+      "id": "preflight",
+      "title": "Preflight"
+    },
+    {
+      "id": "fresh-eyes",
+      "title": "Fresh-eyes review"
+    },
+    {
+      "id": "finalize",
+      "title": "Finalize"
+    },
+    {
+      "id": "land",
+      "title": "Stack land"
+    },
+    {
+      "id": "cleanup",
+      "title": "Cleanup"
     }
   ],
   "required_receipts": [

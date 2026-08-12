@@ -268,8 +268,11 @@ func TestMCPAdvertisedTypesMatchCodeserveFields(t *testing.T) {
 	t.Parallel()
 	integer := map[string]bool{"workers": true, "top_k": true, "max_bytes": true,
 		"max_tokens": true, "start_line": true, "max_lines": true,
-		"max_depth": true, "max_files": true, "max_bridges": true}
-	boolean := map[string]bool{"force": true, "no_refresh": true, "preview": true}
+		"max_depth": true, "max_files": true, "max_bridges": true,
+		"interval_ms": true, "debounce_ms": true, "queue_size": true,
+		"retry_initial_ms": true, "retry_max_ms": true, "max_cycles": true,
+		"timeout_ms": true}
+	boolean := map[string]bool{"force": true, "no_refresh": true, "preview": true, "fsnotify": true}
 	for _, tool := range adapters.MCPTools() {
 		props, _ := tool.InputSchema["properties"].(map[string]any)
 		for field, value := range props {

@@ -31,6 +31,8 @@ var aliases = map[string]string{
 	"exact":       "code_exact",
 	"defs":        "code_defs",
 	"refs":        "code_refs",
+	"read":        "code_read",
+	"imports":     "code_imports",
 	"memory-ask":  "memory_ask",
 }
 
@@ -131,6 +133,9 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	from := fs.String("from", "", "route source symbol")
 	to := fs.String("to", "", "route destination symbol")
 	paths := fs.String("paths", "", "comma-separated relative paths")
+	readPath := fs.String("path", "", "workspace-relative source path")
+	startLine := fs.Int("start-line", 1, "first source line for code_read")
+	maxLines := fs.Int("max-lines", 200, "maximum source lines for code_read")
 	maxDepth := fs.Int("max-depth", 3, "impact traversal depth")
 	maxFiles := fs.Int("max-files", 64, "impact file limit")
 	maxBridges := fs.Int("max-bridges", 12, "route bridge limit")
@@ -159,6 +164,7 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	put("from", *from)
 	put("to", *to)
 	put("paths", *paths)
+	put("path", *readPath)
 	put("dir", *dir)
 	put("session", *session)
 	req["top_k"] = *topK
@@ -168,6 +174,8 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	req["max_depth"] = *maxDepth
 	req["max_files"] = *maxFiles
 	req["max_bridges"] = *maxBridges
+	req["start_line"] = *startLine
+	req["max_lines"] = *maxLines
 	req["preview"] = *preview
 	return req, 0
 }
@@ -189,7 +197,7 @@ Usage:
   sentra-code-memory serve [--timeout 2s]  # one JSON object per input line
 
 Commands:
-  index, search, relevant, exact, defs, refs, watch
+  index, search, relevant, exact, defs, refs, read, imports, watch
   expand, impact, route, freshness, ingest, memory-ask
   catalog, ping, serve, mlx
   http, mcp  # local HTTP and MCP-stdio adapters (issue #35)

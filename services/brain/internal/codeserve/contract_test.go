@@ -73,17 +73,17 @@ func TestCatalogMetadataContract(t *testing.T) {
 			t.Fatalf("live verb %q must be stable, got %q", v, s.Status)
 		}
 	}
-	// Planned verbs are typed but not live yet.
-	for _, planned := range []string{"code_read", "code_imports", "code_watch"} {
-		s, ok := byName[planned]
+	// The remaining parity verbs are live and must remain discoverable.
+	for _, live := range []string{"code_read", "code_imports", "code_watch"} {
+		s, ok := byName[live]
 		if !ok {
-			t.Fatalf("planned verb %q missing metadata", planned)
+			t.Fatalf("live verb %q missing metadata", live)
 		}
-		if s.Status != codeserve.StatusPlanned {
-			t.Fatalf("%q must be planned, got %q", planned, s.Status)
+		if s.Status != codeserve.StatusStable {
+			t.Fatalf("%q must be stable, got %q", live, s.Status)
 		}
-		if slices.Contains(codeserve.Catalog(), planned) {
-			t.Fatalf("planned verb %q must not be live yet", planned)
+		if !slices.Contains(codeserve.Catalog(), live) {
+			t.Fatalf("live verb %q missing from catalog", live)
 		}
 	}
 	// Compatibility aliases stay wired to their canonical verbs.
@@ -241,9 +241,10 @@ func TestResponseContractConformance(t *testing.T) {
 
 	t.Run("exact_defs_refs_imports", func(t *testing.T) {
 		for verb, kind := range map[string]codeserve.ExactKind{
-			"code_exact": codeserve.ExactKindAny,
-			"code_defs":  codeserve.ExactKindDefinition,
-			"code_refs":  codeserve.ExactKindReference,
+			"code_exact":   codeserve.ExactKindAny,
+			"code_defs":    codeserve.ExactKindDefinition,
+			"code_refs":    codeserve.ExactKindReference,
+			"code_imports": codeserve.ExactKindImport,
 		} {
 			req := codeserve.Request{
 				"verb": verb, "root": root, "q": "Alpha", "kind": string(kind),
@@ -253,7 +254,7 @@ func TestResponseContractConformance(t *testing.T) {
 				t.Fatalf("%s: %+v", verb, out)
 			}
 		}
-		// Imports lane today: code_exact with kind=import.
+		// Imports lane via code_exact with kind=import must still work.
 		req := codeserve.Request{
 			"verb": "code_exact", "root": root, "q": "Alpha",
 			"kind": string(codeserve.ExactKindImport),
@@ -261,6 +262,31 @@ func TestResponseContractConformance(t *testing.T) {
 		out := decode[codeserve.ExactResponse](t, codeserve.Handle(ctx, req))
 		if !out.OK {
 			t.Fatalf("imports lane: %+v", out)
+		}
+	})
+
+	t.Run("code_read", func(t *testing.T) {
+		req := codeserve.Request{
+			"verb": "code_read", "root": root, "path": "alpha.go",
+			"start_line": 1, "max_lines": 5,
+		}
+		out := decode[codeserve.ReadResponse](t, codeserve.Handle(ctx, req))
+		if !out.OK || out.Path != "alpha.go" || out.Content == "" {
+			t.Fatalf("%+v", out)
+		}
+	})
+
+	t.Run("code_watch", func(t *testing.T) {
+		req := codeserve.Request{
+			"verb": "code_watch", "root": root, "index_cache": cache,
+			"max_cycles": 1,
+		}
+		out := decode[codeserve.WatchResponse](t, codeserve.Handle(ctx, req))
+		if !out.OK || out.Verb != "code_watch" || out.Root == "" || out.GobPath == "" {
+			t.Fatalf("%+v", out)
+		}
+		if out.Events == nil {
+			t.Fatalf("events missing: %+v", out)
 		}
 	})
 
@@ -331,6 +357,8 @@ func TestRequestDispatchRoundTrip(t *testing.T) {
 		{"code_freshness", codeserve.FreshnessRequest{Verb: "code_freshness"}},
 		{"code_ingest_paths", codeserve.IngestPathsRequest{Verb: "code_ingest_paths", Paths: []string{"a.go"}}},
 		{"code_exact", codeserve.ExactRequest{Verb: "code_exact", Root: "/tmp", Q: "Alpha"}},
+		{"code_read", codeserve.ReadRequest{Verb: "code_read", Path: "main.go"}},
+		{"code_watch", codeserve.WatchRequest{Verb: "code_watch", MaxCycles: 1}},
 		{"memory_ask", codeserve.MemoryAskRequest{Verb: "memory_ask", Dir: "/tmp", Q: "test"}},
 	}
 	for _, tc := range tests {

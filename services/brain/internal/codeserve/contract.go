@@ -6,9 +6,9 @@ package codeserve
 // The wire protocol stays the map-based JSONL shape in handle.go; these
 // structs are the canonical typed view of the same keys. Handlers keep their
 // current behavior — the types here codify it, and the conformance tests in
-// contract_test.go prove the two agree. Planned verbs (code_read,
-// code_imports, code_watch over JSONL) are typed here so later phases add
-// handlers without contract churn.
+// contract_test.go prove the two agree. The JSONL code-operator verbs are
+// represented here as the canonical typed view; handlers preserve the
+// existing map-based wire envelope.
 
 import (
 	"encoding/json"
@@ -64,9 +64,10 @@ type IndexRequest struct {
 	IndexSelector
 }
 
-// WatchRequest configures the debounced freshness loop. Today watch is a
-// long-running CLI command streaming WatchEvent lines; the JSONL verb is
-// planned (see CatalogMetadata).
+// WatchRequest configures the debounced freshness loop. The JSONL verb
+// (code_watch) runs bounded cycles (default 1) through the existing
+// codecrawl WatchPoll/WatchFS adapters, collecting events and errors
+// into a typed WatchResponse. The CLI streaming path is unchanged.
 type WatchRequest struct {
 	Verb string `json:"verb"`
 	IndexSelector
@@ -77,6 +78,7 @@ type WatchRequest struct {
 	RetryMaxMS     int  `json:"retry_max_ms,omitempty"`
 	MaxCycles      int  `json:"max_cycles,omitempty"`
 	FSNotify       bool `json:"fsnotify"`
+	TimeoutMS      int  `json:"timeout_ms,omitempty"`
 }
 
 // FreshnessRequest probes workspace-vs-index drift (code_freshness).
@@ -118,7 +120,7 @@ type ExpandRequest struct {
 	Seed string `json:"seed"`
 }
 
-// ReadRequest reads a bounded source region (code_read; planned).
+// ReadRequest reads a bounded source region (code_read).
 type ReadRequest struct {
 	Verb string `json:"verb"`
 	IndexSelector
@@ -174,8 +176,8 @@ type PingResponse struct {
 }
 
 // ExactRequest is the precise defs/refs/imports lane. code_defs and
-// code_refs are code_exact with Kind pinned; code_imports is planned as
-// the same pinning for ExactKindImport.
+// code_refs are code_exact with Kind pinned; code_imports is the
+// same pinning for ExactKindImport.
 type ExactRequest struct {
 	Verb string    `json:"verb"`
 	Root string    `json:"root"`
@@ -217,7 +219,7 @@ type IndexResponse struct {
 }
 
 // WatchEvent is one line of the CLI watch event stream (event="refresh" or
-// "refresh_error"); it is the current behavior the planned verb must match.
+// "refresh_error").
 type WatchEvent struct {
 	Event          string `json:"event"`
 	Root           string `json:"root,omitempty"`
@@ -274,7 +276,7 @@ type ExpandResponse struct {
 	SearchBackend string   `json:"search_backend"`
 }
 
-// ReadResponse is the planned bounded source-region read.
+// ReadResponse is the bounded source-region read.
 type ReadResponse struct {
 	ResponseMeta
 	Path      string `json:"path"`
@@ -314,6 +316,19 @@ type ExactResponse struct {
 	Result        productsearch.Result `json:"result"`
 	DurationMS    int64                `json:"duration_ms"`
 	SearchBackend string               `json:"search_backend"`
+}
+
+// WatchResponse wraps a bounded code_watch JSONL cycle (non-streaming).
+// Events collect refresh cycles and errors; the verb returns after max_cycles
+// (default 1) or context cancellation instead of running forever.
+type WatchResponse struct {
+	ResponseMeta
+	Root            string       `json:"root"`
+	GobPath         string       `json:"gob_path"`
+	DurationMS      int64        `json:"duration_ms"`
+	Events          []WatchEvent `json:"events"`
+	Cancelled       bool         `json:"cancelled,omitempty"`
+	EventsTruncated bool         `json:"events_truncated,omitempty"`
 }
 
 // DecodeResponse binds a wire response to its canonical typed form. It is
@@ -366,10 +381,11 @@ func CatalogMetadata() []VerbSpec {
 			Required: []string{"root"},
 			Optional: []string{"index_cache", "workers", "force"},
 			Aliases:  []string{"index", "code-index"}},
-		{Name: "code_watch", Status: StatusPlanned, Surface: "cli",
-			Summary: "debounced multi-worker freshness loop with retries (CLI today; JSONL planned)",
-			Optional: []string{"root", "index_cache", "workers", "interval", "debounce",
-				"queue_size", "retry_initial", "retry_max", "max_cycles", "fsnotify"},
+		{Name: string(VerbCodeWatch), Status: StatusStable, Surface: "jsonl",
+			Summary:  "bounded freshness loop (default 1 cycle); collects refresh events and errors",
+			Required: []string{"root"},
+			Optional: []string{"index_cache", "workers", "interval_ms", "debounce_ms",
+				"queue_size", "retry_initial_ms", "retry_max_ms", "max_cycles", "fsnotify", "timeout_ms"},
 			Aliases: []string{"watch"}},
 		{Name: string(VerbCodeSearch), Status: StatusStable, Surface: "jsonl",
 			Summary:  "lexical ranked search over the durable index",
@@ -387,10 +403,11 @@ func CatalogMetadata() []VerbSpec {
 			Required: []string{"seed"},
 			Optional: []string{"root", "index_cache", "no_refresh"},
 			Aliases:  []string{"expand"}},
-		{Name: "code_read", Status: StatusPlanned, Surface: "jsonl",
-			Summary:  "bounded source-region read for agent context windows",
-			Required: []string{"path"},
-			Optional: []string{"root", "index_cache", "start_line", "max_lines"}},
+		{Name: string(VerbCodeRead), Status: StatusStable, Surface: "jsonl",
+			Summary:  "bounded source-region read (start_line default 1, max_lines default 200 cap 1000)",
+			Required: []string{"root", "path"},
+			Optional: []string{"start_line", "max_lines"},
+			Aliases:  []string{"read"}},
 		{Name: string(VerbImpact), Status: StatusStable, Surface: "jsonl",
 			Summary:  "heuristic impact closure over defs/refs/imports",
 			Required: []string{"seed"},
@@ -425,10 +442,11 @@ func CatalogMetadata() []VerbSpec {
 			Required: []string{"root", "q"},
 			Optional: []string{"top_k"},
 			Aliases:  []string{"refs"}},
-		{Name: "code_imports", Status: StatusPlanned, Surface: "jsonl",
-			Summary:  "code_exact pinned to imports (use code_exact kind=import today)",
+		{Name: string(VerbCodeImports), Status: StatusStable, Surface: "jsonl",
+			Summary:  "code_exact pinned to imports (equivalent to code_exact kind=import)",
 			Required: []string{"root", "q"},
-			Optional: []string{"top_k"}},
+			Optional: []string{"top_k"},
+			Aliases:  []string{"imports"}},
 		{Name: string(VerbMemoryAsk), Status: StatusStable, Surface: "jsonl",
 			Summary:  "company-doc residual lane (not code)",
 			Required: []string{"dir", "q"},

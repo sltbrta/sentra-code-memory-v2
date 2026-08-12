@@ -1,6 +1,7 @@
 package codeserve
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -62,6 +63,12 @@ func Handle(ctx context.Context, req Request) Response {
 		return handleIngestPaths(req)
 	case VerbCodeExact, VerbCodeDefs, VerbCodeRefs:
 		return handleCodeExact(ctx, req, Verb(verb))
+	case VerbCodeRead:
+		return handleCodeRead(ctx, req)
+	case VerbCodeImports:
+		return handleCodeImports(ctx, req)
+	case VerbCodeWatch:
+		return handleCodeWatch(ctx, req)
 	case VerbMemoryAsk:
 		return handleMemoryAsk(ctx, req)
 	// Back-compat alias used by earlier serve path.
@@ -529,4 +536,308 @@ func handleMemoryAsk(ctx context.Context, req Request) Response {
 	topK := intField(req, "top_k", 6)
 	ans := c.AnswerOpts(ctx, hosted.AnswerOptions{Question: q, TopK: topK, SessionID: sid})
 	return okResp(string(VerbMemoryAsk), map[string]any{"answer": ans})
+}
+
+// --- code_read: bounded source-region read with path safety -----------------
+
+const (
+	defaultStartLine = 1
+	defaultMaxLines  = 200
+	maxLinesCap      = 1_000
+	maxReadBytes     = 1 << 20
+	maxReadLineBytes = 1 << 20
+)
+
+// handleCodeRead reads a bounded source region from an indexed workspace.
+// Path traversal, absolute paths, and symlink escapes are rejected.
+// start_line defaults to 1; max_lines defaults to 200 and is capped at 1000.
+func handleCodeRead(ctx context.Context, req Request) Response {
+	path := str(req, "path")
+	if path == "" {
+		return errResp(string(VerbCodeRead), "path required")
+	}
+	if err := ctx.Err(); err != nil {
+		return codeErrResp(string(VerbCodeRead), ErrInternal, err.Error())
+	}
+	// Reject path traversal and absolute references.
+	if strings.Contains(path, "..") || filepath.IsAbs(path) {
+		return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
+			"path must be workspace-relative")
+	}
+	root := str(req, "root")
+	if root == "" {
+		return errResp(string(VerbCodeRead), "root required")
+	}
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return codeErrResp(string(VerbCodeRead), ErrInvalidRequest, err.Error())
+	}
+	// Resolve the root itself (e.g. /var on macOS → /private/var) so that
+	// symlink containment checks work across filesystem boundaries.
+	rootReal, err := filepath.EvalSymlinks(rootAbs)
+	if err != nil {
+		rootReal = rootAbs
+	}
+	resolved := filepath.Join(rootAbs, filepath.Clean(path))
+	// Resolve symlinks and verify the target stays inside root.
+	real, err := filepath.EvalSymlinks(resolved)
+	if err != nil {
+		return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
+			"cannot resolve path: "+err.Error())
+	}
+	rel, err := filepath.Rel(rootReal, real)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
+			"path escapes workspace root")
+	}
+	fi, err := os.Stat(real)
+	if err != nil {
+		return codeErrResp(string(VerbCodeRead), ErrIndexUnavailable, err.Error())
+	}
+	if !fi.Mode().IsRegular() {
+		return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
+			"path is not a regular file")
+	}
+	startLine := intField(req, "start_line", defaultStartLine)
+	if startLine < 1 {
+		startLine = 1
+	}
+	maxLines := intField(req, "max_lines", defaultMaxLines)
+	if maxLines < 1 {
+		maxLines = defaultMaxLines
+	}
+	if maxLines > maxLinesCap {
+		maxLines = maxLinesCap
+	}
+
+	f, err := os.Open(real)
+	if err != nil {
+		return codeErrResp(string(VerbCodeRead), ErrInternal, err.Error())
+	}
+	defer f.Close()
+
+	var buf strings.Builder
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 64<<10), maxReadLineBytes)
+	line := 0
+	endLine := startLine - 1
+	truncated := false
+	for scanner.Scan() {
+		if err := ctx.Err(); err != nil {
+			return codeErrResp(string(VerbCodeRead), ErrInternal, err.Error())
+		}
+		line++
+		if line < startLine {
+			continue
+		}
+		if line-startLine+1 > maxLines {
+			truncated = true
+			break
+		}
+		text := scanner.Text()
+		additional := len(text)
+		if endLine >= startLine {
+			additional++
+		}
+		if buf.Len()+additional > maxReadBytes {
+			truncated = true
+			break
+		}
+		if endLine >= startLine {
+			buf.WriteByte('\n')
+		}
+		buf.WriteString(text)
+		endLine = line
+	}
+	if err := scanner.Err(); err != nil && !truncated {
+		return codeErrResp(string(VerbCodeRead), ErrInternal, err.Error())
+	}
+	return okResp(string(VerbCodeRead), map[string]any{
+		"path":       path,
+		"content":    buf.String(),
+		"start_line": startLine,
+		"end_line":   endLine,
+		"truncated":  truncated,
+	})
+}
+
+// --- code_imports: exact import lane equivalent to code_exact kind=import -----
+
+func handleCodeImports(ctx context.Context, req Request) Response {
+	root := str(req, "root")
+	q := str(req, "q")
+	if root == "" || q == "" {
+		return errResp(string(VerbCodeImports), "root and q required")
+	}
+	topK := intField(req, "top_k", 20)
+	t0 := time.Now()
+	res := productsearch.Search(ctx, productsearch.Request{
+		Profile: productsearch.ProfileCodeExact, CodeRoot: root, Question: q,
+		TopK: topK, ExactKind: string(ExactKindImport),
+	})
+	return okResp(string(VerbCodeImports), map[string]any{
+		"result":         res,
+		"duration_ms":    time.Since(t0).Milliseconds(),
+		"search_backend": "codeindex",
+	})
+}
+
+// --- code_watch: bounded JSONL adapter over codecrawl watchers ---------------
+
+const (
+	defaultWatchMaxCycles = 1
+	maxWatchCyclesCap     = 10_000
+	maxWatchWorkers       = 256
+	maxWatchQueueSize     = 1 << 20
+	maxWatchDuration      = 24 * time.Hour
+	defaultWatchTimeout   = 30 * time.Second
+	maxWatchEvents        = 1_024
+)
+
+func handleCodeWatch(ctx context.Context, req Request) Response {
+	root := str(req, "root")
+	if root == "" {
+		return errResp(string(VerbCodeWatch), "root required")
+	}
+	cache := str(req, "index_cache")
+	if cache == "" {
+		cache = str(req, "index-cache")
+	}
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return errResp(string(VerbCodeWatch), err.Error())
+	}
+	gobPath := cache
+	if gobPath != "" {
+		gobPath = filepath.Join(cache, "code-index.gob")
+	} else {
+		gobPath = codecrawl.DefaultIndexPath(rootAbs)
+	}
+	workers := intField(req, "workers", 4)
+	if workers <= 0 {
+		workers = 4
+	}
+	if workers > maxWatchWorkers {
+		workers = maxWatchWorkers
+	}
+	intervalMS := intField(req, "interval_ms", 0)
+	debounceMS := intField(req, "debounce_ms", 0)
+	queueSize := intField(req, "queue_size", 0)
+	retryInitialMS := intField(req, "retry_initial_ms", 0)
+	retryMaxMS := intField(req, "retry_max_ms", 0)
+	maxCycles := intField(req, "max_cycles", defaultWatchMaxCycles)
+	if maxCycles <= 0 {
+		maxCycles = defaultWatchMaxCycles
+	}
+	if maxCycles > maxWatchCyclesCap {
+		maxCycles = maxWatchCyclesCap
+	}
+	if queueSize > maxWatchQueueSize {
+		queueSize = maxWatchQueueSize
+	}
+	fsnotify := boolField(req, "fsnotify", false)
+	timeout := defaultWatchTimeout
+	if timeoutMS := intField(req, "timeout_ms", 0); timeoutMS > 0 {
+		if timeoutMS > int(maxWatchDuration/time.Millisecond) {
+			timeout = maxWatchDuration
+		} else {
+			timeout = time.Duration(timeoutMS) * time.Millisecond
+		}
+	}
+
+	var events []WatchEvent
+	eventsTruncated := false
+	appendEvent := func(event WatchEvent) {
+		if len(events) >= maxWatchEvents {
+			eventsTruncated = true
+			return
+		}
+		events = append(events, event)
+	}
+	opt := codecrawl.WatchOptions{
+		Root:    rootAbs,
+		GobPath: gobPath,
+		Workers: workers,
+		OnRefresh: func(st codecrawl.Stats, wrote bool) {
+			appendEvent(WatchEvent{
+				Event:          "refresh",
+				Root:           rootAbs,
+				GobPath:        gobPath,
+				Changed:        st.Changed,
+				Unchanged:      st.Unchanged,
+				SkippedByStamp: st.SkippedByStamp,
+				DurationMS:     st.Duration.Milliseconds(),
+				Workers:        workers,
+				Wrote:          wrote,
+				QueueDepth:     st.QueueDepth,
+				RetryCount:     st.RetryCount,
+				FullRescan:     st.FullRescan,
+			})
+		},
+		OnError: func(err error, retryCount int) {
+			appendEvent(WatchEvent{
+				Event:      "refresh_error",
+				Root:       rootAbs,
+				GobPath:    gobPath,
+				Error:      err.Error(),
+				RetryCount: retryCount,
+			})
+		},
+		MaxCycles: maxCycles,
+	}
+	toDuration := func(milliseconds int) time.Duration {
+		if milliseconds <= 0 {
+			return 0
+		}
+		if milliseconds > int(maxWatchDuration/time.Millisecond) {
+			return maxWatchDuration
+		}
+		d := time.Duration(milliseconds) * time.Millisecond
+		if d <= 0 || d > maxWatchDuration {
+			return maxWatchDuration
+		}
+		return d
+	}
+	if interval := toDuration(intervalMS); interval > 0 {
+		opt.Interval = interval
+	}
+	if debounce := toDuration(debounceMS); debounce > 0 {
+		opt.Debounce = debounce
+	}
+	if queueSize > 0 {
+		opt.QueueSize = queueSize
+	}
+	if retryInitial := toDuration(retryInitialMS); retryInitial > 0 {
+		opt.RetryInitial = retryInitial
+	}
+	if retryMax := toDuration(retryMaxMS); retryMax > 0 {
+		opt.RetryMax = retryMax
+	}
+
+	t0 := time.Now()
+	watchCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	var watchErr error
+	if fsnotify {
+		watchErr = codecrawl.WatchFS(watchCtx, opt)
+	} else {
+		watchErr = codecrawl.WatchPoll(watchCtx, opt)
+	}
+	cancelled := watchCtx.Err() != nil
+	if watchErr != nil && !cancelled {
+		return codeErrResp(string(VerbCodeWatch), ErrIndexUnavailable, watchErr.Error())
+	}
+	// A bounded timeout or caller cancellation returns the useful partial
+	// event stream rather than wedging JSONL or discarding prior work.
+	if events == nil {
+		events = []WatchEvent{}
+	}
+	return okResp(string(VerbCodeWatch), map[string]any{
+		"root":             rootAbs,
+		"gob_path":         gobPath,
+		"duration_ms":      time.Since(t0).Milliseconds(),
+		"events":           events,
+		"cancelled":        cancelled,
+		"events_truncated": eventsTruncated,
+	})
 }
