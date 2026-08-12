@@ -18,22 +18,26 @@ import (
 const maxRequestBytes = 8 << 20
 
 var aliases = map[string]string{
-	"index":       "code_index",
-	"code-index":  "code_index",
-	"search":      "code_search",
-	"code-search": "code_search",
-	"relevant":    "code_find_relevant",
-	"expand":      "code_expand",
-	"impact":      "code_impact",
-	"route":       "code_find_route",
-	"freshness":   "code_freshness",
-	"ingest":      "code_ingest_paths",
-	"exact":       "code_exact",
-	"defs":        "code_defs",
-	"refs":        "code_refs",
-	"read":        "code_read",
-	"imports":     "code_imports",
-	"memory-ask":  "memory_ask",
+	"index":           "code_index",
+	"code-index":      "code_index",
+	"search":          "code_search",
+	"code-search":     "code_search",
+	"relevant":        "code_find_relevant",
+	"expand":          "code_expand",
+	"impact":          "code_impact",
+	"route":           "code_find_route",
+	"freshness":       "code_freshness",
+	"ingest":          "code_ingest_paths",
+	"exact":           "code_exact",
+	"defs":            "code_defs",
+	"refs":            "code_refs",
+	"read":            "code_read",
+	"imports":         "code_imports",
+	"repo-map":        "code_repo_map",
+	"structural":      "code_structural_search",
+	"diagnostics":     "code_diagnostics",
+	"apply-changeset": "code_apply_changeset",
+	"memory-ask":      "memory_ask",
 }
 
 func main() {
@@ -142,6 +146,13 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	preview := fs.Bool("preview", true, "include source previews")
 	dir := fs.String("dir", "", "local memory directory")
 	session := fs.String("session", "", "memory session id")
+	mode := fs.String("mode", "", "request mode: fast|quality|deep")
+	pattern := fs.String("pattern", "", "deterministic structural pattern")
+	ruleID := fs.String("rule-id", "", "structural rule identifier")
+	maxBytes := fs.Int("max-bytes", 0, "maximum returned context bytes")
+	maxTokens := fs.Int("max-tokens", 0, "maximum estimated returned tokens")
+	maxMatches := fs.Int("max-matches", 0, "maximum structural matches")
+	changesetPath := fs.String("changeset", "", "path to ChangeSet JSON")
 	if err := fs.Parse(args); err != nil {
 		return nil, 2
 	}
@@ -167,6 +178,22 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	put("path", *readPath)
 	put("dir", *dir)
 	put("session", *session)
+	put("mode", *mode)
+	put("pattern", *pattern)
+	put("rule_id", *ruleID)
+	if *changesetPath != "" {
+		raw, err := os.ReadFile(*changesetPath)
+		if err != nil {
+			fmt.Fprintf(errOut, "read changeset: %v\n", err)
+			return nil, 2
+		}
+		var cs map[string]any
+		if err := json.Unmarshal(raw, &cs); err != nil {
+			fmt.Fprintf(errOut, "decode changeset: %v\n", err)
+			return nil, 2
+		}
+		req["changeset"] = cs
+	}
 	req["top_k"] = *topK
 	req["workers"] = *workers
 	req["force"] = *force
@@ -177,6 +204,15 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	req["start_line"] = *startLine
 	req["max_lines"] = *maxLines
 	req["preview"] = *preview
+	if *maxBytes > 0 {
+		req["max_bytes"] = *maxBytes
+	}
+	if *maxTokens > 0 {
+		req["max_tokens"] = *maxTokens
+	}
+	if *maxMatches > 0 {
+		req["max_matches"] = *maxMatches
+	}
 	return req, 0
 }
 
@@ -198,7 +234,8 @@ Usage:
 
 Commands:
   index, search, relevant, exact, defs, refs, read, imports, watch
-  expand, impact, route, freshness, ingest, memory-ask
+  expand, impact, route, freshness, ingest, repo-map, structural, diagnostics
+  apply-changeset, memory-ask
   catalog, ping, serve, mlx
   http, mcp  # local HTTP and MCP-stdio adapters (issue #35)
 

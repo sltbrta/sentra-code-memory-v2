@@ -69,6 +69,14 @@ func Handle(ctx context.Context, req Request) Response {
 		return handleCodeImports(ctx, req)
 	case VerbCodeWatch:
 		return handleCodeWatch(ctx, req)
+	case VerbRepoMap:
+		return handleRepoMap(req)
+	case VerbStructuralSearch:
+		return handleStructuralSearch(req)
+	case VerbDiagnostics:
+		return handleDiagnostics(req)
+	case VerbApplyChangeSet:
+		return handleApplyChangeSet(ctx, req)
 	case VerbMemoryAsk:
 		return handleMemoryAsk(ctx, req)
 	// Back-compat alias used by earlier serve path.

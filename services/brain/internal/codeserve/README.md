@@ -14,8 +14,9 @@
 See `Catalog()` — `code_index`, `code_search`, `code_find_relevant`,
 `code_expand`, `code_impact`, `code_find_route`, `code_freshness`,
 `code_ingest_paths`, `code_exact` / `code_defs` / `code_refs` / `code_imports`,
-`code_read`, `code_watch`, plus `memory_ask` (company residual) and
-`catalog` / `ping`.
+`code_read`, `code_watch`, `code_repo_map`, `code_structural_search`,
+`code_diagnostics`, `code_apply_changeset`, plus `memory_ask` (company
+residual) and `catalog` / `ping`.
 
 ### code_read (bounded source-region read)
 
@@ -54,6 +55,26 @@ clearly), and — when `session` is set — cross-call dedup back-pointers for
 unchanged source. A fail-safe governor (candidate + output-byte limits) is
 reported in `context.meta.governor`. When the fields are unset the response
 is byte-identical to the legacy payload.
+
+## Agent code-intelligence and mutation surfaces (#45–#46)
+
+- `code_repo_map` returns task-personalized file and symbol PageRank plus an
+  Aider-style map constrained by `max_bytes` / estimated `max_tokens`. Direct
+  query hits retain a 40% context floor. `mode=fast|quality|deep` controls
+  bounded candidate and iteration defaults.
+- `code_structural_search` is a deterministic text-pattern rule lane. `$NAME`
+  metavariables match identifiers. Results are file/match/byte bounded and
+  explicitly report `authority=heuristic`; they are not AST or compiler truth.
+- `code_diagnostics` reports real index graph/symbol counts and detected build
+  manifests/commands without claiming that a compiler or build ran.
+- `code_apply_changeset` decodes the typed workflow ChangeSet, stages and
+  verifies it through `workflow.ApplyChangeSet`, promotes only a complete
+  candidate, refreshes the code index when possible, and returns a content-safe
+  receipt. Direct CLI usage reads the ChangeSet from `--changeset FILE`.
+
+All four verbs are in `CatalogMetadata()`, JSONL, direct CLI, HTTP dispatch, and
+MCP tools/list/tools/call. The local mutation surface assumes a trusted caller;
+HTTP remains unauthenticated and should remain loopback-only.
 
 ## Non-goals
 

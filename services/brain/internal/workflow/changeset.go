@@ -40,10 +40,15 @@ func (r EditRange) Valid() bool { return r.Start >= 0 && r.End >= 0 && r.Start <
 
 // Overlaps reports whether two ranges share any line.
 func (r EditRange) Overlaps(o EditRange) bool {
-	if r.End <= o.Start || o.End <= r.Start {
-		return false
+	// Concurrent insertions at the same coordinate, or an insertion inside a
+	// replacement, are ambiguous and therefore overlap for edit safety.
+	if r.Start == r.End {
+		return o.Start <= r.Start && r.Start <= o.End
 	}
-	return true
+	if o.Start == o.End {
+		return r.Start <= o.Start && o.Start <= r.End
+	}
+	return r.Start < o.End && o.Start < r.End
 }
 
 // CandidateEdit is one isolated candidate edit (issue #34).
@@ -60,6 +65,9 @@ type CandidateEdit struct {
 	PredictedDigest string `json:"predicted_digest,omitempty"`
 	// ObservedDigest is the digest measured after the edit applied.
 	ObservedDigest string `json:"observed_digest,omitempty"`
+	// Replacement is the exact UTF-8/byte replacement for Range. It is request
+	// content and is never copied into validation or application receipts.
+	Replacement string `json:"replacement"`
 }
 
 // ChangeSet is a fail-closed candidate validation unit (issue #34). It freezes
