@@ -243,6 +243,9 @@ func handleFindRelevant(req Request) Response {
 	maxTokens := intField(req, "max_tokens", 0)
 	renderStr := str(req, "render")
 	bounded := maxBytes > 0 || maxTokens > 0 || renderStr != ""
+	if renderStr != "" && maxBytes <= 0 && maxTokens <= 0 {
+		maxBytes = 256 << 10
+	}
 	mode := contextpack.RenderFull
 	if bounded {
 		var err error
@@ -256,6 +259,9 @@ func handleFindRelevant(req Request) Response {
 		return idxErrResp(string(VerbFindRelevant), err)
 	}
 	topK := intField(req, "top_k", 5)
+	if topK > findRelevantCandidateCap {
+		topK = findRelevantCandidateCap
+	}
 	preview := boolField(req, "preview", true)
 	t0 := time.Now()
 	payload := idx.FindRelevant(rootAbs, q, topK, preview)
@@ -274,12 +280,14 @@ const findRelevantSourceCap = 1 << 20
 
 // findRelevantCandidateCap bounds packing candidates per request.
 const findRelevantCandidateCap = 128
+const findRelevantSessionCap = 256
 
 // findRelevantSessions holds per-session dedup/handle registries for bounded
 // code_find_relevant calls. In-process only; never persisted.
 var findRelevantSessions = struct {
 	sync.Mutex
-	regs map[string]*contextpack.Registry
+	regs  map[string]*contextpack.Registry
+	order []string
 }{regs: map[string]*contextpack.Registry{}}
 
 func sessionRegistry(id string) *contextpack.Registry {
@@ -289,6 +297,12 @@ func sessionRegistry(id string) *contextpack.Registry {
 	if !ok {
 		reg = contextpack.NewRegistry()
 		findRelevantSessions.regs[id] = reg
+		findRelevantSessions.order = append(findRelevantSessions.order, id)
+		if len(findRelevantSessions.order) > findRelevantSessionCap {
+			old := findRelevantSessions.order[0]
+			findRelevantSessions.order = findRelevantSessions.order[1:]
+			delete(findRelevantSessions.regs, old)
+		}
 	}
 	return reg
 }
@@ -303,7 +317,7 @@ func packFindRelevant(req Request, rootAbs string, payload codecrawl.AgentPayloa
 	}, nil)
 	reg := contextpack.NewRegistry()
 	if sid := str(req, "session"); sid != "" {
-		reg = sessionRegistry(sid)
+		reg = sessionRegistry(rootAbs + "\x00" + sid)
 	}
 	sources := make([]contextpack.Source, 0, len(payload.Hits))
 	for _, h := range payload.Hits {

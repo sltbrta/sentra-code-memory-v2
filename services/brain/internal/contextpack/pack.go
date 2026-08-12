@@ -1,6 +1,7 @@
 package contextpack
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -174,7 +175,8 @@ func Pack(req Request) Result {
 	}
 
 	for i, s := range ordered {
-		key := Key{Path: s.Path, StartLine: s.StartLine, EndLine: s.EndLine}
+		key := Key{Path: s.Path, StartLine: s.StartLine, EndLine: s.EndLine,
+			Variant: string(mode) + fmt.Sprintf(":%d", alloc[i])}
 		handle := NewHandle(key, s.Content)
 		if req.Registry != nil {
 			req.Registry.Issue(handle)

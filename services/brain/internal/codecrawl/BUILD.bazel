@@ -6,6 +6,9 @@ go_library(
         "crawl.go",
         "delta.go",
         "doc.go",
+        "edges.go",
+        "graph.go",
+        "impact.go",
         "persist.go",
         "search.go",
         "symbol.go",
@@ -28,6 +31,7 @@ go_test(
     name = "codecrawl_test",
     srcs = [
         "crawl_test.go",
+        "graph_test.go",
         "persist_test.go",
         "route_test.go",
         "symbol_test.go",

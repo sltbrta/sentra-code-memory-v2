@@ -23,6 +23,7 @@ go_test(
     srcs = [
         "conformance_test.go",
         "contract_test.go",
+        "impact_test.go",
         "handle_bounded_test.go",
         "handle_test.go",
     ],

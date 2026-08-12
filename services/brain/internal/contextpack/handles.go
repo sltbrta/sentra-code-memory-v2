@@ -12,6 +12,9 @@ type Key struct {
 	Path      string `json:"path"`
 	StartLine int    `json:"start_line"`
 	EndLine   int    `json:"end_line"`
+	// Variant distinguishes rendered/truncated emissions so a later request
+	// can still obtain a fuller representation of the same source range.
+	Variant string `json:"variant,omitempty"`
 }
 
 // Fingerprint is a deterministic content digest for one source range.
@@ -38,19 +41,21 @@ type Handle struct {
 	Path        string     `json:"path"`
 	StartLine   int        `json:"start_line"`
 	EndLine     int        `json:"end_line"`
+	Variant     string     `json:"variant,omitempty"`
 	Fingerprint string     `json:"fingerprint"`
 }
 
 // NewHandle builds the deterministic handle for a source range.
 func NewHandle(k Key, content string) Handle {
 	fp := Fingerprint(content)
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%d\x00%d\x00%s", k.Path, k.StartLine, k.EndLine, fp)))
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%d\x00%d\x00%s\x00%s", k.Path, k.StartLine, k.EndLine, k.Variant, fp)))
 	return Handle{
 		ID:          "h_" + hex.EncodeToString(sum[:8]),
 		Kind:        HandleExpandRange,
 		Path:        k.Path,
 		StartLine:   k.StartLine,
 		EndLine:     k.EndLine,
+		Variant:     k.Variant,
 		Fingerprint: fp,
 	}
 }
@@ -124,7 +129,7 @@ func (r *Registry) Resolve(id string) (Handle, HandleState) {
 	if !ok {
 		return Handle{}, HandleUnknown
 	}
-	k := Key{Path: h.Path, StartLine: h.StartLine, EndLine: h.EndLine}
+	k := Key{Path: h.Path, StartLine: h.StartLine, EndLine: h.EndLine, Variant: h.Variant}
 	if cur, ok := r.latest[k]; !ok || cur != h.Fingerprint {
 		return h, HandleStale
 	}
