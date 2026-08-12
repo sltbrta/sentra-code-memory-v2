@@ -285,7 +285,7 @@ func TestMCPAdvertisedTypesMatchCodeserveFields(t *testing.T) {
 		"max_depth": true, "max_files": true, "max_matches": true, "max_bridges": true,
 		"interval_ms": true, "debounce_ms": true, "queue_size": true,
 		"retry_initial_ms": true, "retry_max_ms": true, "max_cycles": true,
-		"timeout_ms": true}
+		"timeout_ms": true, "l0_bytes": true, "l1_bytes": true, "l2_bytes": true, "l3_bytes": true}
 	boolean := map[string]bool{"force": true, "no_refresh": true, "preview": true, "fsnotify": true,
 		"allow_ignored": true, "allow_unindexed": true}
 	for _, tool := range adapters.MCPTools() {
