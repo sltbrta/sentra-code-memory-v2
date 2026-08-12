@@ -28,6 +28,15 @@ type AgentPayload struct {
 	Notes     []string   `json:"notes,omitempty"`
 }
 
+// RankedAgentPayload extends AgentPayload with the bounded hybrid
+// retrieval diagnostics. The shape is additive on top of AgentPayload so
+// existing consumers keep their parsing invariants.
+type RankedAgentPayload struct {
+	AgentPayload
+	Diagnostic RankDiagnostic `json:"diagnostic,omitempty"`
+	Defines    []string       `json:"defines,omitempty"`
+}
+
 // ImpactReceipt is a heuristic impact closure over symbol defs/refs/imports.
 //
 // Existing JSON fields stay byte-compatible with the Phase 1 contract:
@@ -114,6 +123,52 @@ func (idx *Index) FindRelevant(root, query string, topK int, withPreview bool) A
 		if len(out.Hits) >= topK {
 			break
 		}
+	}
+	return out
+}
+
+// FindRelevantRanked runs the hybrid retrieval pipeline (lexical baseline
+// + identifier floor + PageRank/degree fusion + deterministic MMR
+// rerank). The method is credentials-free and exposes the bounded
+// RankDiagnostic on the result. The returned hits are sorted by fused
+// score, with the identifier floor guaranteed in the top-K.
+func (idx *Index) FindRelevantRanked(root, query string, topK int, withPreview bool, config RankerConfig) RankedAgentPayload {
+	if topK <= 0 {
+		topK = 5
+	}
+	if config.Candidates <= 0 {
+		config.Candidates = 4
+	}
+	candidates := idx.SearchOpts(query, topK*config.Candidates, true)
+	fusion := RankFusion(RankFusionInputs{
+		Query:  query,
+		Index:  idx,
+		TopK:   topK,
+		Lex:    candidates,
+		Ranker: config,
+		Graph:  idx.Graph(),
+	})
+	out := RankedAgentPayload{
+		AgentPayload: AgentPayload{
+			Query:   query,
+			Hits:    make([]AgentHit, 0, len(fusion.Hits)),
+			KeepMin: 0.0,
+			Notes:   []string{"codecrawl_ranked_v1"},
+		},
+		Diagnostic: fusion.Diagnostic,
+		Defines:    fusion.Defines,
+	}
+	for _, h := range fusion.Hits {
+		ah := AgentHit{Path: h.Path, Score: h.Score, Kind: "lexical"}
+		if idx.fileDefinesQuery(h.Path, query) {
+			ah.Kind = "def"
+		}
+		if withPreview && root != "" {
+			if abs, ok := safeRootPath(root, h.Path); ok {
+				ah.Preview, ah.StartLine = previewFile(abs, 12)
+			}
+		}
+		out.Hits = append(out.Hits, ah)
 	}
 	return out
 }

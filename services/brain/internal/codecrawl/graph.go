@@ -16,6 +16,7 @@ const (
 	EdgeImplementation EdgeKind = "implementation" // symbol satisfies interface (reserved; populated when AST hints it)
 	EdgeInheritance    EdgeKind = "inheritance"    // embedding / extends (reserved; populated when AST hints it)
 	EdgeLexical        EdgeKind = "lexical"        // fallback for non-Go languages: shared identifier co-occurrence
+	EdgeDefinition     EdgeKind = "definition"     // SCIP/LSIF-style declaration anchor (issue #44)
 )
 
 // Authority reports how the edge was derived. Higher trust wins on conflict.
@@ -25,7 +26,25 @@ const (
 	AuthorityAST       Authority = "ast"       // go/parser or other structural parser
 	AuthorityHeuristic Authority = "heuristic" // name-only / import name match / shared identifier
 	AuthorityLexical   Authority = "lexical"   // multi-language fallback identifier scan
+	AuthoritySCIP      Authority = "scip"      // SCIP/LSIF snapshot ingestion (issue #44)
 )
+
+// AuthorityRank orders authorities from highest to lowest trust. The
+// ranking is used by ranking fusion to resolve conflicts when more than
+// one source contributed edges for the same (from, to, kind) triple.
+func AuthorityRank(a Authority) int {
+	switch a {
+	case AuthoritySCIP:
+		return 4
+	case AuthorityAST:
+		return 3
+	case AuthorityHeuristic:
+		return 2
+	case AuthorityLexical:
+		return 1
+	}
+	return 0
+}
 
 // Provenance carries the source of an edge and the lane that produced it.
 // Schema is intentionally compact so callers can inspect or serialize it
