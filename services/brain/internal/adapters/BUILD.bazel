@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "adapters",
+    srcs = [
+        "doc.go",
+        "http.go",
+        "mcp.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/adapters",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "//services/brain/internal/codeserve",
+    ],
+)
+
+go_test(
+    name = "adapters_test",
+    srcs = ["adapters_test.go"],
+    embed = [":adapters"],
+    deps = [
+        "//services/brain/internal/codeserve",
+    ],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+)

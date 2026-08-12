@@ -54,6 +54,10 @@ func execute(args []string, in io.Reader, out, errOut io.Writer) int {
 		return runWatch(args[1:], out, errOut)
 	case "mlx":
 		return runMLX(args[1:], out, errOut)
+	case "http":
+		return runHTTP(args[1:], out, errOut)
+	case "mcp":
+		return runMCP(args[1:], in, out, errOut)
 	default:
 		verb, ok := aliases[args[0]]
 		if !ok {
@@ -188,6 +192,7 @@ Commands:
   index, search, relevant, exact, defs, refs, watch
   expand, impact, route, freshness, ingest, memory-ask
   catalog, ping, serve, mlx
+  http, mcp  # local HTTP and MCP-stdio adapters (issue #35)
 
 Common flags:
   --root PATH --index-cache DIR --q QUERY --top-k N --workers N

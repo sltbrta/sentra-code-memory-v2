@@ -4,8 +4,8 @@ default:
     @just --list
 
 check:
-    go test ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/contextpack ./services/brain/internal/savings ./services/brain/internal/scmbench ./services/brain/internal/memory ./services/brain/internal/productsearch ./services/brain/internal/repoignore
-    go vet ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/contextpack ./services/brain/internal/savings ./services/brain/internal/scmbench ./services/brain/internal/memory ./services/brain/internal/productsearch ./services/brain/internal/repoignore
+    go test ./services/brain/cmd/sentra-code-memory ./services/brain/internal/adapters ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/contextpack ./services/brain/internal/savings ./services/brain/internal/scmbench ./services/brain/internal/memory ./services/brain/internal/productsearch ./services/brain/internal/repoignore ./services/brain/internal/sessionlog ./services/brain/internal/workflow
+    go vet ./services/brain/cmd/sentra-code-memory ./services/brain/internal/adapters ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/contextpack ./services/brain/internal/savings ./services/brain/internal/scmbench ./services/brain/internal/memory ./services/brain/internal/productsearch ./services/brain/internal/repoignore ./services/brain/internal/sessionlog ./services/brain/internal/workflow
 
 check-all:
     go test ./services/...
@@ -20,6 +20,7 @@ cli-help:
 cli-smoke:
     go run ./services/brain/cmd/sentra-code-memory catalog
     printf '%s\n' '{"verb":"ping"}' | go run ./services/brain/cmd/sentra-code-memory serve
+    printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ping","arguments":{}}}' | go run ./services/brain/cmd/sentra-code-memory mcp
 
 code-index root workers="4":
     go run ./services/brain/cmd/sentra-code-memory index --root {{root}} --workers {{workers}}
