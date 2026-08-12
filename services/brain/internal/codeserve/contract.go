@@ -248,8 +248,9 @@ type SearchResponse struct {
 // FindRelevantResponse wraps the lean agent payload.
 type FindRelevantResponse struct {
 	ResponseMeta
-	Payload    codecrawl.AgentPayload `json:"payload"`
-	DurationMS int64                  `json:"duration_ms"`
+	Payload       codecrawl.AgentPayload `json:"payload"`
+	DurationMS    int64                  `json:"duration_ms"`
+	SearchBackend string                 `json:"search_backend"`
 }
 
 // ExpandResponse is the heuristic defs+refs neighborhood of a seed.
