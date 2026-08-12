@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "85a4734d146b6c78bce9fb3f6c5d441ea93ac690",
+  "one_shot": true,
+  "rule": "land.merge",
+  "reason": "The user explicitly authorized autonomous end-to-end phase 0-5 delivery, including squash merges to main without further approval. Phase 0 has approved paired and fresh-eyes receipts plus a release-eligible preflight for its fixed point; merge the reviewed phase-0 branch now. | user authorization: go end to end. refactor everything into one canonical go version in setra-code-memory-v2, do not keep the multiple seams. we just want one comprehensive repo in go, not a 100. go end to end, autonomously from phase 0 to phase 5 and defer phase 6 for later. create github issues for all of them, then execute end to end without my approval until its done. fresh-eyes review for everything before creating and merging PRs to main. no long lived branches, squash merge frequently and follow a proper cleanup and merge cadence",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "autonomous-session",
+  "approved_at": "2026-08-12T00:23:33.969Z"
+}
