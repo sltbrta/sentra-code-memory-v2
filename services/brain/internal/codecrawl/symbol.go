@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"path/filepath"
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -156,6 +157,9 @@ func extractGoSymbols(rel, body string) (defs, refs []string, imports []string) 
 	for r := range refSet {
 		refs = append(refs, r)
 	}
+	sort.Strings(defs)
+	sort.Strings(refs)
+	sort.Strings(imps)
 	return defs, refs, imps
 }
 
@@ -241,6 +245,9 @@ func extractHeuristicSymbols(ext, body string) (defs, refs, imports []string) {
 	for r := range seenRef {
 		refs = append(refs, r)
 	}
+	sort.Strings(defs)
+	sort.Strings(refs)
+	sort.Strings(imports)
 	_ = ext
 	return defs, refs, imports
 }
@@ -294,8 +301,17 @@ func (idx *Index) SymbolHop(seeds []string, maxN int) []string {
 	}
 	out := make([]string, 0, maxN)
 	seen := map[string]struct{}{}
+	namesList := make([]string, 0, len(names))
 	for n := range names {
-		for _, f := range g.Defs[n] {
+		namesList = append(namesList, n)
+	}
+	sort.Strings(namesList)
+	for _, n := range namesList {
+		defs := append([]string(nil), g.Defs[n]...)
+		refs := append([]string(nil), g.Refs[n]...)
+		sort.Strings(defs)
+		sort.Strings(refs)
+		for _, f := range defs {
 			if _, ok := seedSet[f]; ok {
 				continue
 			}
@@ -308,7 +324,7 @@ func (idx *Index) SymbolHop(seeds []string, maxN int) []string {
 				return out
 			}
 		}
-		for _, f := range g.Refs[n] {
+		for _, f := range refs {
 			if _, ok := seedSet[f]; ok {
 				continue
 			}

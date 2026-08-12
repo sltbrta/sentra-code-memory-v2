@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "8ec13e8394777727e91618a2c44308a9929cfebe",
+  "one_shot": true,
+  "rule": "workflow.stage-skip",
+  "reason": "workflow stage must advance exactly one step (spec-lock -> context) | user authorization: go end to end. refactor everything into one canonical go version in setra-code-memory-v2, do not keep the multiple seams. we just want one comprehensive repo in go, not a 100. go end to end, autonomously from phase 0 to phase 5 and defer phase 6 for later. create github issues for all of them, then execute end to end without my approval until its done. fresh-eyes review for everything before creating and merging PRs to main. no long lived branches, squash merge frequently and follow a proper cleanup and merge cadence",
+  "command": [
+    "policy_workflow_transition"
+  ],
+  "approved_by": "autonomous-session",
+  "approved_at": "2026-08-11T23:40:44.105Z"
+}

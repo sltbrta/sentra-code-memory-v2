@@ -56,6 +56,11 @@ func TestServerRejectsUnsafeAndReplacedPaths(t *testing.T) {
 	if err := os.Mkdir(insecure, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	// Mkdir honors the process umask; force the intended insecure mode so this
+	// test remains meaningful on hosts with a restrictive default umask.
+	if err := os.Chmod(insecure, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	nested := filepath.Join(insecure, "leaf")
 	if err := os.Mkdir(nested, 0o700); err != nil {
 		t.Fatal(err)

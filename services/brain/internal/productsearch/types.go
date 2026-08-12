@@ -37,7 +37,7 @@ type Request struct {
 	SessionID string
 	// SourceTypes optional ERB source types for authority / prompt modes.
 	SourceTypes []string
-	// CodeIndexPath optional durable gob path for ProfileCode (default: <CodeRoot>/.ouroboros/code-index.gob).
+	// CodeIndexPath optional durable gob path for ProfileCode (default: <CodeRoot>/.sentra/code-index.gob).
 	CodeIndexPath string
 	// ForceFullCode reindexes code from scratch (ignores gob stamps).
 	ForceFullCode bool

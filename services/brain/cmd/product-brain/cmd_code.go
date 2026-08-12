@@ -49,7 +49,7 @@ func runCodeIndex(args []string) {
 	}
 	outDir := *dir
 	if outDir == "" {
-		outDir = rootAbs
+		outDir = filepath.Dir(codecrawl.DefaultIndexPath(rootAbs))
 	}
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		fatal(err.Error())

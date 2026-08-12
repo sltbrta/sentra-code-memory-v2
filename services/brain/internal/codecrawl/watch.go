@@ -41,7 +41,7 @@ func WatchPoll(ctx context.Context, opt WatchOptions) error {
 		return err
 	}
 	if strings.TrimSpace(opt.GobPath) == "" {
-		opt.GobPath = filepath.Join(rootAbs, DefaultIndexFile)
+		opt.GobPath = DefaultIndexPath(rootAbs)
 	}
 	// Ensure index exists.
 	if _, err := os.Stat(opt.GobPath); err != nil {

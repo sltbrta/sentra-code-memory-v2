@@ -151,6 +151,53 @@ func (l *localIndex) mergeInto(idx *Index) {
 	}
 }
 
+// SourceFiles returns the absolute source paths that the crawler would index.
+// It is shared by measurements so baselines compare the same ignore and
+// extension policy as the actual index.
+func SourceFiles(root string) ([]string, error) {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return nil, err
+	}
+	ignores, err := repoignore.Load(rootAbs)
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	err = filepath.Walk(rootAbs, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info == nil {
+			return nil
+		}
+		rel, err := filepath.Rel(rootAbs, path)
+		if err != nil {
+			return nil
+		}
+		if ignores.Ignored(rel, info.IsDir()) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if _, ok := extOK[strings.ToLower(filepath.Ext(path))]; !ok {
+			return nil
+		}
+		if info.Mode().IsRegular() {
+			paths = append(paths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return paths, nil
+}
+
 // CrawlDir walks root with N workers and builds an inverted token index.
 //
 // Each worker accumulates a private inverted map and merges once at the end so

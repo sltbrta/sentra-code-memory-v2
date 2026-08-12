@@ -118,6 +118,9 @@ func TestLoadRejectsUnsafeStateLeaves(t *testing.T) {
 			if err := os.WriteFile(manifest.DatabasePath, nil, 0o640); err != nil {
 				t.Fatalf("WriteFile() error = %v", err)
 			}
+			if err := os.Chmod(manifest.DatabasePath, 0o640); err != nil {
+				t.Fatalf("Chmod() error = %v", err)
+			}
 		}},
 		{name: "database read-only mode", setup: func(t *testing.T, manifest BootstrapV1) {
 			if err := os.WriteFile(manifest.DatabasePath, nil, 0o400); err != nil {
@@ -132,6 +135,10 @@ func TestLoadRejectsUnsafeStateLeaves(t *testing.T) {
 		{name: "object broad mode", setup: func(t *testing.T, manifest BootstrapV1) {
 			if err := os.Mkdir(manifest.ObjectRoot, 0o750); err != nil {
 				t.Fatalf("Mkdir() error = %v", err)
+			}
+			// Make the requested mode explicit; Mkdir is umask-sensitive.
+			if err := os.Chmod(manifest.ObjectRoot, 0o750); err != nil {
+				t.Fatalf("Chmod() error = %v", err)
 			}
 		}},
 		{name: "socket regular file", setup: func(t *testing.T, manifest BootstrapV1) {

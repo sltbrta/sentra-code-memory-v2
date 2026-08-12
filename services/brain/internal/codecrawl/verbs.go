@@ -128,7 +128,9 @@ func (idx *Index) DefsOf(name string) []string {
 	if idx == nil || strings.TrimSpace(name) == "" {
 		return nil
 	}
-	return uniqueStrings(idx.resolveSeedFiles(name))
+	out := uniqueStrings(idx.resolveSeedFiles(name))
+	sort.Strings(out)
+	return out
 }
 
 // RefsOf returns files that reference a symbol name (SCM refs verb).
@@ -143,14 +145,21 @@ func (idx *Index) RefsOf(name string) []string {
 		out = append(out, idx.symbols.Refs[name]...)
 		out = append(out, idx.symbols.Refs[low]...)
 	}
-	for path, refs := range idx.fileRefs {
-		for _, r := range refs {
+	refPaths := make([]string, 0, len(idx.fileRefs))
+	for path := range idx.fileRefs {
+		refPaths = append(refPaths, path)
+	}
+	sort.Strings(refPaths)
+	for _, path := range refPaths {
+		for _, r := range idx.fileRefs[path] {
 			if strings.EqualFold(r, name) {
 				out = append(out, path)
 			}
 		}
 	}
-	return uniqueStrings(out)
+	out = uniqueStrings(out)
+	sort.Strings(out)
+	return out
 }
 
 // FindRoute finds heuristic bridges between two file paths or symbol names.
@@ -271,17 +280,19 @@ func (idx *Index) resolveSeedFiles(seed string) []string {
 		if _, ok := idx.files[seed]; ok {
 			return []string{seed}
 		}
-		// Prefix match.
-		var out []string
+		// Prefix match. Sort before applying the cap so path aliases resolve
+		// reproducibly across map iterations.
+		matches := make([]string, 0)
 		for p := range idx.files {
 			if strings.HasSuffix(p, seed) || strings.Contains(p, seed) {
-				out = append(out, p)
-			}
-			if len(out) >= 5 {
-				break
+				matches = append(matches, p)
 			}
 		}
-		return out
+		sort.Strings(matches)
+		if len(matches) > 5 {
+			matches = matches[:5]
+		}
+		return matches
 	}
 	// Symbol name.
 	var out []string
@@ -296,7 +307,9 @@ func (idx *Index) resolveSeedFiles(seed string) []string {
 			}
 		}
 	}
-	return uniqueStrings(out)
+	out = uniqueStrings(out)
+	sort.Strings(out)
+	return out
 }
 
 // Expand grows a seed path/symbol set via symbol hop (SCM expand analogue).
@@ -333,6 +346,7 @@ func (idx *Index) Expand(seeds []string, maxN int) []Hit {
 		}
 	}
 	seedFiles = uniqueStrings(seedFiles)
+	sort.Strings(seedFiles)
 	neighbors := idx.SymbolHop(seedFiles, maxN)
 	out := make([]Hit, 0, len(seedFiles)+len(neighbors))
 	for _, f := range seedFiles {
@@ -417,7 +431,9 @@ func (idx *Index) Impact(seed string, maxDepth, maxFiles int) ImpactReceipt {
 		}
 	}
 	seedFiles = uniqueStrings(seedFiles)
+	sort.Strings(seedFiles)
 	names = uniqueStrings(names)
+	sort.Strings(names)
 	rec.SymbolDefs = len(seedFiles)
 
 	// Direct: defining files first; refs ranked and capped (popular symbols
@@ -479,10 +495,16 @@ func (idx *Index) Impact(seed string, maxDepth, maxFiles int) ImpactReceipt {
 	// Import-neighbor expansion for seed file stems (capped).
 	impCap := 16
 	impN := 0
+	impPaths := make([]string, 0, len(idx.fileImps))
+	for path := range idx.fileImps {
+		impPaths = append(impPaths, path)
+	}
+	sort.Strings(impPaths)
 	for _, sf := range seedFiles {
 		base := filepath.Base(sf)
 		stem := strings.TrimSuffix(base, filepath.Ext(base))
-		for path, imps := range idx.fileImps {
+		for _, path := range impPaths {
+			imps := idx.fileImps[path]
 			if impN >= impCap {
 				break
 			}

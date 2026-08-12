@@ -154,7 +154,7 @@ func searchCode(req Request) Result {
 	}
 	gobPath := strings.TrimSpace(req.CodeIndexPath)
 	if gobPath == "" {
-		gobPath = filepath.Join(rootAbs, ".ouroboros", codecrawl.DefaultIndexFile)
+		gobPath = codecrawl.DefaultIndexPath(rootAbs)
 	}
 	idx, st, wrote, meta, err := codecrawl.OpenOrRefresh(rootAbs, gobPath, req.Workers, req.ForceFullCode)
 	if err != nil {

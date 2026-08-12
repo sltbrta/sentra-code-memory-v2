@@ -1,82 +1,90 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "20260808T181800Z-search-ignore-relevance-finalize",
-  "head": "ff0b925b567ae689244d2f2ddb373e4e7fd2edaf",
-  "workflow": "search-relevance-and-ignore-policy-finalize",
-  "scope": "Finalize the committed search-relevance and repository-ignore implementation for issue #2. The implementation is already committed; this head-bound manifest records preflight, independent review, and publication evidence.",
+  "run_id": "20260811T212251Z-consolidate-scm-ouroboros-parity-and-res-25934",
+  "head": "85a4734d146b6c78bce9fb3f6c5d441ea93ac690",
+  "implementer_session": "019ff331-5c49-7b44-b672-44e4cd5f7568",
+  "workflow": "canonical-go-local-first-scm-phases-0-5",
+  "scope": "Refactor all in-scope SCM/Ouroboros parity and research-derived workflow/token-saving capabilities into one canonical Go implementation in sentra-code-memory-v2. Preserve local multi-worker, stamp/hash warm refresh, bounded queues, and offline lexical behavior. Implement phases 0-5 only; defer hosted sync, Postgres tenancy, remote overlays, and cloud deployment.",
   "non_goals": [
-    "Do not expand scope beyond issue #2.",
-    "Do not modify external repositories.",
-    "Do not add semantic model reranking."
+    "Phase 6 hosted sync, Postgres tenancy, remote overlays, source-bundle cloud storage, Celery/S3/AWS deployment",
+    "Preserving standalone Rust or Python runtime seams",
+    "Ouroboros macOS/TUI/media/company-only UI surfaces",
+    "Mandatory network providers or hosted inference for local code workflows",
+    "Future phase 1-5 implementation work while phase 0 is being landed"
   ],
   "affected_files": [
-    ".local-agent-ci/workflow-manifest.json",
-    "services/brain/internal/repoignore/**",
+    "services/brain/cmd/sentra-code-memory/**",
+    "services/brain/internal/codeserve/**",
     "services/brain/internal/codecrawl/**",
+    "services/brain/internal/codeindex/**",
+    "services/brain/internal/memory/**",
+    "services/brain/internal/hosted/**",
     "services/brain/internal/productsearch/**",
-    "docs/architecture.md",
-    "docs/installation.md"
+    "services/brain/internal/repoignore/**",
+    "services/brain/internal/query/**",
+    "services/brain/internal/rerank/**",
+    "services/brain/internal/dense/**",
+    "workers/code-index/**",
+    "packages/contracts/**",
+    "tests/**",
+    "docs/**",
+    "justfile",
+    "README.md"
   ],
   "acceptance_commands": [
-    "just check",
-    "go test ./services/brain/internal/repoignore ./services/brain/internal/codecrawl ./services/brain/internal/productsearch -count=1",
-    "go vet ./services/brain/internal/repoignore ./services/brain/internal/codecrawl ./services/brain/internal/productsearch",
+    "go test ./services/... ./packages/contracts/...",
+    "go vet ./services/... ./packages/contracts/...",
+    "cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml",
+    "go build ./services/... ./packages/contracts/...",
+    "go test ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codeserve ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/memory ./services/brain/internal/productsearch",
     "git diff --check"
   ],
   "risks": [
-    "Publication evidence must remain bound to the committed head.",
-    "Full hosted test suite has pre-existing missing evidence fixture failures outside this change."
+    "Large scope may cause broad regressions or drift across staged changes",
+    "Tree-sitter/LSP/SCIP integration may add native/toolchain complexity",
+    "Hybrid retrieval and local models may threaten latency or memory budgets",
+    "Session memory and event projections may leak source or stale context",
+    "HTTP/MCP surfaces enlarge the public contract",
+    "Frequent squash merges require careful base/head and cleanup verification"
   ],
   "issue_ids": [
-    "2"
+    "36",
+    "3",
+    "4",
+    "5"
   ],
-  "created_at": "2026-08-08T18:16:53.081Z",
-  "tier": "T1",
-  "stage": "finalize",
+  "created_at": "2026-08-12T00:24:42.038Z",
+  "tier": "T2",
+  "stage": "land",
   "phases": [
     {
-      "id": "spec-lock",
-      "title": "Lock finalization scope"
+      "id": "phase-0",
+      "title": "Contracts, fixtures, benchmarks"
     },
     {
-      "id": "issue",
-      "title": "Confirm issue tracking"
+      "id": "phase-1",
+      "title": "Local workflow and token controls"
     },
     {
-      "id": "context",
-      "title": "Confirm committed context"
+      "id": "phase-2",
+      "title": "Typed graph and code intelligence"
     },
     {
-      "id": "red-proof",
-      "title": "Confirm executable proof"
+      "id": "phase-3",
+      "title": "Retrieval, cache, and savings"
     },
     {
-      "id": "implementation",
-      "title": "Confirm implementation"
+      "id": "phase-4",
+      "title": "Session memory and provenance"
     },
     {
-      "id": "paired-review",
-      "title": "Confirm paired review"
-    },
-    {
-      "id": "preflight",
-      "title": "Confirm local preflight"
-    },
-    {
-      "id": "fresh-eyes",
-      "title": "Independent final review"
-    },
-    {
-      "id": "finalize",
-      "title": "Finalize publication"
-    },
-    {
-      "id": "land",
-      "title": "Commit and push"
-    },
-    {
-      "id": "cleanup",
-      "title": "Cleanup"
+      "id": "phase-5",
+      "title": "Workflow evidence, ChangeSet, local adapters"
     }
+  ],
+  "required_receipts": [
+    "preflight",
+    "review",
+    "cleanup"
   ]
 }
