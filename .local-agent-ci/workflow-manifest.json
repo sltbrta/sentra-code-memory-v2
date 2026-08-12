@@ -1,48 +1,30 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-1786541878028",
-  "head": "a75881f1b09cf2e5ae26dfc62df272bd223cc0d0",
+  "run_id": "run-1786558239419",
+  "head": "4e901e70ce4313f89781b9880b8e9cbffbc85686",
   "implementer_session": "019ff62e-14d8-78d7-83c3-3d2c496adb6b",
-  "workflow": "finish-jsonl-code-parity",
-  "scope": "Complete remaining local code-operator parity by making bounded code_read, code_imports, and bounded JSONL code_watch live in the canonical codeserve protocol, with compatibility-preserving catalog/contract updates, safe path and resource bounds, tests, and documentation.",
+  "workflow": "publish-parity-audit",
+  "scope": "Publish the post-P6 parity audit artifact and keep its cited remaining-work backlog discoverable.",
   "non_goals": [
-    "Do not add hosted sync, tenancy, remote overlays, or session continuation memory.",
-    "Do not change legacy response shapes for existing verbs.",
-    "Do not replace the existing codecrawl watcher implementation.",
-    "Do not add external model/provider dependencies."
+    "Do not implement any of the backlog items in this documentation-only change.",
+    "Do not alter runtime code or generated contracts."
   ],
   "affected_files": [
-    "services/brain/internal/codeserve/catalog.go",
-    "services/brain/internal/codeserve/contract.go",
-    "services/brain/internal/codeserve/handle.go",
-    "services/brain/internal/codeserve/README.md",
-    "services/brain/internal/codeserve/contract_test.go",
-    "services/brain/internal/codeserve/conformance_test.go",
-    "services/brain/internal/codeserve/handle_test.go",
-    "services/brain/internal/codeserve/read_watch_test.go",
-    "services/brain/cmd/sentra-code-memory/main.go",
-    "services/brain/internal/codeserve/BUILD.bazel",
-    "services/brain/internal/codeserve/doc.go",
-    "services/brain/internal/adapters/mcp.go",
-    "services/brain/internal/adapters/adapters_test.go",
-    "services/brain/cmd/sentra-code-memory/README.md"
+    "docs/research/2026-08-12-parity-audit-and-remaining-work.md"
   ],
   "acceptance_commands": [
-    "go test ./services/...",
-    "go vet ./services/...",
-    "cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml",
-    "just cli-smoke"
+    "git diff --check",
+    "markdownlint-cli2 docs/research/2026-08-12-parity-audit-and-remaining-work.md"
   ],
   "risks": [
-    "Public JSONL catalog and verb behavior changes can break consumers if aliases or response envelopes drift.",
-    "Source reads and watcher requests must remain bounded and symlink-safe.",
-    "A watch request must not hang indefinitely when called through JSONL or tests."
+    "The audit could overstate parity if evidence is not distinguished from inference.",
+    "Documentation-only publication must not be mistaken for implementation of backlog issues."
   ],
   "issue_ids": [
-    "39"
+    "49"
   ],
-  "created_at": "2026-08-12T13:37:58.028Z",
-  "tier": "T2",
+  "created_at": "2026-08-12T18:10:39.419Z",
+  "tier": "T0",
   "stage": "preflight",
   "phases": [
     {
@@ -55,7 +37,7 @@
     },
     {
       "id": "context",
-      "title": "Repository context"
+      "title": "Context"
     },
     {
       "id": "red-proof",
@@ -66,16 +48,12 @@
       "title": "Implementation"
     },
     {
-      "id": "paired-review",
-      "title": "Paired review"
-    },
-    {
       "id": "preflight",
       "title": "Preflight"
     },
     {
       "id": "fresh-eyes",
-      "title": "Fresh-eyes review"
+      "title": "Fresh eyes"
     },
     {
       "id": "finalize",
@@ -83,7 +61,7 @@
     },
     {
       "id": "land",
-      "title": "Stack land"
+      "title": "Land"
     },
     {
       "id": "cleanup",
@@ -91,7 +69,6 @@
     }
   ],
   "required_receipts": [
-    "preflight",
     "review",
     "cleanup"
   ]
