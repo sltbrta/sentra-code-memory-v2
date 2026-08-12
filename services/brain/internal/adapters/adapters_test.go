@@ -272,7 +272,8 @@ func TestMCPAdvertisedTypesMatchCodeserveFields(t *testing.T) {
 		"interval_ms": true, "debounce_ms": true, "queue_size": true,
 		"retry_initial_ms": true, "retry_max_ms": true, "max_cycles": true,
 		"timeout_ms": true}
-	boolean := map[string]bool{"force": true, "no_refresh": true, "preview": true, "fsnotify": true}
+	boolean := map[string]bool{"force": true, "no_refresh": true, "preview": true, "fsnotify": true,
+		"allow_ignored": true, "allow_unindexed": true}
 	for _, tool := range adapters.MCPTools() {
 		props, _ := tool.InputSchema["properties"].(map[string]any)
 		for field, value := range props {

@@ -14,6 +14,26 @@ Working-tree **code operator** index (SCM repo tools, not session memory).
   `.git/info/exclude`, plus conservative generated/secret defaults. Useful
   configuration such as `.github` remains searchable unless explicitly ignored.
 
+## Durable persistence (issue #42)
+
+`Index.Save` / `Load` guarantee old-or-complete-new state, never partial:
+
+- **Coordination:** a per-path in-process mutex plus an advisory flock on
+  `<gob>.lock` (darwin/linux; tmp+rename alone elsewhere). Save fails closed
+  when the lock cannot be taken; Load locks best-effort so a read-only
+  directory cannot make a valid gob unreadable.
+- **Durability chain:** the temp file is fsynced before the atomic rename and
+  the parent directory is fsynced after it (directory-sync EINVAL/ENOTSUP
+  tolerated, everything else fails).
+- **Crash recovery:** a stale `.tmp` from an interrupted writer is discarded
+  before each Save; a corrupt gob fails `Load` and `OpenOrRefresh` recovers
+  by reindexing.
+- **Root binding:** `DurableMeta.Root` is validated symlink-aware
+  (`ValidateRoot`, `ErrRootMismatch`). `OpenOrRefresh` reindexes and rebinds
+  on mismatch; read paths (codeserve `no_refresh`, `code_freshness`,
+  `code_ingest_paths`) fail clearly instead of serving another workspace's
+  index.
+
 ## Phase 2 typed graph (issues #13, #17)
 
 The Phase 2 vertical slice adds a deterministic, bounded typed-edge

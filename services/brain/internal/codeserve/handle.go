@@ -14,6 +14,7 @@ import (
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/contextpack"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/hosted"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/productsearch"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/repoignore"
 )
 
 // Request is one JSON-line protocol request.
@@ -193,7 +194,13 @@ func loadIndex(req Request) (*codecrawl.Index, string, string, error) {
 		if err != nil {
 			return nil, "", "", err
 		}
-		if rootAbs == "" {
+		if rootAbs != "" {
+			// no_refresh must fail clearly on root mismatch rather than
+			// serve another workspace's index.
+			if err := codecrawl.ValidateRoot(meta, rootAbs); err != nil {
+				return nil, "", "", err
+			}
+		} else {
 			rootAbs = meta.Root
 		}
 		return idx, rootAbs, gobPath, nil
@@ -446,7 +453,12 @@ func handleFreshness(req Request) Response {
 	if err != nil {
 		return idxErrResp(string(VerbFreshness), err)
 	}
-	if rootAbs == "" {
+	if rootAbs != "" {
+		// Freshness must fail clearly on root mismatch (issue #42).
+		if err := codecrawl.ValidateRoot(meta, rootAbs); err != nil {
+			return idxErrResp(string(VerbFreshness), err)
+		}
+	} else {
 		rootAbs = meta.Root
 	}
 	t0 := time.Now()
@@ -487,6 +499,8 @@ func handleIngestPaths(req Request) Response {
 		if err != nil {
 			return idxErrResp(string(VerbIngestPaths), err)
 		}
+	} else if err := codecrawl.ValidateRoot(meta, rootAbs); err != nil {
+		return idxErrResp(string(VerbIngestPaths), err)
 	}
 	n, err := idx.IngestPaths(rootAbs, rels)
 	if err != nil {
@@ -606,6 +620,12 @@ func handleCodeRead(ctx context.Context, req Request) Response {
 		return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
 			"path is not a regular file")
 	}
+	// Trust gates (issue #41): by default a read must also survive the
+	// repository ignore policy and — when a durable index exists — index
+	// membership. allow_ignored / allow_unindexed are the explicit opt-ins.
+	if denial := gateCodeReadPath(req, rootAbs, rootReal, real, path); denial != nil {
+		return denial
+	}
 	startLine := intField(req, "start_line", defaultStartLine)
 	if startLine < 1 {
 		startLine = 1
@@ -667,6 +687,90 @@ func handleCodeRead(ctx context.Context, req Request) Response {
 		"end_line":   endLine,
 		"truncated":  truncated,
 	})
+}
+
+// gateCodeReadPath enforces the repoignore and index-membership read policy
+// (issue #41). It returns nil when the read may proceed, else a structured
+// denial response. Path/symlink/regular-file checks run before this gate and
+// are never bypassed by the opt-in fields.
+func gateCodeReadPath(req Request, rootAbs, rootReal, real, reqPath string) Response {
+	verb := string(VerbCodeRead)
+	if !boolField(req, "allow_ignored", false) {
+		matcher, err := repoignore.Load(rootReal)
+		if err != nil {
+			// Fail closed: an unreadable ignore file must not broaden reads.
+			return codeErrResp(verb, ErrInternal,
+				"ignore policy unavailable: "+err.Error())
+		}
+		if rel, err := filepath.Rel(rootReal, real); err == nil && matcher.Ignored(rel, false) {
+			return codeErrResp(verb, ErrPathDenied,
+				"path denied by repository ignore policy (explicit opt-in: allow_ignored)")
+		}
+	}
+	if boolField(req, "allow_unindexed", false) {
+		return nil
+	}
+	gobPath := codecrawl.DefaultIndexPath(rootAbs)
+	if cache := firstStr(req, "index_cache", "index-cache"); cache != "" {
+		if out, err := filepath.Abs(cache); err == nil {
+			gobPath = filepath.Join(out, "code-index.gob")
+		}
+	}
+	if _, err := os.Stat(gobPath); err != nil {
+		// Compatibility fallback: without a durable index the ignore gate is
+		// the only membership policy available for this workspace.
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return codeErrResp(verb, ErrInternal, err.Error())
+	}
+	idx, _, err := codecrawl.Load(gobPath)
+	if err != nil {
+		// Fail closed: membership cannot be verified against a broken index.
+		return codeErrResp(verb, ErrIndexUnavailable,
+			"index membership cannot be verified: "+err.Error())
+	}
+	for _, cand := range readMembershipCandidates(rootAbs, rootReal, real, reqPath) {
+		if idx.HasFile(cand) {
+			return nil
+		}
+	}
+	return codeErrResp(verb, ErrPathDenied,
+		"path is not a member of the durable code index (explicit opt-in: allow_unindexed)")
+}
+
+// readMembershipCandidates yields the relative-path spellings under which the
+// index may have recorded the resolved file: the requested path, the
+// symlink-resolved relative path, and the unresolved-root relative path when
+// the root itself traverses a symlink (e.g. /var on macOS).
+func readMembershipCandidates(rootAbs, rootReal, real, reqPath string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	add := func(p string) {
+		if p != "" && !strings.HasPrefix(p, "..") && !filepath.IsAbs(p) && !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	add(filepath.Clean(reqPath))
+	if rel, err := filepath.Rel(rootReal, real); err == nil {
+		add(rel)
+	}
+	if rootAbs != rootReal {
+		if rel, err := filepath.Rel(rootAbs, real); err == nil {
+			add(rel)
+		}
+	}
+	return out
+}
+
+func firstStr(req Request, keys ...string) string {
+	for _, k := range keys {
+		if v := str(req, k); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // --- code_imports: exact import lane equivalent to code_exact kind=import -----

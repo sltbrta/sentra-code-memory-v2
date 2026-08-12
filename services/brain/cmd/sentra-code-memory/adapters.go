@@ -22,6 +22,10 @@ func runHTTP(args []string, out, errOut io.Writer) int {
 	fs.SetOutput(errOut)
 	addr := fs.String("addr", "127.0.0.1:8765", "listen address (loopback default)")
 	timeout := fs.Duration("timeout", 30*time.Second, "per-request dispatch timeout (0 = no limit)")
+	token := fs.String("token", os.Getenv("SENTRA_CODE_MEMORY_HTTP_TOKEN"),
+		"bearer token required on every endpoint (env SENTRA_CODE_MEMORY_HTTP_TOKEN)")
+	allowInsecure := fs.Bool("allow-insecure", false,
+		"permit a non-loopback bind without a bearer token (explicit opt-out)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -29,7 +33,14 @@ func runHTTP(args []string, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "http does not accept positional arguments")
 		return 2
 	}
-	handler := adapters.NewHTTP(adapters.HTTPConfig{Addr: *addr, Timeout: *timeout})
+	// Explicit local trust (issue #41): fail closed on a non-loopback bind
+	// without a bearer token before the socket is opened.
+	policy := adapters.TrustPolicy{Token: *token, AllowInsecure: *allowInsecure}
+	if err := adapters.ValidateListenAddr(*addr, policy); err != nil {
+		fmt.Fprintf(errOut, "http: %v\n", err)
+		return 2
+	}
+	handler := adapters.NewHTTP(adapters.HTTPConfig{Addr: *addr, Timeout: *timeout, Token: *token})
 	server := &http.Server{
 		Addr:              *addr,
 		Handler:           handler,

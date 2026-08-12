@@ -16,16 +16,22 @@ type HTTPConfig struct {
 	Addr string
 	// Timeout bounds a single dispatch (0 means caller lifetime).
 	Timeout time.Duration
+	// Token, when set, requires "Authorization: Bearer <token>" on every
+	// endpoint (issue #41 explicit local trust).
+	Token string
 }
 
 // NewHTTP returns an http.Handler that exposes health and dispatch endpoints
 // over codeserve.Handle. It is the canonical local HTTP surface (issue #35):
 // requests are bounded, errors are structured, and behavior matches JSONL/CLI.
+// The trust boundary is explicit (issue #41): callers are expected to bind
+// loopback (validated by ValidateListenAddr in the CLI) and may require a
+// bearer token via HTTPConfig.Token.
 func NewHTTP(cfg HTTPConfig) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/dispatch", dispatchHandler(cfg.Timeout))
-	return bounded(mux)
+	return bounded(TrustPolicy{Token: cfg.Token}.wrap(mux))
 }
 
 // healthHandler reports liveness and the active contract id.

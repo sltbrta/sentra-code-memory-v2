@@ -93,6 +93,16 @@ func (idx *Index) FileCount() int {
 	return len(idx.files)
 }
 
+// HasFile reports whether the workspace-relative path is an index member.
+// Membership keys are the relative paths recorded at crawl time.
+func (idx *Index) HasFile(rel string) bool {
+	if idx == nil || idx.files == nil {
+		return false
+	}
+	_, ok := idx.files[rel]
+	return ok
+}
+
 // Graph returns the typed-edge projection (Phase 2). The graph is built
 // during crawling and is nil when an index was loaded from a legacy gob
 // snapshot that pre-dates the graph feature. Callers must handle nil.
