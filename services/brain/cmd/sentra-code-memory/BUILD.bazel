@@ -20,7 +20,7 @@ go_binary(
 
 go_test(
     name = "command_test",
-    srcs = ["main_test.go", "adapters_test.go"],
+    srcs = ["main_test.go", "adapters_test.go", "main_memory_test.go"],
     embed = [":command"],
     deps = [
         "//services/brain/internal/adapters",

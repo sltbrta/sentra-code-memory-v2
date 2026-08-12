@@ -16,7 +16,7 @@ go_library(
 
 go_test(
     name = "adapters_test",
-    srcs = ["adapters_test.go"],
+    srcs = ["adapters_test.go", "adapters_memory_test.go"],
     embed = [":adapters"],
     deps = [
         "//services/brain/internal/codeserve",

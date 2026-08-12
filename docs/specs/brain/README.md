@@ -4,7 +4,7 @@ Status: **[partial]** — domain ambition below; **shipped residual** is
 `product-brain` (`hosted` + `memory` cortex + gardener + authority substrate).
 This document remains the long-form **domain** contract (evidence model, agents,
 federation ambition). Live pipeline truth:
-[ARCHITECTURE.md](../../../ARCHITECTURE.md),
+[ARCHITECTURE.md](../../architecture.md),
 [memory/README.md](../../../services/brain/internal/memory/README.md),
 [REMAINING-GAPS.md](../../roadmap/REMAINING-GAPS.md).
 Chunking contract: [CHUNKING-POLICY.md](CHUNKING-POLICY.md) (versioned 500/50

@@ -18,6 +18,24 @@ Per workflow step through the `codeserve` protocol:
 local `internal/savings` ledger; omitting it preserves the existing report and
 codeserve wire behavior.
 
+## Retrieval QA suite (issue #48)
+
+`qa.go` adds a deterministic retrieval-quality benchmark on top of the same
+codeserve protocol. A `QASuite` is a set of probes with known expected files;
+`RunQA` indexes the root and measures, per probe, hit@1/5/10 (rank of the first
+expected file in `code_search` results), precision, latency, normalized
+response bytes/tokens, and a failure class (`hit`/`miss`/`empty`/`error`).
+`QAReport.CheckThresholds` gates on regression floors; `qaDigest` hashes the
+latency-free core so the digest is stable across machines.
+
+`QAFixtureSuite` and `QAFixtureThresholds` are the canonical probe set and
+regression gates for the checked-in `testdata/qafixture` corpus. Retrieval
+lanes are declared via `LaneLocalHeuristic` (measured) and the deferred
+`LaneDenseReranked` / `LaneCompilerAuthority` constants so claims are never
+attributed to an unimplemented lane. See `docs/benchmarks/bench-code.md` and
+the `services/brain/cmd/bench-code` runner (multi-client smoke matrix,
+baseline digest, artifact).
+
 ## Guarantees
 
 - No network providers, hosted inference, or cloud anything.

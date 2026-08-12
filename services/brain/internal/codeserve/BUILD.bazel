@@ -14,7 +14,10 @@ go_library(
         "//services/brain/internal/codecrawl",
         "//services/brain/internal/contextpack",
         "//services/brain/internal/hosted",
+        "//services/brain/internal/memory",
         "//services/brain/internal/productsearch",
+        "//services/brain/internal/savings",
+        "//services/brain/internal/sessionlog",
     ],
 )
 
@@ -25,12 +28,15 @@ go_test(
         "contract_test.go",
         "impact_test.go",
         "handle_bounded_test.go",
+        "handle_memory_session_test.go",
         "handle_test.go",
         "read_watch_test.go",
     ],
     embed = [":codeserve"],
     deps = [
         "//services/brain/internal/codecrawl",
+        "//services/brain/internal/savings",
+        "//services/brain/internal/sessionlog",
     ],
     data = glob(["testdata/**"]),
     tags = [

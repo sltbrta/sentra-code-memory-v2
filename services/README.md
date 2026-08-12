@@ -29,6 +29,6 @@ unification ladder.
 
 ## Docs
 
-- [ARCHITECTURE.md](../ARCHITECTURE.md)
+- [ARCHITECTURE.md](../docs/architecture.md)
 - [Deferred & non-goals](../docs/roadmap/DEFERRED-AND-NON-GOALS.md)
 - [brain README](brain/README.md)

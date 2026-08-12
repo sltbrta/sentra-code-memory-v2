@@ -15,7 +15,10 @@ import (
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/contextpack"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/memory"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/productsearch"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/savings"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/sessionlog"
 )
 
 // ContractID identifies this revision of the canonical protocol contract.
@@ -34,6 +37,11 @@ const (
 	ErrIndexUnavailable ErrorCode = "index_unavailable"
 	// ErrInternal: unexpected local failure (e.g. persisting the index).
 	ErrInternal ErrorCode = "internal"
+	// ErrDeferred: the verb is catalogued but intentionally not implemented in
+	// the standalone product. The response carries a structured disclosure
+	// (deferred=true, decision, reason, doc) rather than an opaque unknown-verb
+	// error, so callers can tell a deliberate gap from a typo (issue #47).
+	ErrDeferred ErrorCode = "deferred"
 )
 
 // ErrorResponse is the canonical failure envelope. OK is always false.
@@ -195,6 +203,118 @@ type MemoryAskRequest struct {
 	TopK    int    `json:"top_k,omitempty"`
 }
 
+// MemoryPutRequest admits one typed agent-memory entry (memory_put). The
+// principal is a policy gate; text must be non-empty. Tier defaults to stm.
+// Tags accepts a JSON array or a comma-separated string on the wire.
+type MemoryPutRequest struct {
+	Verb      string   `json:"verb"`
+	Dir       string   `json:"dir"`
+	Principal string   `json:"principal"`
+	Kind      string   `json:"kind,omitempty"`
+	Tier      string   `json:"tier,omitempty"`
+	Text      string   `json:"text"`
+	Tags      []string `json:"tags,omitempty"`
+}
+
+// MemorySearchRequest is typed recall over agent memory (memory_search).
+// An empty Q falls back to listing (tier-ordered, most recent first).
+type MemorySearchRequest struct {
+	Verb      string `json:"verb"`
+	Dir       string `json:"dir"`
+	Principal string `json:"principal"`
+	Q         string `json:"q,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
+}
+
+// MemoryListRequest lists agent-memory entries (memory_list).
+type MemoryListRequest struct {
+	Verb      string `json:"verb"`
+	Dir       string `json:"dir"`
+	Principal string `json:"principal"`
+	Limit     int    `json:"limit,omitempty"`
+}
+
+// MemoryPromoteRequest moves an entry between tiers (memory_promote).
+type MemoryPromoteRequest struct {
+	Verb string `json:"verb"`
+	Dir  string `json:"dir"`
+	ID   string `json:"id"`
+	Tier string `json:"tier"`
+}
+
+// SessionContinuationRequest builds a budgeted continuation packet from the
+// repo-local session event log (session_continuation). It is a single safe
+// composite over internal/sessionlog, not the full SCM session product. Now
+// is an optional RFC3339 timestamp injected for deterministic replays; it
+// defaults to the current time when omitted.
+type SessionContinuationRequest struct {
+	Verb              string `json:"verb"`
+	Dir               string `json:"dir"`
+	Repository        string `json:"repository,omitempty"`
+	Tree              string `json:"tree,omitempty"`
+	Now               string `json:"now,omitempty"`
+	IncludeSuperseded bool   `json:"include_superseded"`
+	L0Bytes           int    `json:"l0_bytes,omitempty"`
+	L1Bytes           int    `json:"l1_bytes,omitempty"`
+	L2Bytes           int    `json:"l2_bytes,omitempty"`
+	L3Bytes           int    `json:"l3_bytes,omitempty"`
+}
+
+// SavingsSummaryRequest reads the local token-savings ledger (savings_summary).
+type SavingsSummaryRequest struct {
+	Verb string `json:"verb"`
+	Dir  string `json:"dir"`
+}
+
+// DeferredResponse is the structured disclosure returned by every deferred /
+// non-goal verb (issue #47). It is a deliberate 501-class signal: callers can
+// distinguish an intentionally-retired capability from a typo or missing field.
+type DeferredResponse struct {
+	ResponseMeta
+	Error     string    `json:"error"`
+	ErrorCode ErrorCode `json:"error_code"`
+	Deferred  bool      `json:"deferred"`
+	// Decision is the parity outcome for this surface: deferred | non_goal.
+	Decision string `json:"decision"`
+	Reason   string `json:"reason"`
+	Doc      string `json:"doc,omitempty"`
+}
+
+// MemoryPutResponse admits one typed agent-memory entry (memory_put).
+type MemoryPutResponse struct {
+	ResponseMeta
+	Entry memory.AgentMemoryEntry `json:"entry"`
+}
+
+// MemoryEntriesResponse is the shared shape for memory_search / memory_list.
+type MemoryEntriesResponse struct {
+	ResponseMeta
+	Entries []memory.AgentMemoryEntry `json:"entries"`
+	Count   int                       `json:"count"`
+}
+
+// MemoryPromoteResponse reports a tier move (memory_promote).
+type MemoryPromoteResponse struct {
+	ResponseMeta
+	ID   string `json:"id"`
+	Tier string `json:"tier"`
+}
+
+// SessionContinuationResponse wraps the budgeted continuation packet
+// (session_continuation).
+type SessionContinuationResponse struct {
+	ResponseMeta
+	Continuation sessionlog.Continuation `json:"continuation"`
+	SourceEvents int                     `json:"source_events"`
+}
+
+// SavingsSummaryResponse wraps the local token-savings ledger (savings_summary).
+type SavingsSummaryResponse struct {
+	ResponseMeta
+	Summary savings.Summary `json:"summary"`
+	Text    string          `json:"text"`
+}
+
 // --- Responses ------------------------------------------------------------
 
 // ResponseMeta is the envelope prefix every success response carries.
@@ -352,6 +472,11 @@ const (
 	StatusStable VerbStatus = "stable"
 	// StatusPlanned verbs are typed here but have no handler yet.
 	StatusPlanned VerbStatus = "planned"
+	// StatusDeferred verbs are an explicit parity decision: catalogued for
+	// discoverability, but every call returns a structured deferred disclosure
+	// and no handler is planned for the standalone product (issue #47). MCP
+	// does not expose them as callable tools.
+	StatusDeferred VerbStatus = "deferred"
 )
 
 // VerbSpec is the canonical catalog metadata for one verb: surface,
@@ -452,5 +577,43 @@ func CatalogMetadata() []VerbSpec {
 			Required: []string{"dir", "q"},
 			Optional: []string{"session", "top_k"},
 			Aliases:  []string{"memory-ask"}},
+		{Name: string(VerbMemoryPut), Status: StatusStable, Surface: "jsonl",
+			Summary:  "admit one typed agent-memory entry (principal-gated, tier stm|mtm|ltm)",
+			Required: []string{"dir", "principal", "text"},
+			Optional: []string{"kind", "tier", "tags"},
+			Aliases:  []string{"memory-put"}},
+		{Name: string(VerbMemorySearch), Status: StatusStable, Surface: "jsonl",
+			Summary:  "typed recall over agent memory (empty q lists tier-ordered)",
+			Required: []string{"dir", "principal"},
+			Optional: []string{"q", "limit"},
+			Aliases:  []string{"memory-search"}},
+		{Name: string(VerbMemoryList), Status: StatusStable, Surface: "jsonl",
+			Summary:  "list agent-memory entries for a principal",
+			Required: []string{"dir", "principal"},
+			Optional: []string{"limit"},
+			Aliases:  []string{"memory-list"}},
+		{Name: string(VerbMemoryPromote), Status: StatusStable, Surface: "jsonl",
+			Summary:  "move an agent-memory entry between tiers",
+			Required: []string{"dir", "id", "tier"},
+			Aliases:  []string{"memory-promote"}},
+		{Name: string(VerbSessionContinuation), Status: StatusStable, Surface: "jsonl",
+			Summary:  "build a budgeted continuation packet from the repo-local session log",
+			Required: []string{"dir"},
+			Optional: []string{"repository", "tree", "now", "include_superseded", "l0_bytes", "l1_bytes", "l2_bytes", "l3_bytes"},
+			Aliases:  []string{"session-continuation"}},
+		{Name: string(VerbSavingsSummary), Status: StatusStable, Surface: "jsonl",
+			Summary:  "read the local token-savings ledger summary",
+			Required: []string{"dir"},
+			Aliases:  []string{"savings-summary"}},
+		{Name: string(VerbLifecycleInstall), Status: StatusDeferred, Surface: "jsonl",
+			Summary: "deferred: managed-server install/service/hook lifecycle (not owned standalone)"},
+		{Name: string(VerbSessionProduct), Status: StatusDeferred, Surface: "jsonl",
+			Summary: "deferred: full SCM session continuation product (latent dev-state memory)"},
+		{Name: string(VerbCodeDenseRerank), Status: StatusDeferred, Surface: "jsonl",
+			Summary: "deferred: dense/reranked retrieval lane (standalone is local-heuristic)"},
+		{Name: string(VerbHostedTenancy), Status: StatusDeferred, Surface: "jsonl",
+			Summary: "non-goal: hosted multi-tenancy, cloud sync, billing"},
+		{Name: string(VerbQueryAdvanced), Status: StatusDeferred, Surface: "jsonl",
+			Summary: "deferred: prior query modes (patch plans, test hints, greenfield/native-first)"},
 	}
 }

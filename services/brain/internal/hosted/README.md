@@ -93,8 +93,8 @@ report counts and bounds only under `dense_embedding_*`, `dense_ann_*`, and
 `dense_status=ok|empty|partial_failure|error|skipped`; they never include query
 text, principals, document IDs, ACL data, or citations. Recovery uses the same
 contract with the `recovery_dense_*` prefix. Reproducible fixed-workload
-latency/allocation results are in
-[`EMBEDDING-BATCH-EVIDENCE.md`](../../../../docs/stages/stage-09/evidence/enterprise-rag-bench/EMBEDDING-BATCH-EVIDENCE.md).
+latency/allocation results are recorded in the stage-09 evidence file
+`EMBEDDING-BATCH-EVIDENCE.md` (not checked into this standalone extraction).
 
 Issue #301 (`rerank_cache.go`) applies a blind, deterministic prefilter before
 remote Cohere/ZeroEntropy/MLX reranking (default 64 candidates, hard maximum
@@ -111,8 +111,8 @@ when no time remains. Diagnostics expose capped counts, CE characters,
 provider latency/timeout, fixed fallback reasons, and explicit unknown provider
 cost when no pinned price is available; they contain no content, raw error,
 identity, ACL, citation, or gold values. Reproducible fixed-workload and pinned
-blind before/after evidence is in
-[`RERANK-CACHE-EVIDENCE.md`](../../../../docs/stages/stage-09/evidence/enterprise-rag-bench/RERANK-CACHE-EVIDENCE.md).
+blind before/after evidence is recorded in the stage-09 evidence file
+`RERANK-CACHE-EVIDENCE.md` (not checked into this standalone extraction).
 
 Issues #313 and #324 (`faithfulness.go`) apply the final answer-level acceptance
 gate.

@@ -1,0 +1,19 @@
+{
+  "suite": "qafixture-retrieval",
+  "lane": "local_heuristic",
+  "digest": "6fc5c24a6580a5a27d979942985dbc053c75bd42d7b1714c9eb002cc1d932fac",
+  "hit_rate_at_1": 1,
+  "hit_rate_at_5": 1,
+  "hit_rate_at_10": 1,
+  "mean_precision": 0.221031746031746,
+  "token_savings_ratio": 0.7213290460878885,
+  "failures": {},
+  "thresholds": {
+    "min_hit_rate_at_1": 0.7,
+    "min_hit_rate_at_5": 0.9,
+    "min_hit_rate_at_10": 1,
+    "max_p95_latency_ms": 2000,
+    "min_token_savings_ratio": 0.4,
+    "max_failed_queries": 0
+  }
+}

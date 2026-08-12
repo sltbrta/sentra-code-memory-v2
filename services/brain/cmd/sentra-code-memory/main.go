@@ -18,22 +18,28 @@ import (
 const maxRequestBytes = 8 << 20
 
 var aliases = map[string]string{
-	"index":       "code_index",
-	"code-index":  "code_index",
-	"search":      "code_search",
-	"code-search": "code_search",
-	"relevant":    "code_find_relevant",
-	"expand":      "code_expand",
-	"impact":      "code_impact",
-	"route":       "code_find_route",
-	"freshness":   "code_freshness",
-	"ingest":      "code_ingest_paths",
-	"exact":       "code_exact",
-	"defs":        "code_defs",
-	"refs":        "code_refs",
-	"read":        "code_read",
-	"imports":     "code_imports",
-	"memory-ask":  "memory_ask",
+	"index":                "code_index",
+	"code-index":           "code_index",
+	"search":               "code_search",
+	"code-search":          "code_search",
+	"relevant":             "code_find_relevant",
+	"expand":               "code_expand",
+	"impact":               "code_impact",
+	"route":                "code_find_route",
+	"freshness":            "code_freshness",
+	"ingest":               "code_ingest_paths",
+	"exact":                "code_exact",
+	"defs":                 "code_defs",
+	"refs":                 "code_refs",
+	"read":                 "code_read",
+	"imports":              "code_imports",
+	"memory-ask":           "memory_ask",
+	"memory-put":           "memory_put",
+	"memory-search":        "memory_search",
+	"memory-list":          "memory_list",
+	"memory-promote":       "memory_promote",
+	"session-continuation": "session_continuation",
+	"savings-summary":      "savings_summary",
 }
 
 func main() {
@@ -124,7 +130,7 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	root := fs.String("root", "", "source root")
 	cache := fs.String("index-cache", "", "index cache directory")
 	query := fs.String("q", "", "query or symbol")
-	kind := fs.String("kind", "any", "exact kind: any|definition|reference|import")
+	kind := fs.String("kind", "", "kind: exact any|definition|reference|import, or memory note|preference|task|fact")
 	topK := fs.Int("top-k", 20, "maximum hits")
 	workers := fs.Int("workers", 4, "index worker count")
 	force := fs.Bool("force", false, "force a full refresh")
@@ -140,8 +146,18 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	maxFiles := fs.Int("max-files", 64, "impact file limit")
 	maxBridges := fs.Int("max-bridges", 12, "route bridge limit")
 	preview := fs.Bool("preview", true, "include source previews")
-	dir := fs.String("dir", "", "local memory directory")
+	dir := fs.String("dir", "", "local memory/session/savings directory")
 	session := fs.String("session", "", "memory session id")
+	// Typed memory / session / savings operators (issue #47).
+	principal := fs.String("principal", "", "agent-memory principal (policy gate)")
+	text := fs.String("text", "", "agent-memory entry text")
+	tier := fs.String("tier", "", "agent-memory tier (stm|mtm|ltm)")
+	tags := fs.String("tags", "", "comma-separated agent-memory tags")
+	memID := fs.String("id", "", "agent-memory entry id")
+	limit := fs.Int("limit", 50, "agent-memory result limit")
+	repo := fs.String("repository", "", "session continuation base repository")
+	tree := fs.String("tree", "", "session continuation base tree/ref")
+	now := fs.String("now", "", "session continuation RFC3339 build time (deterministic replays)")
 	if err := fs.Parse(args); err != nil {
 		return nil, 2
 	}
@@ -167,6 +183,15 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	put("path", *readPath)
 	put("dir", *dir)
 	put("session", *session)
+	put("principal", *principal)
+	put("text", *text)
+	put("kind", *kind)
+	put("tier", *tier)
+	put("tags", *tags)
+	put("id", *memID)
+	put("repository", *repo)
+	put("tree", *tree)
+	put("now", *now)
 	req["top_k"] = *topK
 	req["workers"] = *workers
 	req["force"] = *force
@@ -177,6 +202,7 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	req["start_line"] = *startLine
 	req["max_lines"] = *maxLines
 	req["preview"] = *preview
+	req["limit"] = *limit
 	return req, 0
 }
 
@@ -199,12 +225,18 @@ Usage:
 Commands:
   index, search, relevant, exact, defs, refs, read, imports, watch
   expand, impact, route, freshness, ingest, memory-ask
+  memory-put, memory-search, memory-list, memory-promote
+  session-continuation, savings-summary
   catalog, ping, serve, mlx
   http, mcp  # local HTTP and MCP-stdio adapters (issue #35)
 
 Common flags:
   --root PATH --index-cache DIR --q QUERY --top-k N --workers N
   --no-refresh --force
+
+Memory/session/savings flags (issue #47):
+  --dir DIR --principal P --text T --kind K --tier stm|mtm|ltm
+  --tags a,b --id ID --limit N --repository R --tree T --now RFC3339
 
 The JSONL protocol is discoverable with catalog and returns one JSON response
 per request. Use watch for debounced multi-worker freshness with retries, and
