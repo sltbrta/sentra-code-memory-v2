@@ -70,9 +70,29 @@ func (p TrustPolicy) wrap(next http.Handler) http.Handler {
 	})
 }
 
+// CanonicalListenAddr returns the address that may safely be passed to a
+// listener. Literal localhost is replaced with a numeric loopback address so
+// later name resolution cannot turn a no-token bind into a non-loopback bind.
+// Other addresses are returned unchanged after policy validation.
+func CanonicalListenAddr(addr string, p TrustPolicy) (string, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", fmt.Errorf("invalid listen address %q: %w", addr, err)
+	}
+	if strings.EqualFold(host, "localhost") {
+		return net.JoinHostPort("127.0.0.1", port), nil
+	}
+	if err := ValidateListenAddr(addr, p); err != nil {
+		return "", err
+	}
+	return addr, nil
+}
+
 // ValidateListenAddr fails closed on a non-loopback bind without a bearer
 // token. Loopback hosts (127.0.0.0/8, ::1, localhost) are always allowed.
 // An empty host is a wildcard bind (all interfaces) and is not loopback.
+// Callers that pass the address to a listener should use CanonicalListenAddr
+// first so localhost is not resolved again after validation.
 func ValidateListenAddr(addr string, p TrustPolicy) error {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {

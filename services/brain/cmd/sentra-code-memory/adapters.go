@@ -34,22 +34,24 @@ func runHTTP(args []string, out, errOut io.Writer) int {
 		return 2
 	}
 	// Explicit local trust (issue #41): fail closed on a non-loopback bind
-	// without a bearer token before the socket is opened.
+	// without a bearer token before the socket is opened. Canonicalization also
+	// prevents localhost from being resolved again after validation.
 	policy := adapters.TrustPolicy{Token: *token, AllowInsecure: *allowInsecure}
-	if err := adapters.ValidateListenAddr(*addr, policy); err != nil {
+	listenAddr, err := adapters.CanonicalListenAddr(*addr, policy)
+	if err != nil {
 		fmt.Fprintf(errOut, "http: %v\n", err)
 		return 2
 	}
-	handler := adapters.NewHTTP(adapters.HTTPConfig{Addr: *addr, Timeout: *timeout, Token: *token})
+	handler := adapters.NewHTTP(adapters.HTTPConfig{Addr: listenAddr, Timeout: *timeout, Token: *token})
 	server := &http.Server{
-		Addr:              *addr,
+		Addr:              listenAddr,
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go func() {
-		fmt.Fprintf(out, "sentra-code-memory http listening on %s (health=/health dispatch=/dispatch)\n", *addr)
+		fmt.Fprintf(out, "sentra-code-memory http listening on %s (health=/health dispatch=/dispatch)\n", listenAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Fprintf(errOut, "http: %v\n", err)
 			stop()

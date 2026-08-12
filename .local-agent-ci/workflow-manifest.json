@@ -1,65 +1,36 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-1786559752566",
-  "head": "deacffdccb091562e5d709c935455f49296cddc8",
-  "implementer_session": "019ff62e-14d8-78d7-83c3-3d2c496adb6b",
-  "workflow": "complete-post-p6-parity-backlog",
-  "scope": "Implement all actionable post-P6 parity issues #41-#48 end to end: trust and read security, durable index safety, code retrieval/ranking, typed multi-language authority, transactional ChangeSet application, repo map/structural/query ergonomics, memory/session/lifecycle parity decision and surfaces, and repeatable benchmarks.",
+  "run_id": "run-1786565779354",
+  "head": "d7427850b3a36cda8fa42fb01a4b142b35d26612",
+  "implementer_session": "019ff79c-0fe8-77a6-bf18-0119b5abe291",
+  "workflow": "post-parity-blocker-hardening",
+  "scope": "Fix the two valid post-#52 review findings: canonicalize localhost loopback binding before HTTP startup and surface ChangeSet rollback restoration failures without falsely claiming recovery.",
   "non_goals": [
-    "Do not implement hosted tenancy, billing, cloud deployment, remote overlays, or enterprise regional isolation; those remain explicit deferred non-goals.",
-    "Do not implement the full session latent-memory product unless the parity decision issue determines a bounded local surface is required.",
-    "Do not add external dependencies unless already available or strictly necessary for an acceptance-tested capability.",
-    "Do not weaken existing fail-closed security or honesty labels."
+    "Do not redesign the HTTP protocol or trust token policy.",
+    "Do not change ChangeSet validation, staging, or promotion semantics beyond rollback error reporting.",
+    "Do not add dependencies or implement unrelated backlog work."
   ],
   "affected_files": [
-    "services/brain/internal/adapters/http.go",
-    "services/brain/internal/adapters/mcp.go",
-    "services/brain/internal/codeserve/catalog.go",
-    "services/brain/internal/codeserve/contract.go",
-    "services/brain/internal/codeserve/handle.go",
-    "services/brain/internal/codeserve/README.md",
-    "services/brain/internal/codecrawl/persist.go",
-    "services/brain/internal/codecrawl/search.go",
-    "services/brain/internal/codecrawl/verbs.go",
-    "services/brain/internal/codecrawl/symbol.go",
-    "services/brain/internal/codecrawl/edges.go",
-    "services/brain/internal/workflow/changeset.go",
-    "services/brain/internal/contextpack/",
-    "services/brain/internal/sessionlog/",
-    "services/brain/internal/memory/",
-    "services/brain/internal/scmbench/",
-    "services/brain/cmd/sentra-code-memory/",
-    "docs/",
-    "justfile",
-    ".gitignore"
+    "services/brain/internal/adapters/trust.go",
+    "services/brain/internal/adapters/trust_test.go",
+    "services/brain/cmd/sentra-code-memory/adapters.go",
+    "services/brain/internal/workflow/apply.go",
+    "services/brain/internal/workflow/apply_atomic_test.go"
   ],
   "acceptance_commands": [
+    "go test ./services/brain/internal/adapters ./services/brain/internal/workflow ./services/brain/cmd/sentra-code-memory",
     "go test ./services/...",
-    "go vet ./services/...",
-    "cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml",
-    "just check-all",
-    "just cli-smoke",
-    "git diff --check",
-    "markdownlint-cli2 docs/ services/brain/README.md services/brain/internal/codeserve/README.md"
+    "git diff --check"
   ],
   "risks": [
-    "This is a broad multi-issue change touching public contracts, security, persistence, retrieval, and workflow application semantics.",
-    "Native language parsers, external rerankers, and LSP/SCIP integrations may be unavailable; fallback behavior must remain explicit and tested.",
-    "Changing local HTTP/MCP trust defaults can affect existing clients; preserve safe loopback defaults and document migration.",
-    "Transactional filesystem changes can lose work if stale-base and rollback checks are incomplete."
+    "Trust binding changes could break localhost startup if canonicalization mishandles IPv6 or ephemeral ports.",
+    "Rollback error handling must preserve existing successful rollback behavior while reporting partial recovery accurately."
   ],
   "issue_ids": [
-    "41",
-    "42",
-    "43",
-    "44",
-    "45",
-    "46",
-    "47",
-    "48"
+    "53"
   ],
-  "created_at": "2026-08-12T18:35:52.566Z",
-  "tier": "T2",
+  "created_at": "2026-08-12T20:16:19.355Z",
+  "tier": "T1",
   "stage": "implementation",
   "phases": [
     {
@@ -100,7 +71,7 @@
     },
     {
       "id": "land",
-      "title": "Stack land"
+      "title": "Land"
     },
     {
       "id": "cleanup",

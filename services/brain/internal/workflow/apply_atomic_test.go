@@ -4,10 +4,31 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/workflow"
 )
+
+func TestApplyChangeSetRollbackFailureIsReported(t *testing.T) {
+	root := t.TempDir()
+	before := []byte("aaa")
+	_ = os.WriteFile(filepath.Join(root, "a.txt"), before, 0o644)
+	cs := workflow.ChangeSet{Base: "tree", BaseDigests: map[string]string{"a.txt": workflow.Digest(before)}, Edits: []workflow.CandidateEdit{
+		{Path: "a.txt", Range: workflow.EditRange{Start: 0, End: 3}, Replacement: "AAA", BaseDigest: workflow.Digest(before), PredictedDigest: workflow.Digest([]byte("AAA"))},
+	}}
+	receipt, err := workflow.ApplyChangeSet(context.Background(), root, cs, workflow.ApplyOptions{InjectFailureAt: workflow.FailDuringRollback})
+	if err == nil || receipt.Applied || receipt.RolledBack {
+		t.Fatalf("rollback failure was not surfaced: %v %+v", err, receipt)
+	}
+	if !strings.Contains(receipt.Failure, "rollback failed") {
+		t.Fatalf("failure does not identify rollback failure: %q", receipt.Failure)
+	}
+	got, _ := os.ReadFile(filepath.Join(root, "a.txt"))
+	if string(got) != "AAA" {
+		t.Fatalf("injected rollback failure should leave promoted content for diagnosis, got %q", got)
+	}
+}
 
 func TestApplyChangeSetPromotionFailureRestoresEveryFile(t *testing.T) {
 	root := t.TempDir()

@@ -28,6 +28,7 @@ const (
 	applyMaxDuration    = 2 * time.Minute
 	FailAfterStage      = "after_stage"
 	FailDuringPromotion = "during_promotion"
+	FailDuringRollback  = "during_rollback"
 )
 
 // ApplyOptions controls bounded execution. InjectFailureAt exists only for
@@ -79,7 +80,7 @@ func ApplyChangeSet(ctx context.Context, root string, cs ChangeSet, opts ApplyOp
 	}
 	ctx, cancel := context.WithTimeout(ctx, applyMaxDuration)
 	defer cancel()
-	if opts.InjectFailureAt != "" && opts.InjectFailureAt != FailAfterStage && opts.InjectFailureAt != FailDuringPromotion {
+	if opts.InjectFailureAt != "" && opts.InjectFailureAt != FailAfterStage && opts.InjectFailureAt != FailDuringPromotion && opts.InjectFailureAt != FailDuringRollback {
 		return fail(fmt.Errorf("unknown failure injection point"))
 	}
 	if len(cs.Edits) == 0 || len(cs.Edits) > applyMaxEdits {
@@ -202,27 +203,42 @@ func ApplyChangeSet(ctx context.Context, root string, cs ChangeSet, opts ApplyOp
 	receipt.AfterDigest = pathDigest(paths, afterDigests)
 
 	promoted := make([]string, 0, len(paths))
-	rollback := func() {
+	rollback := func() error {
+		var rollbackErrs []error
 		for i := len(promoted) - 1; i >= 0; i-- {
 			rel := promoted[i]
-			_ = atomicWrite(filepath.Join(rootAbs, filepath.FromSlash(rel)), original[rel], modes[rel])
+			if opts.InjectFailureAt == FailDuringRollback {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("restore %s: injected rollback failure", rel))
+				continue
+			}
+			if err := atomicWrite(filepath.Join(rootAbs, filepath.FromSlash(rel)), original[rel], modes[rel]); err != nil {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("restore %s: %w", rel, err))
+			}
+		}
+		if len(rollbackErrs) != 0 {
+			receipt.RolledBack = false
+			return errors.Join(rollbackErrs...)
 		}
 		receipt.RolledBack = len(promoted) > 0
+		return nil
+	}
+	abortPromotion := func(cause error) (ApplyReceipt, error) {
+		if rollbackErr := rollback(); rollbackErr != nil {
+			return fail(fmt.Errorf("%w; rollback failed: %w", cause, rollbackErr))
+		}
+		return fail(cause)
 	}
 	for i, rel := range paths {
 		current, err := os.ReadFile(filepath.Join(rootAbs, filepath.FromSlash(rel)))
 		if err != nil || Digest(current) != Digest(original[rel]) {
-			rollback()
-			return fail(fmt.Errorf("concurrent change detected before promoting %s", rel))
+			return abortPromotion(fmt.Errorf("concurrent change detected before promoting %s", rel))
 		}
 		if err := atomicWrite(filepath.Join(rootAbs, filepath.FromSlash(rel)), afterBodies[rel], modes[rel]); err != nil {
-			rollback()
-			return fail(fmt.Errorf("promote %s: %w", rel, err))
+			return abortPromotion(fmt.Errorf("promote %s: %w", rel, err))
 		}
 		promoted = append(promoted, rel)
-		if opts.InjectFailureAt == FailDuringPromotion && i == 0 {
-			rollback()
-			return fail(errors.New("injected failure during promotion"))
+		if (opts.InjectFailureAt == FailDuringPromotion || opts.InjectFailureAt == FailDuringRollback) && i == 0 {
+			return abortPromotion(errors.New("injected failure during promotion"))
 		}
 	}
 	receipt.Applied = true

@@ -85,6 +85,36 @@ func TestHTTPNoTokenKeepsLoopbackOpen(t *testing.T) {
 	}
 }
 
+func TestCanonicalListenAddrPinsLocalhostToLoopback(t *testing.T) {
+	t.Parallel()
+	for _, addr := range []string{"localhost:8765", "LOCALHOST:0"} {
+		got, err := adapters.CanonicalListenAddr(addr, adapters.TrustPolicy{})
+		if err != nil {
+			t.Fatalf("canonicalize %q: %v", addr, err)
+		}
+		if got != "127.0.0.1:"+strings.Split(addr, ":")[1] {
+			t.Errorf("canonicalize %q = %q, want numeric loopback", addr, got)
+		}
+	}
+	for _, addr := range []string{"127.0.0.1:8765", "[::1]:8765"} {
+		got, err := adapters.CanonicalListenAddr(addr, adapters.TrustPolicy{})
+		if err != nil || got != addr {
+			t.Errorf("canonicalize numeric loopback %q = %q, %v", addr, got, err)
+		}
+	}
+}
+
+func TestCanonicalListenAddrStillValidatesNonLoopback(t *testing.T) {
+	t.Parallel()
+	if _, err := adapters.CanonicalListenAddr(":8765", adapters.TrustPolicy{}); err == nil {
+		t.Fatal("wildcard without token must be refused")
+	}
+	got, err := adapters.CanonicalListenAddr(":8765", adapters.TrustPolicy{Token: "s3cret"})
+	if err != nil || got != ":8765" {
+		t.Fatalf("token-protected wildcard = %q, %v", got, err)
+	}
+}
+
 func TestValidateListenAddrFailsClosed(t *testing.T) {
 	t.Parallel()
 	open := adapters.TrustPolicy{}
