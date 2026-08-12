@@ -13,8 +13,29 @@
 
 See `Catalog()` — `code_index`, `code_search`, `code_find_relevant`,
 `code_expand`, `code_impact`, `code_find_route`, `code_freshness`,
-`code_ingest_paths`, `code_exact` / `code_defs` / `code_refs`, plus
-`memory_ask` (company residual) and `catalog` / `ping`.
+`code_ingest_paths`, `code_exact` / `code_defs` / `code_refs` / `code_imports`,
+`code_read`, `code_watch`, plus `memory_ask` (company residual) and
+`catalog` / `ping`.
+
+### code_read (bounded source-region read)
+
+Reads a workspace-relative path with path-traversal, absolute-path, and
+symlink-escape rejection. `start_line` defaults to 1; `max_lines` defaults to
+200 and is capped at 1,000. Returns `path`, `content`, `start_line`,
+`end_line`, and `truncated` (true when the source extends beyond the window).
+
+### code_imports (exact import lane)
+
+Equivalent to `code_exact kind=import`. Searches the exact code index for
+import declarations matching the query. Returns the same `result` /
+`duration_ms` / `search_backend` shape as `code_exact`.
+
+### code_watch (bounded freshness adapter)
+
+Runs the codecrawl `WatchPoll` or `WatchFS` adapter for a finite number of
+cycles (default `max_cycles=1`; the JSONL verb does not hang). Collects
+refresh events and errors into `events`. Context cancellation is respected.
+The CLI streaming watcher (`sentra-code-memory watch`) is unchanged.
 
 ## Bounded context packing (opt-in)
 
@@ -41,8 +62,7 @@ SCM session continuation packets —
 `CatalogMetadata()` verb specs (surface, status, fields, aliases). The
 `catalog` verb returns the legacy `verbs` list; typed `specs` are opt-in
 via `detail: true` to keep the discovery response lean.
-Planned verbs (`code_read`, `code_imports`, `code_watch` over JSONL) are
-typed now and gain handlers in later phases. `DecodeResponse` binds any
+`DecodeResponse` binds any
 wire response to its typed form; `contract_test.go` proves the typed
 contracts match live handler behavior against `testdata/scmfixture`.
 
