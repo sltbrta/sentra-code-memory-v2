@@ -170,6 +170,7 @@ func Pack(req Request) Result {
 	for _, a := range alloc {
 		allocated += a
 	}
+	usedTokens := 0
 	if limit > 0 {
 		res.Meta.Unallocated = limit - allocated
 	}
@@ -201,8 +202,20 @@ func Pack(req Request) Result {
 
 		content := rendered[i]
 		truncated := false
-		if limit > 0 && alloc[i] < len(content) {
-			content = truncateLines(content, alloc[i])
+		itemLimit := alloc[i]
+		if req.Budget.MaxTokens > 0 {
+			remaining := req.Budget.MaxTokens - usedTokens
+			if remaining <= 0 {
+				omit("budget")
+				continue
+			}
+			tokenBytes := remaining * bytesPerToken
+			if itemLimit == 0 || tokenBytes < itemLimit {
+				itemLimit = tokenBytes
+			}
+		}
+		if itemLimit < len(content) {
+			content = truncateLines(content, itemLimit)
 			truncated = true
 		}
 		if truncated && content == "" {
@@ -242,6 +255,7 @@ func Pack(req Request) Result {
 		}
 		res.Meta.UsedBytes += item.Bytes
 		res.Meta.UsedTokens += item.Tokens
+		usedTokens += item.Tokens
 		res.Items = append(res.Items, item)
 	}
 	res.Meta.Items = len(res.Items)

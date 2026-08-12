@@ -831,7 +831,15 @@ func safeRootPath(root, rel string) (string, bool) {
 	if err != nil || (abs != rootAbs && !strings.HasPrefix(abs, rootAbs+string(filepath.Separator))) {
 		return "", false
 	}
-	return abs, true
+	resolvedRoot, err := filepath.EvalSymlinks(rootAbs)
+	if err != nil {
+		return "", false
+	}
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil || (resolved != resolvedRoot && !strings.HasPrefix(resolved, resolvedRoot+string(filepath.Separator))) {
+		return "", false
+	}
+	return resolved, true
 }
 
 func previewFile(abs string, maxLines int) (string, int) {
