@@ -277,6 +277,7 @@ func newEmptyIndex() *Index {
 		fileImps:     map[string][]string{},
 		fileHashes:   map[string]string{},
 		fileStamps:   map[string]FileStamp{},
+		fileEdges:    map[string][]Edge{},
 	}
 }
 
@@ -315,6 +316,16 @@ func copyFileFrom(prev, dst *Index, rel, hash string, stamp FileStamp) {
 	if imps, ok := prev.fileImps[rel]; ok {
 		dst.fileImps[rel] = append([]string(nil), imps...)
 	}
+	if edges, ok := prev.fileEdges[rel]; ok {
+		// Bounded copy — delta reuse must not alias prev's slice so that
+		// later mutations (rare; tests, repair paths) stay isolated.
+		if dst.fileEdges == nil {
+			dst.fileEdges = map[string][]Edge{}
+		}
+		cp := make([]Edge, len(edges))
+		copy(cp, edges)
+		dst.fileEdges[rel] = cp
+	}
 }
 
 func cloneIndexShallow(prev *Index) *Index {
@@ -345,6 +356,11 @@ func cloneIndexShallow(prev *Index) *Index {
 	for path, st := range prev.fileStamps {
 		idx.fileStamps[path] = st
 	}
+	for path, edges := range prev.fileEdges {
+		cp := make([]Edge, len(edges))
+		copy(cp, edges)
+		idx.fileEdges[path] = cp
+	}
 	return idx
 }
 
@@ -363,7 +379,9 @@ func pruneDeleted(idx *Index, live map[string]struct{}) {
 		delete(idx.fileImps, path)
 		delete(idx.fileHashes, path)
 		delete(idx.fileStamps, path)
+		delete(idx.fileEdges, path)
 	}
+	idx.graph = nil // invalidate cached projection
 }
 
 // rebuildGlobalFromFiles reconstructs inverted + SymbolGraph from per-file maps.

@@ -28,25 +28,27 @@ type localIndex struct {
 	bytesRd  int64
 	errCount int
 	// per-file inverted + symbol extracts for stack-graph delta reuse
-	filePost map[string]map[string]int
-	fileDefs map[string][]string
-	fileRefs map[string][]string
-	fileImps map[string][]string
-	hashes   map[string]string
-	stamps   map[string]FileStamp
-	muHash   sync.Mutex
+	filePost  map[string]map[string]int
+	fileDefs  map[string][]string
+	fileRefs  map[string][]string
+	fileImps  map[string][]string
+	fileEdges map[string][]Edge
+	hashes    map[string]string
+	stamps    map[string]FileStamp
+	muHash    sync.Mutex
 }
 
 func newLocalIndex() *localIndex {
 	return &localIndex{
-		inverted: map[string]map[string]int{},
-		files:    map[string]struct{}{},
-		filePost: map[string]map[string]int{},
-		fileDefs: map[string][]string{},
-		fileRefs: map[string][]string{},
-		fileImps: map[string][]string{},
-		hashes:   map[string]string{},
-		stamps:   map[string]FileStamp{},
+		inverted:  map[string]map[string]int{},
+		files:     map[string]struct{}{},
+		filePost:  map[string]map[string]int{},
+		fileDefs:  map[string][]string{},
+		fileRefs:  map[string][]string{},
+		fileImps:  map[string][]string{},
+		fileEdges: map[string][]Edge{},
+		hashes:    map[string]string{},
+		stamps:    map[string]FileStamp{},
 	}
 }
 
@@ -81,6 +83,11 @@ func (l *localIndex) add(rel, body string, nbytes int) {
 	if len(imps) > 0 {
 		l.fileImps[rel] = imps
 	}
+	// Phase 2 typed-edge extraction (issue #13): bounded, deterministic,
+	// lexical fallback when go/parser is unavailable.
+	if edges := extractTypedEdges(rel, body); len(edges) > 0 {
+		l.fileEdges[rel] = edges
+	}
 }
 
 // mergeInto folds worker-local postings into the shared Index (single-threaded).
@@ -96,6 +103,9 @@ func (l *localIndex) mergeInto(idx *Index) {
 	}
 	if idx.fileImps == nil {
 		idx.fileImps = map[string][]string{}
+	}
+	if idx.fileEdges == nil {
+		idx.fileEdges = map[string][]Edge{}
 	}
 	if idx.fileHashes == nil {
 		idx.fileHashes = map[string]string{}
@@ -142,6 +152,12 @@ func (l *localIndex) mergeInto(idx *Index) {
 		for _, p := range imps {
 			idx.symbols.addImport(file, p)
 		}
+	}
+	for file, edges := range l.fileEdges {
+		// Bounded copy so later local-index mutations cannot alias shared state.
+		cp := make([]Edge, len(edges))
+		copy(cp, edges)
+		idx.fileEdges[file] = cp
 	}
 	for path, h := range l.hashes {
 		idx.fileHashes[path] = h
