@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "73a4632da2edaf07f43eb43ea350abbb7edbd33b",
+  "one_shot": true,
+  "rule": "pr.manifest",
+  "reason": "The publication branch now has a current workflow manifest, release-eligible preflight, approved paired/fresh-eyes receipts, and cleanup evidence for the exact implementation/evidence head. The user authorized autonomous publication.",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "user",
+  "approved_at": "2026-08-12T02:19:20.952Z"
+}
