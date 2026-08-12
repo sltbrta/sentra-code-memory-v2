@@ -2,11 +2,14 @@ package codecrawl
 
 import (
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -69,7 +72,72 @@ func init() {
 	gob.Register(Provenance{})
 }
 
+// ErrRootMismatch marks a durable index bound to a different workspace root
+// than the caller requested. Load paths must fail closed on it; refresh paths
+// (OpenOrRefresh) recover by reindexing the caller's root.
+var ErrRootMismatch = errors.New("codecrawl: durable index root mismatch")
+
+// ValidateRoot fails closed when the persisted root binding disagrees with the
+// caller's root. An empty caller root means no expectation (nil). An index
+// with no recorded root cannot prove the binding and is rejected.
+func ValidateRoot(meta DurableMeta, root string) error {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return nil
+	}
+	if strings.TrimSpace(meta.Root) == "" {
+		return fmt.Errorf("%w: index has no root binding, caller root %q",
+			ErrRootMismatch, root)
+	}
+	bound, berr := canonicalRoot(meta.Root)
+	want, werr := canonicalRoot(root)
+	if berr == nil && werr == nil && bound == want {
+		return nil
+	}
+	return fmt.Errorf("%w: index bound to %q, caller root %q",
+		ErrRootMismatch, meta.Root, root)
+}
+
+// canonicalRoot normalizes a root for binding comparison, resolving symlinks
+// (e.g. /var → /private/var on macOS) so the same workspace compares equal.
+func canonicalRoot(p string) (string, error) {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+	if real, err := filepath.EvalSymlinks(abs); err == nil {
+		return real, nil
+	}
+	return abs, nil
+}
+
+// persistGuards serializes Save/Load within this process per gob path; the
+// flock sidecar (lockIndexFile) extends the same coordination across
+// processes. Both layers fail closed in Save.
+var (
+	persistGuardsMu sync.Mutex
+	persistGuards   = map[string]*sync.Mutex{}
+)
+
+func persistGuard(path string) *sync.Mutex {
+	persistGuardsMu.Lock()
+	defer persistGuardsMu.Unlock()
+	mu, ok := persistGuards[path]
+	if !ok {
+		mu = &sync.Mutex{}
+		persistGuards[path] = mu
+	}
+	return mu
+}
+
 // Save writes a durable index next to path (atomic temp+rename).
+//
+// Durability contract (issue #42): an in-process mutex plus an advisory flock
+// sidecar coordinate concurrent readers/writers; the payload is fsynced
+// before rename and the parent directory is fsynced after rename where
+// supported; a stale .tmp from an interrupted writer is discarded before
+// writing. A crash therefore always leaves old-or-complete-new state, never a
+// partial gob.
 func (idx *Index) Save(path string, root string) error {
 	if idx == nil {
 		return fmt.Errorf("codecrawl: save nil index")
@@ -80,6 +148,14 @@ func (idx *Index) Save(path string, root string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
+	guard := persistGuard(path)
+	guard.Lock()
+	defer guard.Unlock()
+	release, err := lockIndexFile(path, true)
+	if err != nil {
+		return err // fail closed: writers must coordinate
+	}
+	defer release()
 	// Ensure globals present before persist (warm load can skip rebuild).
 	if len(idx.inverted) == 0 {
 		rebuildGlobalFromFiles(idx)
@@ -107,6 +183,9 @@ func (idx *Index) Save(path string, root string) error {
 		snap.GlobalRefs = idx.symbols.Refs
 	}
 	tmp := path + ".tmp"
+	// Discard an interrupted writer's stale temp file so a crashed Save never
+	// blocks recovery; the live gob (old state) stays untouched until rename.
+	_ = os.Remove(tmp)
 	f, err := os.Create(tmp)
 	if err != nil {
 		return err
@@ -117,15 +196,50 @@ func (idx *Index) Save(path string, root string) error {
 		_ = os.Remove(tmp)
 		return err
 	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
 	if err := f.Close(); err != nil {
 		_ = os.Remove(tmp)
 		return err
 	}
-	return os.Rename(tmp, path)
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return syncParentDir(filepath.Dir(path))
 }
 
-// Load reads a durable index and rebuilds global inverted + symbol graph.
+// syncParentDir fsyncs a directory after rename so the new gob name is
+// durable. Filesystems that provide atomic rename but reject directory fsync
+// (EINVAL/ENOTSUP) are tolerated; every other failure fails closed.
+func syncParentDir(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	syncErr := d.Sync()
+	closeErr := d.Close()
+	if syncErr != nil && !errors.Is(syncErr, syscall.EINVAL) && !errors.Is(syncErr, syscall.ENOTSUP) {
+		return syncErr
+	}
+	return closeErr
+}
+
+// Load reads a durable index and rebuilds global inverted + symbol graph. A
+// shared lock coordinates with concurrent writers; a corrupt or partial gob
+// is a hard decode error, never a silently degraded index.
 func Load(path string) (*Index, DurableMeta, error) {
+	guard := persistGuard(path)
+	guard.Lock()
+	defer guard.Unlock()
+	// Best-effort shared coordination: a read-only directory must not make a
+	// valid gob unreadable (rename atomicity remains the primary guarantee).
+	if release, err := lockIndexFile(path, false); err == nil {
+		defer release()
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, DurableMeta{}, err
@@ -207,8 +321,11 @@ func OpenOrRefresh(root, gobPath string, workers int, forceFull bool) (*Index, S
 	var meta DurableMeta
 	if !forceFull {
 		if p, m, err := Load(gobPath); err == nil {
-			want, _ := filepath.Abs(m.Root)
-			if want == "" || want == rootAbs {
+			// Reject a gob bound to a different workspace (symlink-aware) and
+			// reindex rather than serve a mismatched root/index pair.
+			if bound, berr := canonicalRoot(m.Root); berr != nil || bound == "" {
+				prev = nil
+			} else if want, werr := canonicalRoot(rootAbs); werr == nil && bound == want {
 				prev = p
 				meta = m
 			}

@@ -57,3 +57,20 @@ if !res.Accepted {
     // res.Rejected lists every RejectReason; res.Reasons gives detail.
 }
 ```
+
+## Transactional ChangeSet application (#45)
+
+`ApplyChangeSet` turns the pure contract into a bounded local transaction.
+`CandidateEdit.Range` is a zero-based byte range and `Replacement` is its exact
+replacement. The caller supplies frozen per-file digests; when `root` is a Git
+worktree root, `ChangeSet.Base` must also equal `HEAD`.
+
+The implementation rejects non-canonical/escaping/symlinked paths, overlaps,
+stale bases, oversized candidates, digest divergence, and failed verification.
+It stages the complete tree in a detached Git worktree (or a bounded copy for a
+non-Git directory), applies all edits there, runs at most eight bounded shell
+verification commands, and only then promotes files using same-directory
+atomic renames. A promotion-boundary failure restores every original file.
+Receipts contain paths, digests, and command/output digests only—never source,
+replacement text, or verifier output. `ApplyOptions.InjectFailureAt` is an
+in-process test seam and is not exposed by any agent-facing protocol.

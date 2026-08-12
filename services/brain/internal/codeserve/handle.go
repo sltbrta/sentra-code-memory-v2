@@ -13,7 +13,11 @@ import (
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/contextpack"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/hosted"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/memory"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/productsearch"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/repoignore"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/savings"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/sessionlog"
 )
 
 // Request is one JSON-line protocol request.
@@ -69,8 +73,30 @@ func Handle(ctx context.Context, req Request) Response {
 		return handleCodeImports(ctx, req)
 	case VerbCodeWatch:
 		return handleCodeWatch(ctx, req)
+	case VerbRepoMap:
+		return handleRepoMap(req)
+	case VerbStructuralSearch:
+		return handleStructuralSearch(req)
+	case VerbDiagnostics:
+		return handleDiagnostics(req)
+	case VerbApplyChangeSet:
+		return handleApplyChangeSet(ctx, req)
 	case VerbMemoryAsk:
 		return handleMemoryAsk(ctx, req)
+	case VerbMemoryPut:
+		return handleMemoryPut(req)
+	case VerbMemorySearch:
+		return handleMemorySearch(req)
+	case VerbMemoryList:
+		return handleMemoryList(req)
+	case VerbMemoryPromote:
+		return handleMemoryPromote(req)
+	case VerbSessionContinuation:
+		return handleSessionContinuation(req)
+	case VerbSavingsSummary:
+		return handleSavingsSummary(req)
+	case VerbLifecycleInstall, VerbSessionProduct, VerbCodeDenseRerank, VerbHostedTenancy, VerbQueryAdvanced:
+		return deferredResp(Verb(verb))
 	// Back-compat alias used by earlier serve path.
 	case "find_route":
 		req["verb"] = string(VerbFindRoute)
@@ -185,7 +211,13 @@ func loadIndex(req Request) (*codecrawl.Index, string, string, error) {
 		if err != nil {
 			return nil, "", "", err
 		}
-		if rootAbs == "" {
+		if rootAbs != "" {
+			// no_refresh must fail clearly on root mismatch rather than
+			// serve another workspace's index.
+			if err := codecrawl.ValidateRoot(meta, rootAbs); err != nil {
+				return nil, "", "", err
+			}
+		} else {
 			rootAbs = meta.Root
 		}
 		return idx, rootAbs, gobPath, nil
@@ -438,7 +470,12 @@ func handleFreshness(req Request) Response {
 	if err != nil {
 		return idxErrResp(string(VerbFreshness), err)
 	}
-	if rootAbs == "" {
+	if rootAbs != "" {
+		// Freshness must fail clearly on root mismatch (issue #42).
+		if err := codecrawl.ValidateRoot(meta, rootAbs); err != nil {
+			return idxErrResp(string(VerbFreshness), err)
+		}
+	} else {
 		rootAbs = meta.Root
 	}
 	t0 := time.Now()
@@ -479,6 +516,8 @@ func handleIngestPaths(req Request) Response {
 		if err != nil {
 			return idxErrResp(string(VerbIngestPaths), err)
 		}
+	} else if err := codecrawl.ValidateRoot(meta, rootAbs); err != nil {
+		return idxErrResp(string(VerbIngestPaths), err)
 	}
 	n, err := idx.IngestPaths(rootAbs, rels)
 	if err != nil {
@@ -536,6 +575,249 @@ func handleMemoryAsk(ctx context.Context, req Request) Response {
 	topK := intField(req, "top_k", 6)
 	ans := c.AnswerOpts(ctx, hosted.AnswerOptions{Question: q, TopK: topK, SessionID: sid})
 	return okResp(string(VerbMemoryAsk), map[string]any{"answer": ans})
+}
+
+func openMemoryStore(req Request) (*memory.Store, Response) {
+	dir := str(req, "dir")
+	if dir == "" {
+		return nil, errResp(str(req, "verb"), "dir required")
+	}
+	store, err := memory.Open(dir)
+	if err != nil {
+		return nil, errResp(str(req, "verb"), err.Error())
+	}
+	return store, nil
+}
+
+func handleMemoryPut(req Request) Response {
+	store, errRespIfAny := openMemoryStore(req)
+	if store == nil {
+		return errRespIfAny
+	}
+	principal := str(req, "principal")
+	text := str(req, "text")
+	if principal == "" || text == "" {
+		return errResp(string(VerbMemoryPut), "principal and text required")
+	}
+	kind := str(req, "kind")
+	tier := str(req, "tier")
+	tags := strSliceField(req, "tags")
+	entry, err := store.PutAgentMemoryTier(principal, kind, text, tags, tier)
+	if err != nil {
+		return errResp(string(VerbMemoryPut), err.Error())
+	}
+	return okResp(string(VerbMemoryPut), map[string]any{"entry": entry})
+}
+
+func handleMemorySearch(req Request) Response {
+	store, errRespIfAny := openMemoryStore(req)
+	if store == nil {
+		return errRespIfAny
+	}
+	principal := str(req, "principal")
+	if principal == "" {
+		return errResp(string(VerbMemorySearch), "principal required")
+	}
+	q := str(req, "q")
+	limit := intField(req, "limit", 50)
+	entries := store.SearchAgentMemory(principal, q, limit)
+	return okResp(string(VerbMemorySearch), map[string]any{
+		"entries": entries, "count": len(entries),
+	})
+}
+
+func handleMemoryList(req Request) Response {
+	store, errRespIfAny := openMemoryStore(req)
+	if store == nil {
+		return errRespIfAny
+	}
+	principal := str(req, "principal")
+	if principal == "" {
+		return errResp(string(VerbMemoryList), "principal required")
+	}
+	limit := intField(req, "limit", 50)
+	entries := store.GetAgentMemory(principal, limit)
+	return okResp(string(VerbMemoryList), map[string]any{
+		"entries": entries, "count": len(entries),
+	})
+}
+
+func handleMemoryPromote(req Request) Response {
+	store, errRespIfAny := openMemoryStore(req)
+	if store == nil {
+		return errRespIfAny
+	}
+	id := str(req, "id")
+	tier := str(req, "tier")
+	principal := str(req, "principal")
+	if id == "" || tier == "" || principal == "" {
+		return errResp(string(VerbMemoryPromote), "id, tier, and principal required")
+	}
+	if principal != "" {
+		entries := store.SearchAgentMemory(principal, "", 10000)
+		found := false
+		for _, entry := range entries {
+			if entry.ID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return codeErrResp(string(VerbMemoryPromote), ErrPathDenied, "memory entry is not owned by principal")
+		}
+	}
+	if err := store.PromoteAgentMemory(id, tier); err != nil {
+		return errResp(string(VerbMemoryPromote), err.Error())
+	}
+	return okResp(string(VerbMemoryPromote), map[string]any{"id": id, "tier": tier})
+}
+
+// --- Bounded session continuation composite (issue #47) -------------------
+
+func handleSessionContinuation(req Request) Response {
+	dir := str(req, "dir")
+	if dir == "" {
+		return errResp(string(VerbSessionContinuation), "dir required")
+	}
+	w, err := sessionlog.Open(dir)
+	if err != nil {
+		return errResp(string(VerbSessionContinuation), err.Error())
+	}
+	events := w.Events()
+	base := sessionlog.Provenance{
+		Repository: str(req, "repository"),
+		Tree:       str(req, "tree"),
+	}
+	opts := sessionlog.DefaultContinuationOptions()
+	opts.IncludeSuperseded = boolField(req, "include_superseded", false)
+	budgets := sessionlog.Budgets{
+		L0: intField(req, "l0_bytes", opts.Budgets.L0),
+		L1: intField(req, "l1_bytes", opts.Budgets.L1),
+		L2: intField(req, "l2_bytes", opts.Budgets.L2),
+		L3: intField(req, "l3_bytes", opts.Budgets.L3),
+	}
+	opts.Budgets = budgets
+	now := time.Now().UTC()
+	if raw := str(req, "now"); raw != "" {
+		parsed, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			return errResp(string(VerbSessionContinuation), "now must be RFC3339: "+err.Error())
+		}
+		now = parsed.UTC()
+	}
+	cont, err := sessionlog.BuildContinuation(events, base, opts, now)
+	if err != nil {
+		return errResp(string(VerbSessionContinuation), err.Error())
+	}
+	return okResp(string(VerbSessionContinuation), map[string]any{
+		"continuation": cont, "source_events": len(events),
+	})
+}
+
+// --- Local token-savings read (issue #47) ---------------------------------
+
+func handleSavingsSummary(req Request) Response {
+	dir := str(req, "dir")
+	if dir == "" {
+		return errResp(string(VerbSavingsSummary), "dir required")
+	}
+	ledger, err := savings.Open(dir)
+	if err != nil {
+		return errResp(string(VerbSavingsSummary), err.Error())
+	}
+	summary := ledger.Summary()
+	return okResp(string(VerbSavingsSummary), map[string]any{
+		"summary": summary, "text": summary.String(),
+	})
+}
+
+// --- Deferred / non-goal disclosures (issue #47) --------------------------
+
+// deferredSpec is the parity disclosure for one intentionally-retired verb.
+type deferredSpec struct {
+	Decision string // deferred | non_goal
+	Reason   string
+	Doc      string
+}
+
+// deferredSpecs is the canonical parity decision for every catalogued verb
+// that the standalone product deliberately does not implement (issue #47).
+// Keeping the disclosure next to the catalog means the gap is discoverable
+// (catalog lists the verb) and honest (calling it returns a structured 501-
+// class response instead of an opaque unknown-verb error).
+var deferredSpecs = map[Verb]deferredSpec{
+	VerbLifecycleInstall: {
+		Decision: "deferred",
+		Reason:   "managed-server install/service/hook/uninstall lifecycle is not owned by the standalone local CLI; see the parity decision doc",
+		Doc:      "docs/decisions/0025-memory-session-lifecycle-parity.md",
+	},
+	VerbSessionProduct: {
+		Decision: "deferred",
+		Reason:   "full SCM session continuation product (agent continuation packets, latent development-state memory) is a different product class; the bounded local session_continuation composite is the standalone surface",
+		Doc:      "docs/specs/product/SCM-SESSION-PRODUCT.md",
+	},
+	VerbCodeDenseRerank: {
+		Decision: "deferred",
+		Reason:   "dense/reranked retrieval lane is not wired into the standalone code operator; retrieval is the local heuristic lane only",
+		Doc:      "docs/decisions/0025-memory-session-lifecycle-parity.md",
+	},
+	VerbHostedTenancy: {
+		Decision: "non_goal",
+		Reason:   "hosted multi-tenancy, cloud sync/overlays, and billing are explicit non-goals of the standalone local-first product",
+		Doc:      "docs/roadmap/DEFERRED-AND-NON-GOALS.md",
+	},
+	VerbQueryAdvanced: {
+		Decision: "deferred",
+		Reason:   "prior query modes (patch plans, test hints, related graph/source context, greenfield/native-first) are not part of the standalone operator surface",
+		Doc:      "docs/decisions/0025-memory-session-lifecycle-parity.md",
+	},
+}
+
+// deferredResp returns the structured disclosure for a deferred verb. OK is
+// false with a stable error_code=deferred so callers can distinguish a
+// deliberate gap from a typo (unknown_verb) or a malformed request.
+func deferredResp(verb Verb) Response {
+	spec, ok := deferredSpecs[verb]
+	if !ok {
+		return codeErrResp(string(verb), ErrUnknownVerb, "unknown verb")
+	}
+	return Response{
+		"ok": false, "verb": string(verb),
+		"error":         spec.Decision + ": " + spec.Reason,
+		"error_code":    string(ErrDeferred),
+		"deferred":      true,
+		"decision":      spec.Decision,
+		"reason":        spec.Reason,
+		"doc":           spec.Doc,
+		"product_owned": true,
+	}
+}
+
+// strSliceField reads a string-slice field that may arrive as a JSON array or
+// a comma-separated string.
+func strSliceField(req Request, key string) []string {
+	switch v := req[key].(type) {
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				if s = strings.TrimSpace(s); s != "" {
+					out = append(out, s)
+				}
+			}
+		}
+		return out
+	case string:
+		var out []string
+		for _, part := range strings.Split(v, ",") {
+			if part = strings.TrimSpace(part); part != "" {
+				out = append(out, part)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 // --- code_read: bounded source-region read with path safety -----------------
@@ -598,6 +880,12 @@ func handleCodeRead(ctx context.Context, req Request) Response {
 		return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
 			"path is not a regular file")
 	}
+	// Trust gates (issue #41): by default a read must also survive the
+	// repository ignore policy and — when a durable index exists — index
+	// membership. allow_ignored / allow_unindexed are the explicit opt-ins.
+	if denial := gateCodeReadPath(req, rootAbs, rootReal, real, path); denial != nil {
+		return denial
+	}
 	startLine := intField(req, "start_line", defaultStartLine)
 	if startLine < 1 {
 		startLine = 1
@@ -659,6 +947,93 @@ func handleCodeRead(ctx context.Context, req Request) Response {
 		"end_line":   endLine,
 		"truncated":  truncated,
 	})
+}
+
+// gateCodeReadPath enforces the repoignore and index-membership read policy
+// (issue #41). It returns nil when the read may proceed, else a structured
+// denial response. Path/symlink/regular-file checks run before this gate and
+// are never bypassed by the opt-in fields.
+func gateCodeReadPath(req Request, rootAbs, rootReal, real, reqPath string) Response {
+	verb := string(VerbCodeRead)
+	if !boolField(req, "allow_ignored", false) {
+		matcher, err := repoignore.Load(rootReal)
+		if err != nil {
+			// Fail closed: an unreadable ignore file must not broaden reads.
+			return codeErrResp(verb, ErrInternal,
+				"ignore policy unavailable: "+err.Error())
+		}
+		if rel, err := filepath.Rel(rootReal, real); err == nil && matcher.Ignored(rel, false) {
+			return codeErrResp(verb, ErrPathDenied,
+				"path denied by repository ignore policy (explicit opt-in: allow_ignored)")
+		}
+	}
+	if boolField(req, "allow_unindexed", false) {
+		return nil
+	}
+	gobPath := codecrawl.DefaultIndexPath(rootAbs)
+	if cache := firstStr(req, "index_cache", "index-cache"); cache != "" {
+		if out, err := filepath.Abs(cache); err == nil {
+			gobPath = filepath.Join(out, "code-index.gob")
+		}
+	}
+	if _, err := os.Stat(gobPath); err != nil {
+		// Compatibility fallback: without a durable index the ignore gate is
+		// the only membership policy available for this workspace.
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return codeErrResp(verb, ErrInternal, err.Error())
+	}
+	idx, meta, err := codecrawl.Load(gobPath)
+	if err != nil {
+		// Fail closed: membership cannot be verified against a broken index.
+		return codeErrResp(verb, ErrIndexUnavailable,
+			"index membership cannot be verified: "+err.Error())
+	}
+	if err := codecrawl.ValidateRoot(meta, rootAbs); err != nil {
+		return codeErrResp(verb, ErrIndexUnavailable, err.Error())
+	}
+	for _, cand := range readMembershipCandidates(rootAbs, rootReal, real, reqPath) {
+		if idx.HasFile(cand) {
+			return nil
+		}
+	}
+	return codeErrResp(verb, ErrPathDenied,
+		"path is not a member of the durable code index (explicit opt-in: allow_unindexed)")
+}
+
+// readMembershipCandidates yields the relative-path spellings under which the
+// index may have recorded the resolved file: the requested path, the
+// symlink-resolved relative path, and the unresolved-root relative path when
+// the root itself traverses a symlink (e.g. /var on macOS).
+func readMembershipCandidates(rootAbs, rootReal, real, reqPath string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	add := func(p string) {
+		if p != "" && !strings.HasPrefix(p, "..") && !filepath.IsAbs(p) && !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	add(filepath.Clean(reqPath))
+	if rel, err := filepath.Rel(rootReal, real); err == nil {
+		add(rel)
+	}
+	if rootAbs != rootReal {
+		if rel, err := filepath.Rel(rootAbs, real); err == nil {
+			add(rel)
+		}
+	}
+	return out
+}
+
+func firstStr(req Request, keys ...string) string {
+	for _, k := range keys {
+		if v := str(req, k); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // --- code_imports: exact import lane equivalent to code_exact kind=import -----

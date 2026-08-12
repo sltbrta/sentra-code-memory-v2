@@ -60,8 +60,9 @@ single existing repair opportunity or force a fail-closed abstention. Other
 contract surfaces remain explicitly `scorer_unavailable` until they have a
 population-appropriate calibration and the same low-confidence enforcement.
 
-The retained receipt and its limitations are
-[`factual-consistency-calibration-v1.json`](../../../../docs/stages/stage-09/evidence/factual-consistency-calibration-v1.json).
+The retained receipt and its limitations are recorded in the stage-09
+evidence file `factual-consistency-calibration-v1.json` (not checked into
+this standalone extraction).
 
 ## Verification
 

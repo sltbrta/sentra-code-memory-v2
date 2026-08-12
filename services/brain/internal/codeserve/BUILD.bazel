@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "codeserve",
     srcs = [
+        "advanced.go",
         "catalog.go",
         "contract.go",
         "doc.go",
@@ -14,23 +15,36 @@ go_library(
         "//services/brain/internal/codecrawl",
         "//services/brain/internal/contextpack",
         "//services/brain/internal/hosted",
+        "//services/brain/internal/memory",
         "//services/brain/internal/productsearch",
+        "//services/brain/internal/savings",
+        "//services/brain/internal/sessionlog",
+        "//services/brain/internal/repoignore",
+        "//services/brain/internal/workflow",
     ],
 )
 
 go_test(
     name = "codeserve_test",
     srcs = [
+        "advanced_test.go",
         "conformance_test.go",
         "contract_test.go",
         "impact_test.go",
         "handle_bounded_test.go",
         "handle_test.go",
+        "read_gate_test.go",
         "read_watch_test.go",
+        "handle_memory_session_test.go",
     ],
     embed = [":codeserve"],
     deps = [
         "//services/brain/internal/codecrawl",
+        "//services/brain/internal/memory",
+        "//services/brain/internal/repoignore",
+        "//services/brain/internal/savings",
+        "//services/brain/internal/sessionlog",
+        "//services/brain/internal/workflow",
     ],
     data = glob(["testdata/**"]),
     tags = [

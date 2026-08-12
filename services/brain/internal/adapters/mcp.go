@@ -131,12 +131,17 @@ func MCPTools() []MCPTool {
 func mcpFieldSchema(field string) map[string]any {
 	switch field {
 	case "workers", "top_k", "max_bytes", "max_tokens", "start_line",
-		"max_lines", "max_depth", "max_files", "max_bridges", "interval_ms",
+		"max_lines", "max_depth", "max_files", "max_matches", "max_bridges", "interval_ms",
 		"debounce_ms", "queue_size", "retry_initial_ms", "retry_max_ms",
-		"max_cycles", "timeout_ms":
+		"max_cycles", "timeout_ms", "l0_bytes", "l1_bytes", "l2_bytes", "l3_bytes":
 		return map[string]any{"type": "integer"}
-	case "force", "no_refresh", "preview", "fsnotify":
+	case "force", "no_refresh", "preview", "fsnotify", "include_superseded",
+		"allow_ignored", "allow_unindexed":
 		return map[string]any{"type": "boolean"}
+	case "changeset":
+		return map[string]any{"type": "object"}
+	case "mode":
+		return map[string]any{"type": "string", "enum": []string{"fast", "quality", "deep"}}
 	case "paths":
 		return map[string]any{"oneOf": []any{
 			map[string]any{"type": "string"},

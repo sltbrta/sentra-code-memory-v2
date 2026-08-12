@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeserve"
@@ -16,16 +17,22 @@ type HTTPConfig struct {
 	Addr string
 	// Timeout bounds a single dispatch (0 means caller lifetime).
 	Timeout time.Duration
+	// Token, when set, requires "Authorization: Bearer <token>" on every
+	// endpoint (issue #41 explicit local trust).
+	Token string
 }
 
 // NewHTTP returns an http.Handler that exposes health and dispatch endpoints
 // over codeserve.Handle. It is the canonical local HTTP surface (issue #35):
 // requests are bounded, errors are structured, and behavior matches JSONL/CLI.
+// The trust boundary is explicit (issue #41): callers are expected to bind
+// loopback (validated by ValidateListenAddr in the CLI) and may require a
+// bearer token via HTTPConfig.Token.
 func NewHTTP(cfg HTTPConfig) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/dispatch", dispatchHandler(cfg.Timeout))
-	return bounded(mux)
+	return bounded(TrustPolicy{Token: cfg.Token}.wrap(mux))
 }
 
 // healthHandler reports liveness and the active contract id.
@@ -48,6 +55,15 @@ func dispatchHandler(timeout time.Duration) http.HandlerFunc {
 		if r.Method != http.MethodPost {
 			writeJSONStatus(w, http.StatusMethodNotAllowed, structuredErr(
 				"dispatch", "POST required", http.StatusMethodNotAllowed))
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" {
+			writeJSONStatus(w, http.StatusForbidden, structuredErr("dispatch", "cross-origin requests are forbidden", http.StatusForbidden))
+			return
+		}
+		contentType := strings.ToLower(strings.TrimSpace(strings.SplitN(r.Header.Get("Content-Type"), ";", 2)[0]))
+		if contentType != "" && contentType != "application/json" {
+			writeJSONStatus(w, http.StatusUnsupportedMediaType, structuredErr("dispatch", "application/json required", http.StatusUnsupportedMediaType))
 			return
 		}
 		raw, err := io.ReadAll(r.Body)
