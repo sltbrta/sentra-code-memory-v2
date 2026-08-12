@@ -73,17 +73,17 @@ func TestCatalogMetadataContract(t *testing.T) {
 			t.Fatalf("live verb %q must be stable, got %q", v, s.Status)
 		}
 	}
-	// Planned verbs are typed but not live yet.
-	for _, planned := range []string{"code_read", "code_imports", "code_watch"} {
-		s, ok := byName[planned]
+	// The remaining parity verbs are live and must remain discoverable.
+	for _, live := range []string{"code_read", "code_imports", "code_watch"} {
+		s, ok := byName[live]
 		if !ok {
-			t.Fatalf("planned verb %q missing metadata", planned)
+			t.Fatalf("live verb %q missing metadata", live)
 		}
-		if s.Status != codeserve.StatusPlanned {
-			t.Fatalf("%q must be planned, got %q", planned, s.Status)
+		if s.Status != codeserve.StatusStable {
+			t.Fatalf("%q must be stable, got %q", live, s.Status)
 		}
-		if slices.Contains(codeserve.Catalog(), planned) {
-			t.Fatalf("planned verb %q must not be live yet", planned)
+		if !slices.Contains(codeserve.Catalog(), live) {
+			t.Fatalf("live verb %q missing from catalog", live)
 		}
 	}
 	// Compatibility aliases stay wired to their canonical verbs.
