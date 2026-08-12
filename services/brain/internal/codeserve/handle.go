@@ -168,6 +168,9 @@ func loadIndex(req Request) (*codecrawl.Index, string, string, error) {
 	if workers <= 0 {
 		workers = 4
 	}
+	if workers > 256 {
+		workers = 256
+	}
 	noRefresh := boolField(req, "no_refresh", false)
 	force := boolField(req, "force", false)
 	if noRefresh {
@@ -321,7 +324,11 @@ func packFindRelevant(req Request, rootAbs string, payload codecrawl.AgentPayloa
 	}
 	sources := make([]contextpack.Source, 0, len(payload.Hits))
 	for _, h := range payload.Hits {
-		raw, err := os.ReadFile(filepath.Join(rootAbs, filepath.FromSlash(h.Path)))
+		abs, ok := codecrawl.SafeRootPath(rootAbs, h.Path)
+		if !ok {
+			continue
+		}
+		raw, err := os.ReadFile(abs)
 		if err != nil {
 			continue
 		}

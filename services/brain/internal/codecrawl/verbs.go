@@ -106,7 +106,9 @@ func (idx *Index) FindRelevant(root, query string, topK int, withPreview bool) A
 			ah.Kind = "def"
 		}
 		if withPreview && root != "" {
-			ah.Preview, ah.StartLine = previewFile(filepath.Join(root, h.Path), 12)
+			if abs, ok := safeRootPath(root, h.Path); ok {
+				ah.Preview, ah.StartLine = previewFile(abs, 12)
+			}
 		}
 		out.Hits = append(out.Hits, ah)
 		if len(out.Hits) >= topK {
@@ -809,6 +811,27 @@ func (idx *Index) IngestPaths(root string, rels []string) (changed int, err erro
 	}
 	rebuildGlobalFromFiles(idx)
 	return changed, nil
+}
+
+// SafeRootPath resolves a relative indexed path only when it remains within root.
+func SafeRootPath(root, rel string) (string, bool) {
+	return safeRootPath(root, rel)
+}
+
+func safeRootPath(root, rel string) (string, bool) {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", false
+	}
+	rel = filepath.Clean(filepath.FromSlash(rel))
+	if filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	abs, err := filepath.Abs(filepath.Join(rootAbs, rel))
+	if err != nil || (abs != rootAbs && !strings.HasPrefix(abs, rootAbs+string(filepath.Separator))) {
+		return "", false
+	}
+	return abs, true
 }
 
 func previewFile(abs string, maxLines int) (string, int) {

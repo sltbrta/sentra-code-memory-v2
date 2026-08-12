@@ -20,6 +20,18 @@ var extOK = map[string]struct{}{
 	".go": {}, ".md": {}, ".py": {}, ".ts": {}, ".tsx": {}, ".js": {}, ".rs": {},
 }
 
+const maxWorkers = 256
+
+func normalizeWorkers(workers int) int {
+	if workers < 1 {
+		return 1
+	}
+	if workers > maxWorkers {
+		return maxWorkers
+	}
+	return workers
+}
+
 // localIndex is a per-worker inverted map (no shared lock during crawl).
 // Also accumulates file-local symbol nodes (stack-graph file-incrementality).
 type localIndex struct {
@@ -219,9 +231,7 @@ func SourceFiles(root string) ([]string, error) {
 // Each worker accumulates a private inverted map and merges once at the end so
 // the crawl loop never holds a shared mutex on the hot path (G8 multi-crawler).
 func CrawlDir(root string, workers int) (*Index, Stats, error) {
-	if workers < 1 {
-		workers = 1
-	}
+	workers = normalizeWorkers(workers)
 	ignores, err := repoignore.Load(root)
 	if err != nil {
 		return nil, Stats{}, err

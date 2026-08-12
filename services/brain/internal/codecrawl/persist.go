@@ -202,9 +202,7 @@ func OpenOrRefresh(root, gobPath string, workers int, forceFull bool) (*Index, S
 	if err != nil {
 		return nil, Stats{}, false, DurableMeta{}, err
 	}
-	if workers < 1 {
-		workers = 1
-	}
+	workers = normalizeWorkers(workers)
 	var prev *Index
 	var meta DurableMeta
 	if !forceFull {
