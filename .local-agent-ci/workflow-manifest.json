@@ -1,7 +1,7 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
   "run_id": "run-1786541878028",
-  "head": "734d5c942b0d21a222a902e09d2a5c3fc1a1de26",
+  "head": "cfc91bdacd356e88b8504332bebf6654945e88a4",
   "implementer_session": "019ff62e-14d8-78d7-83c3-3d2c496adb6b",
   "workflow": "finish-jsonl-code-parity",
   "scope": "Complete remaining local code-operator parity by making bounded code_read, code_imports, and bounded JSONL code_watch live in the canonical codeserve protocol, with compatibility-preserving catalog/contract updates, safe path and resource bounds, tests, and documentation.",
