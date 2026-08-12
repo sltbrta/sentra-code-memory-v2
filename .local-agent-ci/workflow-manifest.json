@@ -1,7 +1,7 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
   "run_id": "20260811T212251Z-consolidate-scm-ouroboros-parity-and-res-25934",
-  "head": "1826f438f43a3d1c213c0fc3e1ce911d54c865de",
+  "head": "e9d7c3e19e63e96bc07f98341c4984015d74a052",
   "implementer_session": "019ff331-5c49-7b44-b672-44e4cd5f7568",
   "workflow": "canonical-go-local-first-scm-phases-1-5-vertical-slices",
   "scope": "Publish reviewed Phase 1-5 local-first Go vertical slices from phase1-5-vertical-slices. Preserve default JSONL/CLI behavior; phase 6 remains deferred.",

@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "e9d7c3e19e63e96bc07f98341c4984015d74a052",
+  "one_shot": true,
+  "rule": "pr.manifest",
+  "reason": "Autonomous end-to-end publication authorized by user (\"merge and cleanup everything into main both locally and on remote. go end to end autonomous\"). The workflow manifest is at land stage with preflight/fresh-eyes/cleanup receipts bound to head 1826f43 (the committed manifest head lags one commit by repo convention: e9d7c3e's manifest points at its parent 1826f43). Opening the release PR for phase1-5-vertical-slices. | user authorization: lets continue existing work that was undergoing and merge and cleanup everything into main both locally and on remote. go end to end autonomous",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "autonomous-session",
+  "approved_at": "2026-08-12T11:12:15.123Z"
+}
