@@ -24,3 +24,6 @@ code-index-summary.json
 .DS_Store
 .idea/
 .vscode/
+
+# Local agent-CI run logs (receipts are committed, logs are not)
+.local-agent-ci/logs/
