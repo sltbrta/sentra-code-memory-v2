@@ -738,9 +738,10 @@ func handleCodeWatch(ctx context.Context, req Request) Response {
 	fsnotify := boolField(req, "fsnotify", false)
 	timeout := defaultWatchTimeout
 	if timeoutMS := intField(req, "timeout_ms", 0); timeoutMS > 0 {
-		timeout = time.Duration(timeoutMS) * time.Millisecond
-		if timeout <= 0 || timeout > maxWatchDuration {
+		if timeoutMS > int(maxWatchDuration/time.Millisecond) {
 			timeout = maxWatchDuration
+		} else {
+			timeout = time.Duration(timeoutMS) * time.Millisecond
 		}
 	}
 
@@ -788,8 +789,11 @@ func handleCodeWatch(ctx context.Context, req Request) Response {
 		if milliseconds <= 0 {
 			return 0
 		}
+		if milliseconds > int(maxWatchDuration/time.Millisecond) {
+			return maxWatchDuration
+		}
 		d := time.Duration(milliseconds) * time.Millisecond
-		if d < 0 || d > maxWatchDuration {
+		if d <= 0 || d > maxWatchDuration {
 			return maxWatchDuration
 		}
 		return d
