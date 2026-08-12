@@ -33,6 +33,23 @@ func TestCodeReadIsBoundedAndRootSafe(t *testing.T) {
 		t.Fatalf("expected truncation metadata: %+v", resp)
 	}
 
+	eof := codeserve.Handle(context.Background(), codeserve.Request{
+		"verb": "code_read", "root": root, "path": "sample.go", "start_line": 99,
+	})
+	if eof["ok"] != true || eof["end_line"] != 98 {
+		t.Fatalf("past-EOF window: %+v", eof)
+	}
+	long := strings.Repeat("x", 70<<10) + "\n"
+	if err := os.WriteFile(filepath.Join(root, "long.go"), []byte(long), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	longRead := codeserve.Handle(context.Background(), codeserve.Request{
+		"verb": "code_read", "root": root, "path": "long.go", "max_lines": 1,
+	})
+	if longRead["ok"] != true || len(longRead["content"].(string)) != len(long)-1 {
+		t.Fatalf("long line read: %+v", longRead)
+	}
+
 	for _, path := range []string{"../outside.go", "/etc/passwd"} {
 		bad := codeserve.Handle(context.Background(), codeserve.Request{
 			"verb": "code_read", "root": root, "path": path,

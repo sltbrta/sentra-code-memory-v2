@@ -78,6 +78,7 @@ type WatchRequest struct {
 	RetryMaxMS     int  `json:"retry_max_ms,omitempty"`
 	MaxCycles      int  `json:"max_cycles,omitempty"`
 	FSNotify       bool `json:"fsnotify"`
+	TimeoutMS      int  `json:"timeout_ms,omitempty"`
 }
 
 // FreshnessRequest probes workspace-vs-index drift (code_freshness).
@@ -322,10 +323,12 @@ type ExactResponse struct {
 // (default 1) or context cancellation instead of running forever.
 type WatchResponse struct {
 	ResponseMeta
-	Root       string       `json:"root"`
-	GobPath    string       `json:"gob_path"`
-	DurationMS int64        `json:"duration_ms"`
-	Events     []WatchEvent `json:"events"`
+	Root            string       `json:"root"`
+	GobPath         string       `json:"gob_path"`
+	DurationMS      int64        `json:"duration_ms"`
+	Events          []WatchEvent `json:"events"`
+	Cancelled       bool         `json:"cancelled,omitempty"`
+	EventsTruncated bool         `json:"events_truncated,omitempty"`
 }
 
 // DecodeResponse binds a wire response to its canonical typed form. It is

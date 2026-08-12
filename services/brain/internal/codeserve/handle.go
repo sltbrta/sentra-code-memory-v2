@@ -64,7 +64,7 @@ func Handle(ctx context.Context, req Request) Response {
 	case VerbCodeExact, VerbCodeDefs, VerbCodeRefs:
 		return handleCodeExact(ctx, req, Verb(verb))
 	case VerbCodeRead:
-		return handleCodeRead(req)
+		return handleCodeRead(ctx, req)
 	case VerbCodeImports:
 		return handleCodeImports(ctx, req)
 	case VerbCodeWatch:
@@ -544,15 +544,20 @@ const (
 	defaultStartLine = 1
 	defaultMaxLines  = 200
 	maxLinesCap      = 1_000
+	maxReadBytes     = 1 << 20
+	maxReadLineBytes = 1 << 20
 )
 
 // handleCodeRead reads a bounded source region from an indexed workspace.
 // Path traversal, absolute paths, and symlink escapes are rejected.
 // start_line defaults to 1; max_lines defaults to 200 and is capped at 1000.
-func handleCodeRead(req Request) Response {
+func handleCodeRead(ctx context.Context, req Request) Response {
 	path := str(req, "path")
 	if path == "" {
 		return errResp(string(VerbCodeRead), "path required")
+	}
+	if err := ctx.Err(); err != nil {
+		return codeErrResp(string(VerbCodeRead), ErrInternal, err.Error())
 	}
 	// Reject path traversal and absolute references.
 	if strings.Contains(path, "..") || filepath.IsAbs(path) {
@@ -589,9 +594,9 @@ func handleCodeRead(req Request) Response {
 	if err != nil {
 		return codeErrResp(string(VerbCodeRead), ErrIndexUnavailable, err.Error())
 	}
-	if fi.IsDir() {
+	if !fi.Mode().IsRegular() {
 		return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
-			"path is a directory")
+			"path is not a regular file")
 	}
 	startLine := intField(req, "start_line", defaultStartLine)
 	if startLine < 1 {
@@ -613,10 +618,14 @@ func handleCodeRead(req Request) Response {
 
 	var buf strings.Builder
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 64<<10), maxReadLineBytes)
 	line := 0
-	endLine := startLine
+	endLine := startLine - 1
 	truncated := false
 	for scanner.Scan() {
+		if err := ctx.Err(); err != nil {
+			return codeErrResp(string(VerbCodeRead), ErrInternal, err.Error())
+		}
 		line++
 		if line < startLine {
 			continue
@@ -625,18 +634,23 @@ func handleCodeRead(req Request) Response {
 			truncated = true
 			break
 		}
-		if line > startLine {
+		text := scanner.Text()
+		additional := len(text)
+		if endLine >= startLine {
+			additional++
+		}
+		if buf.Len()+additional > maxReadBytes {
+			truncated = true
+			break
+		}
+		if endLine >= startLine {
 			buf.WriteByte('\n')
 		}
-		buf.WriteString(scanner.Text())
+		buf.WriteString(text)
 		endLine = line
 	}
 	if err := scanner.Err(); err != nil && !truncated {
 		return codeErrResp(string(VerbCodeRead), ErrInternal, err.Error())
-	}
-	// Check for truncation: more content available beyond the read window.
-	if !truncated && scanner.Scan() {
-		truncated = true
 	}
 	return okResp(string(VerbCodeRead), map[string]any{
 		"path":       path,
@@ -676,6 +690,8 @@ const (
 	maxWatchWorkers       = 256
 	maxWatchQueueSize     = 1 << 20
 	maxWatchDuration      = 24 * time.Hour
+	defaultWatchTimeout   = 30 * time.Second
+	maxWatchEvents        = 1_024
 )
 
 func handleCodeWatch(ctx context.Context, req Request) Response {
@@ -720,14 +736,29 @@ func handleCodeWatch(ctx context.Context, req Request) Response {
 		queueSize = maxWatchQueueSize
 	}
 	fsnotify := boolField(req, "fsnotify", false)
+	timeout := defaultWatchTimeout
+	if timeoutMS := intField(req, "timeout_ms", 0); timeoutMS > 0 {
+		timeout = time.Duration(timeoutMS) * time.Millisecond
+		if timeout <= 0 || timeout > maxWatchDuration {
+			timeout = maxWatchDuration
+		}
+	}
 
 	var events []WatchEvent
+	eventsTruncated := false
+	appendEvent := func(event WatchEvent) {
+		if len(events) >= maxWatchEvents {
+			eventsTruncated = true
+			return
+		}
+		events = append(events, event)
+	}
 	opt := codecrawl.WatchOptions{
 		Root:    rootAbs,
 		GobPath: gobPath,
 		Workers: workers,
 		OnRefresh: func(st codecrawl.Stats, wrote bool) {
-			events = append(events, WatchEvent{
+			appendEvent(WatchEvent{
 				Event:          "refresh",
 				Root:           rootAbs,
 				GobPath:        gobPath,
@@ -743,7 +774,7 @@ func handleCodeWatch(ctx context.Context, req Request) Response {
 			})
 		},
 		OnError: func(err error, retryCount int) {
-			events = append(events, WatchEvent{
+			appendEvent(WatchEvent{
 				Event:      "refresh_error",
 				Root:       rootAbs,
 				GobPath:    gobPath,
@@ -780,26 +811,29 @@ func handleCodeWatch(ctx context.Context, req Request) Response {
 	}
 
 	t0 := time.Now()
+	watchCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	var watchErr error
 	if fsnotify {
-		watchErr = codecrawl.WatchFS(ctx, opt)
+		watchErr = codecrawl.WatchFS(watchCtx, opt)
 	} else {
-		watchErr = codecrawl.WatchPoll(ctx, opt)
+		watchErr = codecrawl.WatchPoll(watchCtx, opt)
 	}
-	if watchErr != nil && watchErr != context.Canceled {
-		return codeErrResp(string(VerbCodeWatch), ErrInternal, watchErr.Error())
+	cancelled := watchCtx.Err() != nil
+	if watchErr != nil && !cancelled {
+		return codeErrResp(string(VerbCodeWatch), ErrIndexUnavailable, watchErr.Error())
 	}
-	if watchErr == context.Canceled && ctx.Err() != nil {
-		return codeErrResp(string(VerbCodeWatch), ErrInternal, watchErr.Error())
-	}
-	// The events slice captures refresh cycles and callback-level errors.
+	// A bounded timeout or caller cancellation returns the useful partial
+	// event stream rather than wedging JSONL or discarding prior work.
 	if events == nil {
 		events = []WatchEvent{}
 	}
 	return okResp(string(VerbCodeWatch), map[string]any{
-		"root":        rootAbs,
-		"gob_path":    gobPath,
-		"duration_ms": time.Since(t0).Milliseconds(),
-		"events":      events,
+		"root":             rootAbs,
+		"gob_path":         gobPath,
+		"duration_ms":      time.Since(t0).Milliseconds(),
+		"events":           events,
+		"cancelled":        cancelled,
+		"events_truncated": eventsTruncated,
 	})
 }
