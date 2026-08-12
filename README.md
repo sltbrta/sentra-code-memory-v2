@@ -62,7 +62,9 @@ and
 - Multi-worker working-tree crawl with stamp/hash incremental refresh.
 - Durable atomic `code-index.gob` cache and zero-work warm reads.
 - Heuristic search, relevant context, bounded expansion/impact/route/freshness,
-  path ingestion, and exact definitions/references/imports.
+  task-personalized repository maps, deterministic structural rules, build/index
+  diagnostics, transactional ChangeSet application, path ingestion, and exact
+  definitions/references/imports.
 - Projection-only memory cortex: claims, temporal relations, episodes, utility,
   PageIndex, PPR/PageRank, RAPTOR/community, agent-memory tiers, and gardener.
 - Local and hosted retrieval/model clients, dense backends, and generated Go/TS

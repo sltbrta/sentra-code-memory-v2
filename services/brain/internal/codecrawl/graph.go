@@ -97,10 +97,10 @@ type Graph struct {
 // dropped by the cap, classified as unresolved, and survived the lexical
 // fallback path.
 type GraphStats struct {
-	Extracted   int // edges kept
-	Truncated   int // edges dropped by edgeCap
-	Unresolved  int // edges whose target is unknown (external package etc.)
-	LexicalOnly int // edges produced by lexical fallback
+	Extracted   int `json:"extracted"`    // edges kept
+	Truncated   int `json:"truncated"`    // edges dropped by edgeCap
+	Unresolved  int `json:"unresolved"`   // edges whose target is unknown (external package etc.)
+	LexicalOnly int `json:"lexical_only"` // edges produced by lexical fallback
 }
 
 // newGraph returns an empty Graph with all maps allocated.

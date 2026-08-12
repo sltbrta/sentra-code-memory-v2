@@ -268,7 +268,7 @@ func TestMCPAdvertisedTypesMatchCodeserveFields(t *testing.T) {
 	t.Parallel()
 	integer := map[string]bool{"workers": true, "top_k": true, "max_bytes": true,
 		"max_tokens": true, "start_line": true, "max_lines": true,
-		"max_depth": true, "max_files": true, "max_bridges": true,
+		"max_depth": true, "max_files": true, "max_matches": true, "max_bridges": true,
 		"interval_ms": true, "debounce_ms": true, "queue_size": true,
 		"retry_initial_ms": true, "retry_max_ms": true, "max_cycles": true,
 		"timeout_ms": true}
@@ -280,6 +280,12 @@ func TestMCPAdvertisedTypesMatchCodeserveFields(t *testing.T) {
 			if field == "paths" {
 				if schema["oneOf"] == nil {
 					t.Fatalf("paths schema must accept its string/array wire forms: %s", tool.Name)
+				}
+				continue
+			}
+			if field == "changeset" {
+				if schema["type"] != "object" {
+					t.Fatalf("changeset schema must be object: %s", tool.Name)
 				}
 				continue
 			}

@@ -34,6 +34,8 @@ const (
 	ErrIndexUnavailable ErrorCode = "index_unavailable"
 	// ErrInternal: unexpected local failure (e.g. persisting the index).
 	ErrInternal ErrorCode = "internal"
+	// ErrChangeSetRejected: a transactional apply gate failed closed.
+	ErrChangeSetRejected ErrorCode = "changeset_rejected"
 )
 
 // ErrorResponse is the canonical failure envelope. OK is always false.
@@ -447,6 +449,18 @@ func CatalogMetadata() []VerbSpec {
 			Required: []string{"root", "q"},
 			Optional: []string{"top_k"},
 			Aliases:  []string{"imports"}},
+		{Name: string(VerbRepoMap), Status: StatusStable, Surface: "jsonl",
+			Summary:  "task-personalized, token-budgeted heuristic file/symbol PageRank map",
+			Required: []string{"q"}, Optional: []string{"root", "index_cache", "no_refresh", "mode", "max_bytes", "max_tokens", "max_files"}, Aliases: []string{"repo-map"}},
+		{Name: string(VerbStructuralSearch), Status: StatusStable, Surface: "jsonl",
+			Summary:  "bounded deterministic heuristic structural-pattern rule search (not compiler truth)",
+			Required: []string{"root", "pattern"}, Optional: []string{"rule_id", "mode", "max_files", "max_matches", "max_bytes", "max_tokens"}, Aliases: []string{"structural"}},
+		{Name: string(VerbDiagnostics), Status: StatusStable, Surface: "jsonl",
+			Summary:  "bounded heuristic index diagnostics and detected build metadata (does not run compiler)",
+			Optional: []string{"root", "index_cache", "no_refresh", "mode", "max_bytes", "max_tokens"}, Aliases: []string{"diagnostics"}},
+		{Name: string(VerbApplyChangeSet), Status: StatusStable, Surface: "jsonl",
+			Summary:  "transactionally stage, verify, and promote an exact workflow ChangeSet",
+			Required: []string{"root", "changeset"}, Optional: []string{"index_cache", "workers"}, Aliases: []string{"apply-changeset"}},
 		{Name: string(VerbMemoryAsk), Status: StatusStable, Surface: "jsonl",
 			Summary:  "company-doc residual lane (not code)",
 			Required: []string{"dir", "q"},

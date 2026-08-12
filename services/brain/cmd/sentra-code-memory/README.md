@@ -13,7 +13,11 @@ printf '%s\n' '{"verb":"ping"}' \
 
 Direct commands are aliases for the JSONL verbs: `index`, `search`, `relevant`,
 `exact`, `defs`, `refs`, `read`, `imports`, `expand`, `impact`, `route`,
-`freshness`, `ingest`, and `memory-ask`. `watch` keeps a durable index fresh
+`freshness`, `ingest`, `repo-map`, `structural`, `diagnostics`,
+`apply-changeset`, and `memory-ask`. `apply-changeset` accepts
+`--changeset FILE`; the map/search surfaces accept explicit
+`--mode fast|quality|deep`, `--max-bytes`, and `--max-tokens`.
+`watch` keeps a durable index fresh
 with debounce, retries, and multiple workers. It defaults to the caller's
 current directory and stores the cache under that project's `.sentra`
 directory. This makes simultaneous agents

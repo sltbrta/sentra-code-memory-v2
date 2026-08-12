@@ -4,6 +4,7 @@ go_library(
     name = "workflow",
     srcs = [
         "action.go",
+        "apply.go",
         "changeset.go",
         "doc.go",
         "evidence.go",
@@ -14,7 +15,7 @@ go_library(
 
 go_test(
     name = "workflow_test",
-    srcs = ["workflow_test.go"],
+    srcs = ["apply_atomic_test.go", "apply_test.go", "workflow_test.go"],
     embed = [":workflow"],
     tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
 )

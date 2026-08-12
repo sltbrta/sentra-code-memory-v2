@@ -10,6 +10,7 @@ go_library(
         "graph.go",
         "impact.go",
         "persist.go",
+        "repomap.go",
         "search.go",
         "symbol.go",
         "tokenize.go",
