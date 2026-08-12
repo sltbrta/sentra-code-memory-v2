@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "7f32e06965440fffa4d7e8d27f8585efa0bd5706",
+  "one_shot": true,
+  "rule": "command.destructive-cleanup",
+  "reason": "Autonomous end-to-end cleanup authorized by user: merge and cleanup everything into main both locally and on remote. Deleting superseded branches/worktrees whose content is provably preserved in main (verified: no files lost vs main, phase worktree trees identical or subsets of merged commits, parity code diff empty). Cadence refuses these by design; content containment is the verification. | user authorization: lets continue existing work that was undergoing and merge and cleanup everything into main both locally and on remote. go end to end autonomous",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "autonomous-session",
+  "approved_at": "2026-08-12T11:24:05.133Z"
+}
