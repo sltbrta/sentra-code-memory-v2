@@ -650,8 +650,8 @@ func handleMemoryPromote(req Request) Response {
 	id := str(req, "id")
 	tier := str(req, "tier")
 	principal := str(req, "principal")
-	if id == "" || tier == "" {
-		return errResp(string(VerbMemoryPromote), "id and tier required")
+	if id == "" || tier == "" || principal == "" {
+		return errResp(string(VerbMemoryPromote), "id, tier, and principal required")
 	}
 	if principal != "" {
 		entries := store.SearchAgentMemory(principal, "", 10000)
@@ -984,11 +984,14 @@ func gateCodeReadPath(req Request, rootAbs, rootReal, real, reqPath string) Resp
 		}
 		return codeErrResp(verb, ErrInternal, err.Error())
 	}
-	idx, _, err := codecrawl.Load(gobPath)
+	idx, meta, err := codecrawl.Load(gobPath)
 	if err != nil {
 		// Fail closed: membership cannot be verified against a broken index.
 		return codeErrResp(verb, ErrIndexUnavailable,
 			"index membership cannot be verified: "+err.Error())
+	}
+	if err := codecrawl.ValidateRoot(meta, rootAbs); err != nil {
+		return codeErrResp(verb, ErrIndexUnavailable, err.Error())
 	}
 	for _, cand := range readMembershipCandidates(rootAbs, rootReal, real, reqPath) {
 		if idx.HasFile(cand) {

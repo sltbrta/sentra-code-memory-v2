@@ -61,8 +61,8 @@ func dispatchHandler(timeout time.Duration) http.HandlerFunc {
 			writeJSONStatus(w, http.StatusForbidden, structuredErr("dispatch", "cross-origin requests are forbidden", http.StatusForbidden))
 			return
 		}
-		contentType := r.Header.Get("Content-Type")
-		if contentType != "" && !strings.HasPrefix(strings.ToLower(contentType), "application/json") {
+		contentType := strings.ToLower(strings.TrimSpace(strings.SplitN(r.Header.Get("Content-Type"), ";", 2)[0]))
+		if contentType != "" && contentType != "application/json" {
 			writeJSONStatus(w, http.StatusUnsupportedMediaType, structuredErr("dispatch", "application/json required", http.StatusUnsupportedMediaType))
 			return
 		}

@@ -10,6 +10,7 @@ go_library(
         "doc.go",
         "go_ast.go",
         "projection.go",
+        "scip.go",
         "scanner.go",
         "snapshot_validation.go",
         "types.go",

@@ -89,7 +89,7 @@ func TestMemoryPutSearchListPromote(t *testing.T) {
 
 	// Promote stm -> ltm.
 	promoteResp := codeserve.Handle(ctx, codeserve.Request{
-		"verb": "memory_promote", "dir": dir, "id": id, "tier": "ltm",
+		"verb": "memory_promote", "dir": dir, "id": id, "tier": "ltm", "principal": "alice",
 	})
 	var promote codeserve.MemoryPromoteResponse
 	if err := codeserve.DecodeResponse(promoteResp, &promote); err != nil {

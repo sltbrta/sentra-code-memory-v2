@@ -210,6 +210,11 @@ func ApplyChangeSet(ctx context.Context, root string, cs ChangeSet, opts ApplyOp
 		receipt.RolledBack = len(promoted) > 0
 	}
 	for i, rel := range paths {
+		current, err := os.ReadFile(filepath.Join(rootAbs, filepath.FromSlash(rel)))
+		if err != nil || Digest(current) != Digest(original[rel]) {
+			rollback()
+			return fail(fmt.Errorf("concurrent change detected before promoting %s", rel))
+		}
 		if err := atomicWrite(filepath.Join(rootAbs, filepath.FromSlash(rel)), afterBodies[rel], modes[rel]); err != nil {
 			rollback()
 			return fail(fmt.Errorf("promote %s: %w", rel, err))

@@ -17,8 +17,10 @@ go_library(
 go_test(
     name = "sessionlog_test",
     srcs = [
+        "packet_budget_test.go",
         "packet_recall_test.go",
         "sessionlog_test.go",
+        "summary_pointer_test.go",
     ],
     embed = [":sessionlog"],
     tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],

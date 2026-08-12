@@ -344,6 +344,10 @@ func handleApplyChangeSet(ctx context.Context, req Request) Response {
 	out := map[string]any{"receipt": receipt, "reindexed": reindexed, "index_digest": indexDigest, "index_matches": indexMatches}
 	if indexErr != nil {
 		out["reindex_error"] = "index refresh failed"
+		return Response{"ok": false, "verb": string(VerbApplyChangeSet), "error": "candidate index refresh failed", "error_code": string(ErrChangeSetRejected), "product_owned": true, "receipt": receipt, "reindexed": false, "index_matches": false}
+	}
+	if !indexMatches {
+		return Response{"ok": false, "verb": string(VerbApplyChangeSet), "error": "observed index digest diverged from predicted changes", "error_code": string(ErrChangeSetRejected), "product_owned": true, "receipt": receipt, "reindexed": true, "index_digest": indexDigest, "index_matches": false}
 	}
 	return okResp(string(VerbApplyChangeSet), out)
 }

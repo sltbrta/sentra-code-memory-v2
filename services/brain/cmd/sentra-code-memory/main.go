@@ -168,6 +168,11 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	repository := fs.String("repository", "", "continuation repository")
 	tree := fs.String("tree", "", "continuation tree")
 	now := fs.String("now", "", "continuation RFC3339 time")
+	includeSuperseded := fs.Bool("include-superseded", false, "include superseded continuation events")
+	l0Bytes := fs.Int("l0-bytes", 0, "continuation L0 budget")
+	l1Bytes := fs.Int("l1-bytes", 0, "continuation L1 budget")
+	l2Bytes := fs.Int("l2-bytes", 0, "continuation L2 budget")
+	l3Bytes := fs.Int("l3-bytes", 0, "continuation L3 budget")
 	allowIgnored := fs.Bool("allow-ignored", false, "allow code_read paths ignored by repository policy")
 	allowUnindexed := fs.Bool("allow-unindexed", false, "allow code_read paths absent from durable index")
 	render := fs.String("render", "", "context render mode: full|signatures|skeleton|compact")
@@ -207,6 +212,21 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	put("mode", *mode)
 	put("render", *render)
 	put("pattern", *pattern)
+	if *includeSuperseded {
+		req["include_superseded"] = true
+	}
+	if *l0Bytes > 0 {
+		req["l0_bytes"] = *l0Bytes
+	}
+	if *l1Bytes > 0 {
+		req["l1_bytes"] = *l1Bytes
+	}
+	if *l2Bytes > 0 {
+		req["l2_bytes"] = *l2Bytes
+	}
+	if *l3Bytes > 0 {
+		req["l3_bytes"] = *l3Bytes
+	}
 	put("rule_id", *ruleID)
 	if *changesetPath != "" {
 		raw, err := os.ReadFile(*changesetPath)
