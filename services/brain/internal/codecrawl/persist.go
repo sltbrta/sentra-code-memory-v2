@@ -10,8 +10,13 @@ import (
 	"time"
 )
 
-// DefaultIndexFile is the durable codecrawl index basename next to the summary.
+// DefaultIndexFile is the durable codecrawl index basename.
 const DefaultIndexFile = "code-index.gob"
+
+// DefaultIndexPath is the canonical project-scoped durable index location.
+func DefaultIndexPath(root string) string {
+	return filepath.Join(root, ".sentra", DefaultIndexFile)
+}
 
 // DurableMeta is sidecar metadata stored with the gob.
 type DurableMeta struct {

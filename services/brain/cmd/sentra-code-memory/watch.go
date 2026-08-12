@@ -44,7 +44,7 @@ func runWatch(args []string, out, errOut io.Writer) int {
 	}
 	gobPath := *cache
 	if gobPath == "" {
-		gobPath = filepath.Join(rootAbs, ".sentra", codecrawl.DefaultIndexFile)
+		gobPath = codecrawl.DefaultIndexPath(rootAbs)
 	} else if info, statErr := os.Stat(gobPath); statErr == nil && info.IsDir() {
 		gobPath = filepath.Join(gobPath, codecrawl.DefaultIndexFile)
 	} else if filepath.Base(gobPath) != codecrawl.DefaultIndexFile {

@@ -128,7 +128,9 @@ func (idx *Index) DefsOf(name string) []string {
 	if idx == nil || strings.TrimSpace(name) == "" {
 		return nil
 	}
-	return uniqueStrings(idx.resolveSeedFiles(name))
+	out := uniqueStrings(idx.resolveSeedFiles(name))
+	sort.Strings(out)
+	return out
 }
 
 // RefsOf returns files that reference a symbol name (SCM refs verb).
@@ -155,7 +157,9 @@ func (idx *Index) RefsOf(name string) []string {
 			}
 		}
 	}
-	return uniqueStrings(out)
+	out = uniqueStrings(out)
+	sort.Strings(out)
+	return out
 }
 
 // FindRoute finds heuristic bridges between two file paths or symbol names.
@@ -303,7 +307,9 @@ func (idx *Index) resolveSeedFiles(seed string) []string {
 			}
 		}
 	}
-	return uniqueStrings(out)
+	out = uniqueStrings(out)
+	sort.Strings(out)
+	return out
 }
 
 // Expand grows a seed path/symbol set via symbol hop (SCM expand analogue).

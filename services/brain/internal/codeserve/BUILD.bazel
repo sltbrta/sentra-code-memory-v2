@@ -25,6 +25,9 @@ go_test(
         "handle_test.go",
     ],
     embed = [":codeserve"],
+    deps = [
+        "//services/brain/internal/codecrawl",
+    ],
     data = glob(["testdata/**"]),
     tags = [
         "ouroboros_affected",

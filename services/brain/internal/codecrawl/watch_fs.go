@@ -27,7 +27,7 @@ func WatchFS(ctx context.Context, opt WatchOptions) error {
 		return err
 	}
 	if strings.TrimSpace(opt.GobPath) == "" {
-		opt.GobPath = filepath.Join(rootAbs, DefaultIndexFile)
+		opt.GobPath = DefaultIndexPath(rootAbs)
 	}
 	ignores, err := repoignore.Load(rootAbs)
 	if err != nil {

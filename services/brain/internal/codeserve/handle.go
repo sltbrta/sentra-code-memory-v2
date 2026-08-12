@@ -152,7 +152,7 @@ func resolvePaths(req Request) (rootAbs, gobPath string, err error) {
 		}
 		return rootAbs, gobPath, nil
 	}
-	gobPath = filepath.Join(rootAbs, ".ouroboros", "code-index.gob")
+	gobPath = codecrawl.DefaultIndexPath(rootAbs)
 	return rootAbs, gobPath, nil
 }
 
