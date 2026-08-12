@@ -78,6 +78,9 @@ func TestConformanceVerbMatrix(t *testing.T) {
 	mustOK("code_ingest_paths", codeserve.Request{"paths": "demo.go"})
 	mustOK("code_defs", codeserve.Request{"q": "Alpha", "no_refresh": true})
 	mustOK("code_refs", codeserve.Request{"q": "Alpha", "no_refresh": true})
+	mustOK("code_read", codeserve.Request{"path": "demo.go", "start_line": 1, "max_lines": 2})
+	mustOK("code_imports", codeserve.Request{"q": "demo", "no_refresh": true})
+	mustOK("code_watch", codeserve.Request{"max_cycles": 1, "interval_ms": 1})
 	mustOK("catalog", codeserve.Request{})
 	mustOK("ping", codeserve.Request{})
 }

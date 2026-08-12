@@ -385,7 +385,7 @@ func CatalogMetadata() []VerbSpec {
 			Summary:  "bounded freshness loop (default 1 cycle); collects refresh events and errors",
 			Required: []string{"root"},
 			Optional: []string{"index_cache", "workers", "interval_ms", "debounce_ms",
-				"queue_size", "retry_initial_ms", "retry_max_ms", "max_cycles", "fsnotify"},
+				"queue_size", "retry_initial_ms", "retry_max_ms", "max_cycles", "fsnotify", "timeout_ms"},
 			Aliases: []string{"watch"}},
 		{Name: string(VerbCodeSearch), Status: StatusStable, Surface: "jsonl",
 			Summary:  "lexical ranked search over the durable index",

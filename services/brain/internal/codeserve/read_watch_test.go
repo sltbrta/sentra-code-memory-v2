@@ -58,13 +58,14 @@ func TestCodeReadIsBoundedAndRootSafe(t *testing.T) {
 			t.Fatalf("path escape accepted (%q): %+v", path, bad)
 		}
 	}
-	if err := os.Symlink("/etc/passwd", filepath.Join(root, "escape.go")); err == nil {
-		bad := codeserve.Handle(context.Background(), codeserve.Request{
-			"verb": "code_read", "root": root, "path": "escape.go",
-		})
-		if bad["ok"] != false {
-			t.Fatalf("symlink escape accepted: %+v", bad)
-		}
+	if err := os.Symlink("/etc/passwd", filepath.Join(root, "escape.go")); err != nil {
+		t.Skipf("symlink test unavailable: %v", err)
+	}
+	bad := codeserve.Handle(context.Background(), codeserve.Request{
+		"verb": "code_read", "root": root, "path": "escape.go",
+	})
+	if bad["ok"] != false {
+		t.Fatalf("symlink escape accepted: %+v", bad)
 	}
 }
 
@@ -107,6 +108,16 @@ func TestCodeWatchIsBoundedJSONLAdapter(t *testing.T) {
 	}
 	if resp["events"] == nil {
 		t.Fatalf("watch events missing: %+v", resp)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cancelled := codeserve.Handle(ctx, codeserve.Request{
+		"verb": "code_watch", "root": root, "index_cache": filepath.Join(root, "cancel-cache"),
+		"timeout_ms": 1_000, "max_cycles": 10,
+	})
+	if cancelled["ok"] != true || cancelled["cancelled"] != true {
+		t.Fatalf("cancelled watch: %+v", cancelled)
 	}
 }
 
