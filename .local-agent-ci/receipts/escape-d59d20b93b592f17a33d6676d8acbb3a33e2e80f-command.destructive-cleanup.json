@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "d59d20b93b592f17a33d6676d8acbb3a33e2e80f",
+  "one_shot": true,
+  "rule": "command.destructive-cleanup",
+  "reason": "User explicitly authorized end-to-end implementation and merge; moving the six committed implementation commits from local main onto a feature branch is reversible branch/workflow bookkeeping and preserves the exact commits for stack publication. | user authorization: do it end to end, all issues listed",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "autonomous-session",
+  "approved_at": "2026-08-12T19:38:08.443Z"
+}

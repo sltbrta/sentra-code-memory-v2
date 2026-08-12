@@ -1,7 +1,7 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
   "run_id": "run-1786559752566",
-  "head": "ec202e79e0d0251b16556719fc49069b88a34ed1",
+  "head": "d59d20b93b592f17a33d6676d8acbb3a33e2e80f",
   "implementer_session": "019ff62e-14d8-78d7-83c3-3d2c496adb6b",
   "workflow": "complete-post-p6-parity-backlog",
   "scope": "Implement all actionable post-P6 parity issues #41-#48 end to end: trust and read security, durable index safety, code retrieval/ranking, typed multi-language authority, transactional ChangeSet application, repo map/structural/query ergonomics, memory/session/lifecycle parity decision and surfaces, and repeatable benchmarks.",
