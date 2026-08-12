@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/savings"
@@ -161,5 +162,47 @@ func TestLedgerRollsUpBeyondActiveStepCap(t *testing.T) {
 	}
 	if got := reopened.Summary(); got.Steps != summary.Steps || got.Totals != summary.Totals {
 		t.Fatalf("reopened summary drifted: got=%+v want=%+v", got, summary)
+	}
+}
+
+func TestLedgerSummaryConsistentUnderConcurrentRecord(t *testing.T) {
+	t.Parallel()
+	cache := t.TempDir()
+	ledger, err := savings.Open(cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const total = savings.DefaultMaxSteps + 50
+	// Hammer Record and Summary concurrently so a fold can interleave with a
+	// Summary snapshot. Totals must stay exact regardless of interleaving.
+	var wg sync.WaitGroup
+	for i := 0; i < total; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			if err := ledger.Record(savings.Step{
+				Name: "step", Category: savings.CategoryRetrieval,
+				BaselineBytes: 10, ServedBytes: 4, BaselineTokens: 5, ServedTokens: 2,
+			}); err != nil {
+				t.Errorf("record: %v", err)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			_ = ledger.Summary()
+		}()
+	}
+	wg.Wait()
+	summary := ledger.Summary()
+	if summary.Steps != total || summary.Totals.BaselineBytes != int64(total*10) {
+		t.Fatalf("concurrent record/summary drifted: steps=%d baseline=%d want steps=%d baseline=%d",
+			summary.Steps, summary.Totals.BaselineBytes, total, total*10)
+	}
+	reopened, err := savings.Open(cache)
+	if err != nil {
+		t.Fatalf("ledger not loadable after concurrent use: %v", err)
+	}
+	if got := reopened.Summary(); got.Steps != total || got.Totals.BaselineBytes != int64(total*10) {
+		t.Fatalf("reopened summary drifted: %+v", got)
 	}
 }

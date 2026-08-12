@@ -227,9 +227,12 @@ func (l *Ledger) Steps() []Step {
 
 // Summary returns deterministic totals and category subtotals. Category order
 // is lexical and therefore independent of record order.
+//
+// The live steps and the rollup are snapshotted under a single lock so a
+// concurrent Record that folds steps into the rollup cannot double-count them.
 func (l *Ledger) Summary() Summary {
-	steps := l.Steps()
 	l.mu.Lock()
+	steps := append([]Step(nil), l.steps...)
 	rolledSteps := l.rolledSteps
 	rolledTotals := l.rolledTotals
 	rolledCategories := append([]CategorySummary(nil), l.rolledCategories...)
