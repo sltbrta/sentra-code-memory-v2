@@ -12,6 +12,8 @@ check-all:
     go test ./packages/contracts/...
     cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml
 
+ci: check-all
+
 cli-help:
     go run ./services/brain/cmd/sentra-code-memory --help
 
