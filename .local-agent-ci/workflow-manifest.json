@@ -1,16 +1,15 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
   "run_id": "20260811T212251Z-consolidate-scm-ouroboros-parity-and-res-25934",
-  "head": "8ac9b21740076af5991a40f3fdcfb46d5b7ee405",
+  "head": "70e06df772c22e8a58199770506527d664aa469f",
   "implementer_session": "019ff331-5c49-7b44-b672-44e4cd5f7568",
   "workflow": "canonical-go-local-first-scm-phases-1-5-vertical-slices",
-  "scope": "Deliver cohesive local-first Go vertical slices for phases 1-5 on top of merged Phase 0: bounded context packing with progressive handles/session dedup/resource limits, typed deterministic code graph and bounded impact receipts, local token-savings ledger, provenance/session continuation and evidence/change-set workflow primitives, and canonical local HTTP/MCP adapters. Preserve default JSONL/CLI compatibility and defer hosted sync/tenancy/cloud phase 6.",
+  "scope": "Publish reviewed Phase 1-5 local-first Go vertical slices from phase1-5-vertical-slices: bounded context packing/session dedup/resource limits, typed deterministic graph and impact, token savings ledger, session/provenance/workflow primitives, and local HTTP/MCP adapters. Preserve default JSONL/CLI behavior; phase 6 remains deferred.",
   "non_goals": [
     "Phase 6 hosted sync, Postgres tenancy, remote overlays, cloud deployment",
-    "New external dependencies or hosted inference requirements",
-    "Replacing the existing Go workspace or direct JSONL protocol",
-    "Claiming full framework/tree-sitter/LSP/SCIP coverage beyond implemented fallbacks",
-    "Merging or publishing unreviewed work"
+    "New external dependencies or hosted inference",
+    "Changing default JSONL/CLI behavior",
+    "Unreviewed implementation changes"
   ],
   "affected_files": [
     "README.md",
@@ -33,16 +32,15 @@
     "git diff --check"
   ],
   "risks": [
-    "Public opt-in context fields and new HTTP/MCP surfaces can drift from JSONL behavior",
-    "Local source reads and request workers must remain path-safe and bounded",
-    "Typed graph snapshots must remain backward-compatible and deterministic",
-    "Session state and evidence must not persist raw source or secrets",
-    "Full repository tests may include unrelated platform-sensitive fixtures"
+    "HTTP/MCP timeout context is not yet threaded through all legacy codecrawl verbs",
+    "Local source reads and workers require bounded/path-safe handling",
+    "Typed graph snapshots require backward compatibility",
+    "Session/evidence persistence must remain source-safe"
   ],
   "issue_ids": [
     "36"
   ],
-  "created_at": "2026-08-12T01:40:25.669Z",
+  "created_at": "2026-08-12T01:57:50.634Z",
   "tier": "T2",
   "stage": "land",
   "phases": [

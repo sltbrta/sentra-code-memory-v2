@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "70e06df772c22e8a58199770506527d664aa469f",
+  "one_shot": true,
+  "rule": "workflow.stage-skip",
+  "reason": "The branch already completed implementation, preflight, paired review, fresh-eyes review, cleanup, and evidence recording before this publication-only manifest recreation. Advance to implementation to rebind publication metadata to the reviewed head.",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "user",
+  "approved_at": "2026-08-12T02:11:36.082Z"
+}

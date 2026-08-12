@@ -1,0 +1,13 @@
+{
+  "schema": "pi-agent:review:v1",
+  "head": "70e06df772c22e8a58199770506527d664aa469f",
+  "status": "approved",
+  "review_type": "paired",
+  "reviewer": "final-review-fixed",
+  "reviewed_at": "2026-08-12T02:12:01.442Z",
+  "summary": "Publication-head paired approval for 70e06df: evidence-only commit after the approved 8ac9b21 implementation; no code regressions. Existing low-medium legacy codecrawl timeout follow-up remains explicitly documented in manifest.",
+  "repo_root": "/Users/sammy/Developer/sentra-code-memory-v2",
+  "final_tree": "adcee96d9aef40de73b8c4aebac0cf26e2d35404",
+  "implementer_session": "019ff331-5c49-7b44-b672-44e4cd5f7568",
+  "reviewer_session": "sa-17"
+}

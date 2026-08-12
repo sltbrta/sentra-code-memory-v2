@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "70e06df772c22e8a58199770506527d664aa469f",
+  "one_shot": true,
+  "rule": "workflow.receipt.cleanup",
+  "reason": "The checkout is clean apart from generated workflow receipt/log files, and no background processes or unintended resources remain. Record cleanup for the publication fixed point.",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "user",
+  "approved_at": "2026-08-12T02:17:54.349Z"
+}
