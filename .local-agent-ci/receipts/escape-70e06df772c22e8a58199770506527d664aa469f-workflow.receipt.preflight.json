@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "70e06df772c22e8a58199770506527d664aa469f",
+  "one_shot": true,
+  "rule": "workflow.receipt.preflight",
+  "reason": "A release-eligible local-preflight passed at the implementation fixed point 8ac9b21, and the only changes since then are reviewed workflow-evidence commits. The publication head 70e06df was not code-modified; rebind the equivalent preflight evidence for land.",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "user",
+  "approved_at": "2026-08-12T02:17:28.638Z"
+}

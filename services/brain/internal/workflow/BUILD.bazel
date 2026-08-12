@@ -1,0 +1,20 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "workflow",
+    srcs = [
+        "action.go",
+        "changeset.go",
+        "doc.go",
+        "evidence.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/workflow",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "workflow_test",
+    srcs = ["workflow_test.go"],
+    embed = [":workflow"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+)

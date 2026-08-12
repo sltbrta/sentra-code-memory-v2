@@ -9,7 +9,7 @@ boundaries. No package imports or executes the previous repository.
 
 ```text
 coding agent
-    │ direct CLI or JSONL stdin/stdout
+    │ direct CLI, JSONL stdin/stdout, local HTTP, or MCP stdio
     ▼
 services/brain/cmd/sentra-code-memory
     │ request validation, aliases, bounded context
@@ -17,11 +17,15 @@ services/brain/cmd/sentra-code-memory
 services/brain/internal/codeserve
     ├── codecrawl      working-tree crawl, cache, search, impact, watch
     ├── productsearch  profile facade and exact P5 symbol search
-    └── hosted         local/hosted retrieval, model, embedding, ranker clients
+    ├── hosted         local/hosted retrieval, model, embedding, ranker clients
+    ├── adapters       canonical local HTTP + MCP-stdio surfaces (issue #35)
+    ├── sessionlog     repo-local bounded privacy-safe session events (#26–#31)
+    └── workflow       agent action envelopes, evidence, ChangeSet (#32–#34)
 
 committed source ──► codeindex P5 projections ──► exact defs/refs/imports
 working tree ──────► codecrawl code-index.gob ──► heuristic context/search
 memory directory ──► memory + hosted/local store ──► optional memory-ask
+session events ────► sessionlog JSONL ──► replay, continuation, recall
 ```
 
 ## Module boundaries
@@ -63,6 +67,21 @@ memory directory ──► memory + hosted/local store ──► optional memory
 - **`workers/code-index`** is an isolated Rust worker boundary for deterministic
   receipts and cross-runtime hardening. It is separate from the Go code-index
   projection and can be built/tested independently.
+- **`adapters`** (Phase 5, issue #35) exposes the canonical `codeserve` contract
+  over local HTTP (`/health`, `/dispatch`) and MCP stdio (JSON-RPC 2.0
+  `initialize`/`ping`/`tools.list`/`tools.call`). Both reuse `codeserve.Handle`
+  with bounded requests and structured errors, so CLI, JSONL, HTTP, and MCP
+  normalize to the same behavior. It adds no dependencies.
+- **`sessionlog`** (Phase 4, issues #26–#31) is an opt-in repo-local,
+  append-only, bounded, privacy-safe JSONL event stream for session continuity.
+  It supports deterministic replay/rebuild, continuation and compaction packets
+  with L0–L3 budgets, freshness/supersession rules, provenance-first admission,
+  and bounded recall with abstention. It never touches the lexical hot path.
+- **`workflow`** (Phase 5, issues #32–#34) produces deterministic, content-safe
+  agent artifacts: action envelopes with budget/freshness/expansion handles,
+  evidence reports with reproducible digests, and fail-closed candidate
+  ChangeSet validation (stale base, path escape, overlap, partial failure).
+  It is pure logic with no file I/O.
 
 ## Request flow
 

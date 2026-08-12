@@ -30,6 +30,13 @@ type DurableMeta struct {
 // durableSnap is the gob payload (all fields exported for encoding/gob).
 // Schema v3 optionally stores global inverted + symbol maps so warm Load skips
 // full rebuildGlobalFromFiles (warm wall-time fix).
+//
+// Schema v4 (Phase 2) adds the optional FileEdges map so the typed-edge
+// projection survives warm loads without re-running AST extraction. The
+// field is omitempty-safe: gob decodes missing fields as nil and the
+// Index Graph() helper degrades to the heuristic path when nil, so v3
+// snapshots (and v2 / v1) still load cleanly. Schema names follow the
+// "product-brain.code-index.vN" convention so future loaders can branch.
 type durableSnap struct {
 	Meta         DurableMeta
 	FilePostings map[string]map[string]int
@@ -43,6 +50,10 @@ type durableSnap struct {
 	// GlobalDefs / GlobalRefs: symbol name → files.
 	GlobalDefs map[string][]string
 	GlobalRefs map[string][]string
+	// FileEdges is the typed-edge projection added in v4 (Phase 2). Missing
+	// in older snapshots: the index degrades to the name-graph heuristic and
+	// ImpactReceipt gets an explicit "graph_unavailable" coverage note.
+	FileEdges map[string][]Edge
 }
 
 func init() {
@@ -52,6 +63,10 @@ func init() {
 	gob.Register(map[string]string{})
 	gob.Register(map[string]FileStamp{})
 	gob.Register(FileStamp{})
+	gob.Register([]Edge{})
+	gob.Register(Edge{})
+	gob.Register(map[string][]Edge{})
+	gob.Register(Provenance{})
 }
 
 // Save writes a durable index next to path (atomic temp+rename).
@@ -74,7 +89,7 @@ func (idx *Index) Save(path string, root string) error {
 		GitHead:   gitHead(root),
 		IndexedAt: time.Now().UTC(),
 		Files:     len(idx.files),
-		Schema:    "product-brain.code-index.v3",
+		Schema:    "product-brain.code-index.v4",
 	}
 	snap := durableSnap{
 		Meta:           meta,
@@ -85,6 +100,7 @@ func (idx *Index) Save(path string, root string) error {
 		FileHashes:     idx.fileHashes,
 		FileStamps:     idx.fileStamps,
 		GlobalInverted: idx.inverted,
+		FileEdges:      idx.fileEdges,
 	}
 	if idx.symbols != nil {
 		snap.GlobalDefs = idx.symbols.Defs
@@ -144,6 +160,14 @@ func Load(path string) (*Index, DurableMeta, error) {
 	if idx.fileStamps == nil {
 		idx.fileStamps = map[string]FileStamp{}
 	}
+	// Phase 2 (v4): typed-edge projection. Missing from older snapshots
+	// means the index degrades to the Phase 1 name-graph heuristic, which
+	// ImpactReceipt surfaces via an explicit "graph_unavailable" note.
+	idx.fileEdges = snap.FileEdges
+	if idx.fileEdges == nil {
+		idx.fileEdges = map[string][]Edge{}
+	}
+	idx.graph = nil // invalidate cached projection; rebuild on demand
 	// Warm acceleration: reuse persisted global inverted when present (v3).
 	if len(snap.GlobalInverted) > 0 {
 		idx.inverted = snap.GlobalInverted
@@ -178,9 +202,7 @@ func OpenOrRefresh(root, gobPath string, workers int, forceFull bool) (*Index, S
 	if err != nil {
 		return nil, Stats{}, false, DurableMeta{}, err
 	}
-	if workers < 1 {
-		workers = 1
-	}
+	workers = normalizeWorkers(workers)
 	var prev *Index
 	var meta DurableMeta
 	if !forceFull {
@@ -203,7 +225,7 @@ func OpenOrRefresh(root, gobPath string, workers int, forceFull bool) (*Index, S
 		}
 		meta = DurableMeta{
 			Root: rootAbs, GitHead: gitHead(rootAbs), IndexedAt: time.Now().UTC(),
-			Files: len(idx.files), Schema: "product-brain.code-index.v3",
+			Files: len(idx.files), Schema: "product-brain.code-index.v4",
 		}
 		return idx, st, true, meta, nil
 	}
@@ -225,14 +247,14 @@ func OpenOrRefresh(root, gobPath string, workers int, forceFull bool) (*Index, S
 		return nil, st, false, meta, err
 	}
 	wrote := st.Changed > 0 || st.Unchanged == 0
-	if wrote || meta.GitHead != gitHead(rootAbs) || (meta.Schema != "product-brain.code-index.v2" && meta.Schema != "product-brain.code-index.v3") {
+	if wrote || meta.GitHead != gitHead(rootAbs) || (meta.Schema != "product-brain.code-index.v2" && meta.Schema != "product-brain.code-index.v3" && meta.Schema != "product-brain.code-index.v4") {
 		if err := idx.Save(gobPath, rootAbs); err != nil {
 			return idx, st, false, meta, err
 		}
 		wrote = true
 		meta = DurableMeta{
 			Root: rootAbs, GitHead: gitHead(rootAbs), IndexedAt: time.Now().UTC(),
-			Files: len(idx.files), Schema: "product-brain.code-index.v3",
+			Files: len(idx.files), Schema: "product-brain.code-index.v4",
 		}
 	}
 	return idx, st, wrote, meta, nil

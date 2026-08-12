@@ -29,6 +29,15 @@ type AgentPayload struct {
 }
 
 // ImpactReceipt is a heuristic impact closure over symbol defs/refs/imports.
+//
+// Existing JSON fields stay byte-compatible with the Phase 1 contract:
+// callers decode by field name and tolerate new optional fields. New
+// fields (Truncated, Severity, AffectedTests, ChangedSymbols, Schema) are
+// additive and omitempty so legacy fixtures still decode cleanly.
+//
+// Severity is one of {info, low, medium, high}; AffectedTests is the
+// deterministic subset of Closure that looks like test files; ChangedSymbols
+// is the bounded list of symbols touched when the seed is a file.
 type ImpactReceipt struct {
 	Seed         string   `json:"seed"`
 	SeedKind     string   `json:"seed_kind"` // symbol|file
@@ -41,6 +50,18 @@ type ImpactReceipt struct {
 	DurationMS   int64    `json:"duration_ms"`
 	SymbolDefs   int      `json:"symbol_defs_matched"`
 	SymbolRefs   int      `json:"symbol_refs_matched"`
+	// Phase 2: explicit truncation signal. True when the closure hit
+	// maxFiles or any per-arm cap before BFS exhausted.
+	Truncated bool `json:"truncated,omitempty"`
+	// Severity classifies the blast-radius size (low | medium | high).
+	Severity string `json:"severity,omitempty"`
+	// AffectedTests is the deterministic test-file subset of Closure.
+	AffectedTests []string `json:"affected_tests,omitempty"`
+	// ChangedSymbols reports the bounded symbols touched when seed is file.
+	ChangedSymbols []string `json:"changed_symbols,omitempty"`
+	// Schema is the receipt schema version. Bumped to "v2" for Phase 2
+	// so downstream tooling can branch safely.
+	Schema string `json:"schema,omitempty"`
 }
 
 // FreshnessReport is a cheap workspace vs index probe.
@@ -85,7 +106,9 @@ func (idx *Index) FindRelevant(root, query string, topK int, withPreview bool) A
 			ah.Kind = "def"
 		}
 		if withPreview && root != "" {
-			ah.Preview, ah.StartLine = previewFile(filepath.Join(root, h.Path), 12)
+			if abs, ok := safeRootPath(root, h.Path); ok {
+				ah.Preview, ah.StartLine = previewFile(abs, 12)
+			}
 		}
 		out.Hits = append(out.Hits, ah)
 		if len(out.Hits) >= topK {
@@ -377,6 +400,13 @@ func (idx *Index) Expand(seeds []string, maxN int) []Hit {
 
 // Impact builds a heuristic impact radius for a symbol name or file path.
 // Authority is always "heuristic" (not LSP/SCIP). Coverage gaps are explicit.
+//
+// Phase 2: when the index carries a typed-edge projection (Index.Graph !=
+// nil), Impact surfaces call-aware selection by joining callersFor() into
+// Direct before BFS, and reports a deterministic Severity / AffectedTests
+// / Truncated triple. When the graph is absent (legacy gob snapshot),
+// Impact degrades to the Phase 1 name-graph heuristic without changing
+// any pre-existing JSON field.
 func (idx *Index) Impact(seed string, maxDepth, maxFiles int) ImpactReceipt {
 	t0 := time.Now()
 	if maxDepth <= 0 {
@@ -390,10 +420,12 @@ func (idx *Index) Impact(seed string, maxDepth, maxFiles int) ImpactReceipt {
 		Authority:    "heuristic", // name graph + import edges; not LSP/SCIP (SCM-006)
 		MaxDepth:     maxDepth,
 		CoverageGaps: []string{"no_full_call_graph", "no_lsp_server", "no_type_flow"},
+		Schema:       "v2",
 	}
 	seed = strings.TrimSpace(seed)
 	if seed == "" {
 		rec.Unknowns = []string{"empty_seed"}
+		rec.CoverageGaps = append(rec.CoverageGaps, "unknown_seed")
 		rec.DurationMS = time.Since(t0).Milliseconds()
 		return rec
 	}
@@ -520,6 +552,41 @@ func (idx *Index) Impact(seed string, maxDepth, maxFiles int) ImpactReceipt {
 		}
 	}
 
+	// Phase 2 call-aware selection: when the typed-edge projection is
+	// available, augment Direct with files that demonstrably call the seed
+	// symbol. This is bounded and recorded so the receipt can show whether
+	// call-aware selection fired. Symbols with no callers fall back to
+	// the Phase 1 path silently.
+	if rec.SeedKind == "symbol" && len(names) > 0 && idx.HasGraph() {
+		graphAdded := 0
+		graphCap := 24
+		for _, n := range names {
+			added, hit := callAwareDirect(idx, n, directSet, graphCap-graphAdded)
+			graphAdded += len(added)
+			if hit {
+				rec.Truncated = true
+			}
+			if graphAdded >= graphCap {
+				rec.Truncated = true
+				break
+			}
+		}
+	}
+
+	// Phase 2 file-seed case: surface the bounded list of symbols touched
+	// inside the seed file so callers can pick a more specific seed.
+	if rec.SeedKind == "file" {
+		if defs, ok := idx.fileDefs[seed]; ok {
+			cp := append([]string(nil), defs...)
+			sort.Strings(cp)
+			if len(cp) > 24 {
+				cp = cp[:24]
+				rec.Truncated = true
+			}
+			rec.ChangedSymbols = cp
+		}
+	}
+
 	for f := range directSet {
 		rec.Direct = append(rec.Direct, f)
 	}
@@ -537,6 +604,7 @@ func (idx *Index) Impact(seed string, maxDepth, maxFiles int) ImpactReceipt {
 	for _, f := range rec.Direct {
 		closure[f] = struct{}{}
 	}
+	closureTruncated := false
 	for depth := 0; depth < maxDepth; depth++ {
 		nextHop := idx.SymbolHop(frontier, maxFiles)
 		var next []string
@@ -547,6 +615,7 @@ func (idx *Index) Impact(seed string, maxDepth, maxFiles int) ImpactReceipt {
 			closure[n] = struct{}{}
 			next = append(next, n)
 			if len(closure) >= maxFiles {
+				closureTruncated = true
 				break
 			}
 		}
@@ -567,8 +636,22 @@ func (idx *Index) Impact(seed string, maxDepth, maxFiles int) ImpactReceipt {
 		}
 		return rec.Closure[i] < rec.Closure[j]
 	})
+	if closureTruncated {
+		rec.Truncated = true
+	}
 	if len(rec.Direct) == 0 {
 		rec.Unknowns = append(rec.Unknowns, "no_defs_or_refs_found")
+	}
+	if !idx.HasGraph() {
+		// Fail-closed: when the typed-edge projection is absent (legacy
+		// gob snapshot), explicitly tag the receipt so callers can branch
+		// on authority without inferring absence from empty fields.
+		rec.CoverageGaps = append(rec.CoverageGaps, "graph_unavailable")
+	}
+	rec.Severity = severityForClosure(len(rec.Direct), len(rec.Closure))
+	rec.AffectedTests = detectAffectedTests(rec.Closure)
+	if len(rec.Closure) == 0 && len(rec.Direct) == 0 {
+		rec.CoverageGaps = append(rec.CoverageGaps, "no_resolution")
 	}
 	rec.DurationMS = time.Since(t0).Milliseconds()
 	return rec
@@ -692,6 +775,8 @@ func (idx *Index) IngestPaths(root string, rels []string) (changed int, err erro
 			delete(idx.fileImps, rel)
 			delete(idx.fileHashes, rel)
 			delete(idx.fileStamps, rel)
+			delete(idx.fileEdges, rel)
+			idx.graph = nil
 			changed++
 			continue
 		}
@@ -715,6 +800,8 @@ func (idx *Index) IngestPaths(root string, rels []string) (changed int, err erro
 		delete(idx.fileDefs, rel)
 		delete(idx.fileRefs, rel)
 		delete(idx.fileImps, rel)
+		delete(idx.fileEdges, rel)
+		idx.graph = nil
 		loc.hashes[rel] = h
 		loc.stamps[rel] = st
 		loc.mergeInto(idx)
@@ -724,6 +811,35 @@ func (idx *Index) IngestPaths(root string, rels []string) (changed int, err erro
 	}
 	rebuildGlobalFromFiles(idx)
 	return changed, nil
+}
+
+// SafeRootPath resolves a relative indexed path only when it remains within root.
+func SafeRootPath(root, rel string) (string, bool) {
+	return safeRootPath(root, rel)
+}
+
+func safeRootPath(root, rel string) (string, bool) {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", false
+	}
+	rel = filepath.Clean(filepath.FromSlash(rel))
+	if filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	abs, err := filepath.Abs(filepath.Join(rootAbs, rel))
+	if err != nil || (abs != rootAbs && !strings.HasPrefix(abs, rootAbs+string(filepath.Separator))) {
+		return "", false
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(rootAbs)
+	if err != nil {
+		return "", false
+	}
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil || (resolved != resolvedRoot && !strings.HasPrefix(resolved, resolvedRoot+string(filepath.Separator))) {
+		return "", false
+	}
+	return resolved, true
 }
 
 func previewFile(abs string, maxLines int) (string, int) {

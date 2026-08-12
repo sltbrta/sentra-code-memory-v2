@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "savings",
+    srcs = ["ledger.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/savings",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "savings_test",
+    srcs = ["ledger_test.go"],
+    embed = [":savings"],
+    tags = [
+        "ouroboros_affected",
+        "ouroboros_check",
+        "ouroboros_test",
+    ],
+)

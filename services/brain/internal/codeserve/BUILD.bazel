@@ -12,6 +12,7 @@ go_library(
     visibility = ["//services/brain:__subpackages__"],
     deps = [
         "//services/brain/internal/codecrawl",
+        "//services/brain/internal/contextpack",
         "//services/brain/internal/hosted",
         "//services/brain/internal/productsearch",
     ],
@@ -22,6 +23,8 @@ go_test(
     srcs = [
         "conformance_test.go",
         "contract_test.go",
+        "impact_test.go",
+        "handle_bounded_test.go",
         "handle_test.go",
     ],
     embed = [":codeserve"],

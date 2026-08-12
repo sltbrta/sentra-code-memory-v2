@@ -107,6 +107,7 @@ foundation](../../docs/research/2026-07-28-structure-brain-foundation.md) ·
 | [continual](internal/continual/) | yes | Doc watch → delta ingest |
 | [codecrawl](internal/codecrawl/) | yes | Working-tree code index |
 | [codeserve](internal/codeserve/) | yes | Multi-verb code protocol |
+| [savings](internal/savings/) | yes | Atomic local token-savings ledger |
 | [codeindex](internal/codeindex/) | yes | P5 exact syntax projections |
 | [productsearch](internal/productsearch/) | yes | Search/Ask profile facade |
 | [productsec](internal/productsec/) | yes | Security profiles + seal |

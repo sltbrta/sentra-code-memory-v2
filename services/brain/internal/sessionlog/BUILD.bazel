@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "sessionlog",
+    srcs = [
+        "doc.go",
+        "event.go",
+        "log.go",
+        "packet.go",
+        "recall.go",
+        "summary.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/sessionlog",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "sessionlog_test",
+    srcs = [
+        "packet_recall_test.go",
+        "sessionlog_test.go",
+    ],
+    embed = [":sessionlog"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+)

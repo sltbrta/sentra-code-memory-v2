@@ -26,6 +26,15 @@ type Index struct {
 	fileHashes map[string]string
 	// fileStamps: path → mtime+size (skip read when unchanged).
 	fileStamps map[string]FileStamp
+	// fileEdges: path → bounded typed edges (Phase 2, issue #13). Persisted
+	// alongside the per-file symbol maps so delta crawls can reuse unchanged
+	// files without re-running AST extraction. Maps only — Graph is rebuilt
+	// from fileEdges by rebuildGraph on demand to keep BFS deterministic.
+	fileEdges map[string][]Edge
+	// graph is the optional typed-edge projection (Phase 2, issue #13).
+	// Built lazily by Graph() to avoid eager reconstruction during delta
+	// reuse; nil until Graph() is called or rebuildGraph runs.
+	graph *Graph
 }
 
 // FileStamp is a cheap identity probe before content hash.
@@ -82,6 +91,32 @@ func (idx *Index) FileCount() int {
 		return 0
 	}
 	return len(idx.files)
+}
+
+// Graph returns the typed-edge projection (Phase 2). The graph is built
+// during crawling and is nil when an index was loaded from a legacy gob
+// snapshot that pre-dates the graph feature. Callers must handle nil.
+func (idx *Index) Graph() *Graph {
+	if idx == nil {
+		return nil
+	}
+	if idx.graph != nil {
+		return idx.graph
+	}
+	if len(idx.fileEdges) == 0 {
+		return nil
+	}
+	idx.graph = rebuildGraphFromFiles(idx)
+	return idx.graph
+}
+
+// HasGraph reports whether the typed-edge projection is populated. False
+// when the index was loaded from a pre-graph gob (fail-closed: callers
+// degrade to the existing name-graph heuristics, never silently upgrade).
+// Calling HasGraph may trigger a one-time rebuild from fileEdges, so it is
+// not free; callers that need the *Graph should use Graph() directly.
+func (idx *Index) HasGraph() bool {
+	return idx != nil && idx.Graph() != nil
 }
 
 // StampEqual reports whether two stamps match.

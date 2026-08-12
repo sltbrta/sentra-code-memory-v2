@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//services/brain/internal/codecrawl",
         "//services/brain/internal/codeserve",
+        "//services/brain/internal/savings",
     ],
 )
 

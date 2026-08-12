@@ -2,10 +2,11 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_library(
     name = "command",
-    srcs = ["main.go", "mlx.go", "watch.go"],
+    srcs = ["main.go", "mlx.go", "watch.go", "adapters.go"],
     importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/cmd/sentra-code-memory",
     visibility = ["//visibility:private"],
     deps = [
+        "//services/brain/internal/adapters",
         "//services/brain/internal/codeserve",
         "//services/brain/internal/codecrawl",
     ],
@@ -19,6 +20,9 @@ go_binary(
 
 go_test(
     name = "command_test",
-    srcs = ["main_test.go"],
+    srcs = ["main_test.go", "adapters_test.go"],
     embed = [":command"],
+    deps = [
+        "//services/brain/internal/adapters",
+    ],
 )

@@ -1,66 +1,49 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
   "run_id": "20260811T212251Z-consolidate-scm-ouroboros-parity-and-res-25934",
-  "head": "85a4734d146b6c78bce9fb3f6c5d441ea93ac690",
+  "head": "1826f438f43a3d1c213c0fc3e1ce911d54c865de",
   "implementer_session": "019ff331-5c49-7b44-b672-44e4cd5f7568",
-  "workflow": "canonical-go-local-first-scm-phases-0-5",
-  "scope": "Refactor all in-scope SCM/Ouroboros parity and research-derived workflow/token-saving capabilities into one canonical Go implementation in sentra-code-memory-v2. Preserve local multi-worker, stamp/hash warm refresh, bounded queues, and offline lexical behavior. Implement phases 0-5 only; defer hosted sync, Postgres tenancy, remote overlays, and cloud deployment.",
+  "workflow": "canonical-go-local-first-scm-phases-1-5-vertical-slices",
+  "scope": "Publish reviewed Phase 1-5 local-first Go vertical slices from phase1-5-vertical-slices. Preserve default JSONL/CLI behavior; phase 6 remains deferred.",
   "non_goals": [
-    "Phase 6 hosted sync, Postgres tenancy, remote overlays, source-bundle cloud storage, Celery/S3/AWS deployment",
-    "Preserving standalone Rust or Python runtime seams",
-    "Ouroboros macOS/TUI/media/company-only UI surfaces",
-    "Mandatory network providers or hosted inference for local code workflows",
-    "Future phase 1-5 implementation work while phase 0 is being landed"
+    "Phase 6 hosted sync, tenancy, remote overlays, cloud deployment",
+    "New external dependencies or hosted inference",
+    "Changing default JSONL/CLI behavior",
+    "Unreviewed implementation changes"
   ],
   "affected_files": [
-    "services/brain/cmd/sentra-code-memory/**",
-    "services/brain/internal/codeserve/**",
-    "services/brain/internal/codecrawl/**",
-    "services/brain/internal/codeindex/**",
-    "services/brain/internal/memory/**",
-    "services/brain/internal/hosted/**",
-    "services/brain/internal/productsearch/**",
-    "services/brain/internal/repoignore/**",
-    "services/brain/internal/query/**",
-    "services/brain/internal/rerank/**",
-    "services/brain/internal/dense/**",
-    "workers/code-index/**",
-    "packages/contracts/**",
-    "tests/**",
-    "docs/**",
+    "README.md",
+    "docs/architecture.md",
     "justfile",
-    "README.md"
+    "services/brain/cmd/sentra-code-memory/**",
+    "services/brain/internal/adapters/**",
+    "services/brain/internal/codecrawl/**",
+    "services/brain/internal/codeserve/**",
+    "services/brain/internal/contextpack/**",
+    "services/brain/internal/savings/**",
+    "services/brain/internal/sessionlog/**",
+    "services/brain/internal/workflow/**"
   ],
   "acceptance_commands": [
-    "go test ./services/... ./packages/contracts/...",
-    "go vet ./services/... ./packages/contracts/...",
-    "cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml",
-    "go build ./services/... ./packages/contracts/...",
-    "go test ./services/brain/cmd/sentra-code-memory ./services/brain/internal/codeserve ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/memory ./services/brain/internal/productsearch",
+    "just ci",
+    "just check",
+    "go test -race ./services/brain/internal/contextpack ./services/brain/internal/codeserve ./services/brain/internal/codecrawl ./services/brain/internal/sessionlog ./services/brain/internal/workflow ./services/brain/internal/adapters ./services/brain/internal/savings",
+    "go vet ./services/brain/internal/contextpack ./services/brain/internal/codeserve ./services/brain/internal/codecrawl ./services/brain/internal/sessionlog ./services/brain/internal/workflow ./services/brain/internal/adapters ./services/brain/internal/savings",
     "git diff --check"
   ],
   "risks": [
-    "Large scope may cause broad regressions or drift across staged changes",
-    "Tree-sitter/LSP/SCIP integration may add native/toolchain complexity",
-    "Hybrid retrieval and local models may threaten latency or memory budgets",
-    "Session memory and event projections may leak source or stale context",
-    "HTTP/MCP surfaces enlarge the public contract",
-    "Frequent squash merges require careful base/head and cleanup verification"
+    "HTTP/MCP timeout context is not yet threaded through all legacy codecrawl verbs",
+    "Local source reads and workers require bounded/path-safe handling",
+    "Typed graph snapshots require backward compatibility",
+    "Session/evidence persistence must remain source-safe"
   ],
   "issue_ids": [
-    "36",
-    "3",
-    "4",
-    "5"
+    "36"
   ],
-  "created_at": "2026-08-12T00:24:42.038Z",
+  "created_at": "2026-08-12T02:20:54.959Z",
   "tier": "T2",
   "stage": "land",
   "phases": [
-    {
-      "id": "phase-0",
-      "title": "Contracts, fixtures, benchmarks"
-    },
     {
       "id": "phase-1",
       "title": "Local workflow and token controls"

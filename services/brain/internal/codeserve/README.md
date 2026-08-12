@@ -16,6 +16,19 @@ See `Catalog()` — `code_index`, `code_search`, `code_find_relevant`,
 `code_ingest_paths`, `code_exact` / `code_defs` / `code_refs`, plus
 `memory_ask` (company residual) and `catalog` / `ping`.
 
+## Bounded context packing (opt-in)
+
+`code_find_relevant` accepts optional `max_bytes`, `max_tokens`, `render`
+(`full|signatures|skeleton|compact`), and `session` fields. When any of
+`max_bytes` / `max_tokens` / `render` is set, the response adds a `context`
+block from `internal/contextpack`: hard byte/token budgets with
+relevance-proportional allocation and a direct-source floor, explicit
+truncation/omission metadata, stable expansion handles (stale handles fail
+clearly), and — when `session` is set — cross-call dedup back-pointers for
+unchanged source. A fail-safe governor (candidate + output-byte limits) is
+reported in `context.meta.governor`. When the fields are unset the response
+is byte-identical to the legacy payload.
+
 ## Non-goals
 
 SCM session continuation packets —

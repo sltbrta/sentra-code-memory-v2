@@ -33,6 +33,15 @@ printf '%s\n' \
   | ./sentra-code-memory serve
 ```
 
+The same contract is also exposed over local HTTP and MCP stdio (issue #35):
+
+```sh
+./sentra-code-memory http --addr 127.0.0.1:8765   # GET /health, POST /dispatch
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call",'\
+  '"params":{"name":"ping","arguments":{}}}' \
+  | ./sentra-code-memory mcp
+```
+
 Run `catalog` to discover every supported verb. Each input line produces one
 JSON response; errors are structured as `ok:false`. A real VS Code benchmark
 and answer-quality report is in
@@ -69,6 +78,9 @@ go test ./services/brain/cmd/sentra-code-memory \
   ./services/brain/internal/codecrawl \
   ./services/brain/internal/codeindex \
   ./services/brain/internal/codeserve \
+  ./services/brain/internal/adapters \
+  ./services/brain/internal/sessionlog \
+  ./services/brain/internal/workflow \
   ./services/brain/internal/memory \
   ./services/brain/internal/productsearch
 
@@ -76,6 +88,9 @@ go vet ./services/brain/cmd/sentra-code-memory \
   ./services/brain/internal/codecrawl \
   ./services/brain/internal/codeindex \
   ./services/brain/internal/codeserve \
+  ./services/brain/internal/adapters \
+  ./services/brain/internal/sessionlog \
+  ./services/brain/internal/workflow \
   ./services/brain/internal/memory \
   ./services/brain/internal/productsearch
 ```

@@ -20,6 +20,18 @@ var extOK = map[string]struct{}{
 	".go": {}, ".md": {}, ".py": {}, ".ts": {}, ".tsx": {}, ".js": {}, ".rs": {},
 }
 
+const maxWorkers = 256
+
+func normalizeWorkers(workers int) int {
+	if workers < 1 {
+		return 1
+	}
+	if workers > maxWorkers {
+		return maxWorkers
+	}
+	return workers
+}
+
 // localIndex is a per-worker inverted map (no shared lock during crawl).
 // Also accumulates file-local symbol nodes (stack-graph file-incrementality).
 type localIndex struct {
@@ -28,25 +40,27 @@ type localIndex struct {
 	bytesRd  int64
 	errCount int
 	// per-file inverted + symbol extracts for stack-graph delta reuse
-	filePost map[string]map[string]int
-	fileDefs map[string][]string
-	fileRefs map[string][]string
-	fileImps map[string][]string
-	hashes   map[string]string
-	stamps   map[string]FileStamp
-	muHash   sync.Mutex
+	filePost  map[string]map[string]int
+	fileDefs  map[string][]string
+	fileRefs  map[string][]string
+	fileImps  map[string][]string
+	fileEdges map[string][]Edge
+	hashes    map[string]string
+	stamps    map[string]FileStamp
+	muHash    sync.Mutex
 }
 
 func newLocalIndex() *localIndex {
 	return &localIndex{
-		inverted: map[string]map[string]int{},
-		files:    map[string]struct{}{},
-		filePost: map[string]map[string]int{},
-		fileDefs: map[string][]string{},
-		fileRefs: map[string][]string{},
-		fileImps: map[string][]string{},
-		hashes:   map[string]string{},
-		stamps:   map[string]FileStamp{},
+		inverted:  map[string]map[string]int{},
+		files:     map[string]struct{}{},
+		filePost:  map[string]map[string]int{},
+		fileDefs:  map[string][]string{},
+		fileRefs:  map[string][]string{},
+		fileImps:  map[string][]string{},
+		fileEdges: map[string][]Edge{},
+		hashes:    map[string]string{},
+		stamps:    map[string]FileStamp{},
 	}
 }
 
@@ -81,6 +95,11 @@ func (l *localIndex) add(rel, body string, nbytes int) {
 	if len(imps) > 0 {
 		l.fileImps[rel] = imps
 	}
+	// Phase 2 typed-edge extraction (issue #13): bounded, deterministic,
+	// lexical fallback when go/parser is unavailable.
+	if edges := extractTypedEdges(rel, body); len(edges) > 0 {
+		l.fileEdges[rel] = edges
+	}
 }
 
 // mergeInto folds worker-local postings into the shared Index (single-threaded).
@@ -96,6 +115,9 @@ func (l *localIndex) mergeInto(idx *Index) {
 	}
 	if idx.fileImps == nil {
 		idx.fileImps = map[string][]string{}
+	}
+	if idx.fileEdges == nil {
+		idx.fileEdges = map[string][]Edge{}
 	}
 	if idx.fileHashes == nil {
 		idx.fileHashes = map[string]string{}
@@ -142,6 +164,12 @@ func (l *localIndex) mergeInto(idx *Index) {
 		for _, p := range imps {
 			idx.symbols.addImport(file, p)
 		}
+	}
+	for file, edges := range l.fileEdges {
+		// Bounded copy so later local-index mutations cannot alias shared state.
+		cp := make([]Edge, len(edges))
+		copy(cp, edges)
+		idx.fileEdges[file] = cp
 	}
 	for path, h := range l.hashes {
 		idx.fileHashes[path] = h
@@ -203,9 +231,7 @@ func SourceFiles(root string) ([]string, error) {
 // Each worker accumulates a private inverted map and merges once at the end so
 // the crawl loop never holds a shared mutex on the hot path (G8 multi-crawler).
 func CrawlDir(root string, workers int) (*Index, Stats, error) {
-	if workers < 1 {
-		workers = 1
-	}
+	workers = normalizeWorkers(workers)
 	ignores, err := repoignore.Load(root)
 	if err != nil {
 		return nil, Stats{}, err

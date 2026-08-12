@@ -2,13 +2,14 @@ package query
 
 import (
 	"context"
+	"reflect"
 	"sync/atomic"
 	"testing"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/rerank"
 )
 
-func TestHybridEmbedDenseFallsBackToBag(t *testing.T) {
+func TestHybridEmbedDenseNoSpendFallback(t *testing.T) {
 	t.Parallel()
 	bodies := map[string]string{
 		"a.md": "MedThink recovery point objective RPO fifteen minutes",
@@ -20,12 +21,18 @@ func TestHybridEmbedDenseFallsBackToBag(t *testing.T) {
 		}
 		return nil
 	})
+	if h.Embedder != nil {
+		t.Fatal("nil provider must remain a no-spend configuration")
+	}
 	ids := h.Search(context.Background(), "g1", "MedThink RPO", 2)
 	if len(ids) == 0 {
 		t.Fatal("expected bag fallback hits")
 	}
 	if ids[0] != "a.md" {
 		t.Fatalf("top=%v want a.md", ids)
+	}
+	if again := h.Search(context.Background(), "g1", "MedThink RPO", 2); !reflect.DeepEqual(again, ids) {
+		t.Fatalf("offline fallback is not deterministic: first=%v second=%v", ids, again)
 	}
 }
 

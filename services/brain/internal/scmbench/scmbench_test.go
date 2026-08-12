@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/savings"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/scmbench"
 )
 
@@ -174,6 +175,49 @@ func TestWorkflowReport(t *testing.T) {
 	}
 	if round.Totals != rep.Totals || round.SavedTokens != rep.SavedTokens {
 		t.Fatal("report does not round-trip")
+	}
+}
+
+func TestReportSavingsRequiresMeasuredBaseline(t *testing.T) {
+	t.Parallel()
+	rep := scmbench.Report{
+		Scenario: "unmeasured",
+		Totals:   scmbench.Totals{ResponseBytes: 100, EstTokens: 25},
+	}
+	if err := rep.RecordSavings(t.TempDir()); err == nil {
+		t.Fatal("unmeasured report must not be recorded")
+	}
+}
+
+func TestReportRecordsOptionalSavingsLedger(t *testing.T) {
+	t.Parallel()
+	root, cache := writeFixtureTree(t)
+	rep, err := scmbench.Run(context.Background(), workflowScenario(root, cache))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rep.MeasureBaseline(root); err != nil {
+		t.Fatal(err)
+	}
+	ledgerCache := t.TempDir()
+	if err := rep.RecordSavings(ledgerCache); err != nil {
+		t.Fatal(err)
+	}
+	ledger, err := savings.Open(ledgerCache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	steps := ledger.Steps()
+	if len(steps) != 1 {
+		t.Fatalf("ledger steps=%d want 1", len(steps))
+	}
+	got := steps[0]
+	if got.Name != rep.Scenario || got.Category != savings.CategoryRetrieval {
+		t.Fatalf("ledger identity: %+v", got)
+	}
+	if got.BaselineBytes != rep.BaselineBytes || got.ServedBytes != int64(rep.Totals.ResponseBytes) ||
+		got.BaselineTokens != int64(rep.BaselineTokens) || got.ServedTokens != int64(rep.Totals.EstTokens) {
+		t.Fatalf("ledger metric mismatch: %+v report=%+v", got, rep)
 	}
 }
 
