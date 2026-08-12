@@ -1,0 +1,23 @@
+"""Deterministic bounded context packing (Phase 1: budgets, handles, dedup, render, governor)."""
+
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "contextpack",
+    srcs = [
+        "doc.go",
+        "handles.go",
+        "limits.go",
+        "pack.go",
+        "render.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/contextpack",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "contextpack_test",
+    srcs = ["contextpack_test.go"],
+    embed = [":contextpack"],
+    tags = ["ouroboros_affected", "ouroboros_check", "ouroboros_test"],
+)

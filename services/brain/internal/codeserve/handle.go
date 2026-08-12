@@ -3,11 +3,14 @@ package codeserve
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/contextpack"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/hosted"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/productsearch"
 )
@@ -236,6 +239,18 @@ func handleFindRelevant(req Request) Response {
 	if q == "" {
 		return errResp(string(VerbFindRelevant), "q required")
 	}
+	maxBytes := intField(req, "max_bytes", 0)
+	maxTokens := intField(req, "max_tokens", 0)
+	renderStr := str(req, "render")
+	bounded := maxBytes > 0 || maxTokens > 0 || renderStr != ""
+	mode := contextpack.RenderFull
+	if bounded {
+		var err error
+		mode, err = contextpack.ParseRenderMode(renderStr)
+		if err != nil {
+			return errResp(string(VerbFindRelevant), err.Error())
+		}
+	}
 	idx, rootAbs, _, err := loadIndex(req)
 	if err != nil {
 		return idxErrResp(string(VerbFindRelevant), err)
@@ -244,9 +259,71 @@ func handleFindRelevant(req Request) Response {
 	preview := boolField(req, "preview", true)
 	t0 := time.Now()
 	payload := idx.FindRelevant(rootAbs, q, topK, preview)
-	return okResp(string(VerbFindRelevant), map[string]any{
+	out := map[string]any{
 		"payload": payload, "duration_ms": time.Since(t0).Milliseconds(),
 		"search_backend": "codecrawl",
+	}
+	if bounded {
+		out["context"] = packFindRelevant(req, rootAbs, payload, mode, maxBytes, maxTokens)
+	}
+	return okResp(string(VerbFindRelevant), out)
+}
+
+// findRelevantSourceCap bounds per-file bytes read for packing (fail-safe).
+const findRelevantSourceCap = 1 << 20
+
+// findRelevantCandidateCap bounds packing candidates per request.
+const findRelevantCandidateCap = 128
+
+// findRelevantSessions holds per-session dedup/handle registries for bounded
+// code_find_relevant calls. In-process only; never persisted.
+var findRelevantSessions = struct {
+	sync.Mutex
+	regs map[string]*contextpack.Registry
+}{regs: map[string]*contextpack.Registry{}}
+
+func sessionRegistry(id string) *contextpack.Registry {
+	findRelevantSessions.Lock()
+	defer findRelevantSessions.Unlock()
+	reg, ok := findRelevantSessions.regs[id]
+	if !ok {
+		reg = contextpack.NewRegistry()
+		findRelevantSessions.regs[id] = reg
+	}
+	return reg
+}
+
+// packFindRelevant builds the bounded contextpack result for a payload. The
+// legacy payload above is untouched; this only adds the packed view.
+func packFindRelevant(req Request, rootAbs string, payload codecrawl.AgentPayload, mode contextpack.RenderMode, maxBytes, maxTokens int) contextpack.Result {
+	budget := contextpack.Budget{MaxBytes: maxBytes, MaxTokens: maxTokens}
+	gov := contextpack.NewGovernor(contextpack.Limits{
+		MaxCandidates:  findRelevantCandidateCap,
+		MaxOutputBytes: budget.ByteLimit(),
+	}, nil)
+	reg := contextpack.NewRegistry()
+	if sid := str(req, "session"); sid != "" {
+		reg = sessionRegistry(sid)
+	}
+	sources := make([]contextpack.Source, 0, len(payload.Hits))
+	for _, h := range payload.Hits {
+		raw, err := os.ReadFile(filepath.Join(rootAbs, filepath.FromSlash(h.Path)))
+		if err != nil {
+			continue
+		}
+		if len(raw) > findRelevantSourceCap {
+			raw = raw[:findRelevantSourceCap]
+		}
+		content := string(raw)
+		sources = append(sources, contextpack.Source{
+			Path: h.Path, Content: content, Score: h.Score,
+			Direct:    h.Kind == "def",
+			StartLine: 1, EndLine: strings.Count(content, "\n") + 1,
+		})
+	}
+	return contextpack.Pack(contextpack.Request{
+		Sources: sources, Budget: budget, Render: mode,
+		Registry: reg, Governor: gov,
 	})
 }
 

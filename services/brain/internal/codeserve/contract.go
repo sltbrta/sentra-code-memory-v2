@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/contextpack"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/productsearch"
 )
 
@@ -95,12 +96,19 @@ type SearchRequest struct {
 // FindRelevantRequest is the lean agent-facing top-k retrieval
 // (code_find_relevant). Preview defaults to true on the wire when omitted;
 // omitempty is deliberately absent so explicit false survives marshaling.
+// MaxBytes/MaxTokens/Render opt into bounded context packing (contextpack);
+// when all are unset the response shape is exactly the legacy payload.
+// Session shares a dedup/handle registry across bounded calls.
 type FindRelevantRequest struct {
 	Verb string `json:"verb"`
 	IndexSelector
-	Q       string `json:"q"`
-	TopK    int    `json:"top_k,omitempty"`
-	Preview bool   `json:"preview"`
+	Q         string `json:"q"`
+	TopK      int    `json:"top_k,omitempty"`
+	Preview   bool   `json:"preview"`
+	MaxBytes  int    `json:"max_bytes,omitempty"`
+	MaxTokens int    `json:"max_tokens,omitempty"`
+	Render    string `json:"render,omitempty"`
+	Session   string `json:"session,omitempty"`
 }
 
 // ExpandRequest returns defs+refs neighborhoods of a seed (code_expand).
@@ -245,10 +253,13 @@ type SearchResponse struct {
 	SearchBackend string          `json:"search_backend"`
 }
 
-// FindRelevantResponse wraps the lean agent payload.
+// FindRelevantResponse wraps the lean agent payload. Context is present
+// only when the request opted into bounded packing (max_bytes, max_tokens,
+// or render).
 type FindRelevantResponse struct {
 	ResponseMeta
 	Payload       codecrawl.AgentPayload `json:"payload"`
+	Context       *contextpack.Result    `json:"context,omitempty"`
 	DurationMS    int64                  `json:"duration_ms"`
 	SearchBackend string                 `json:"search_backend"`
 }
@@ -366,10 +377,11 @@ func CatalogMetadata() []VerbSpec {
 			Optional: []string{"root", "index_cache", "top_k", "no_refresh", "force", "workers"},
 			Aliases:  []string{"search", "code-search"}},
 		{Name: string(VerbFindRelevant), Status: StatusStable, Surface: "jsonl",
-			Summary:  "lean top-k agent payload with optional source previews",
+			Summary:  "lean top-k agent payload with optional source previews and opt-in bounded context packing",
 			Required: []string{"q"},
-			Optional: []string{"root", "index_cache", "top_k", "preview", "no_refresh"},
-			Aliases:  []string{"relevant"}},
+			Optional: []string{"root", "index_cache", "top_k", "preview", "no_refresh",
+				"max_bytes", "max_tokens", "render", "session"},
+			Aliases: []string{"relevant"}},
 		{Name: string(VerbExpand), Status: StatusStable, Surface: "jsonl",
 			Summary:  "heuristic defs+refs neighborhood of a seed symbol",
 			Required: []string{"seed"},
