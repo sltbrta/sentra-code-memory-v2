@@ -1,0 +1,13 @@
+{
+  "schema": "pi-agent:review:v1",
+  "head": "1826f438f43a3d1c213c0fc3e1ce911d54c865de",
+  "status": "approved",
+  "review_type": "fresh-eyes",
+  "reviewer": "fresh-eyes-fix-delta (sa-3) + n1-ledger-lock (sa-4)",
+  "reviewed_at": "2026-08-12T11:11:27.571Z",
+  "summary": "Cold fresh-eyes approvals at the fixed head. sa-3 reviewed fix commit d5c3cb8 (resolving sa-1's 1 blocker + 8 majors + minors): all nine findings resolved with regression tests that fail on pre-fix code; approved conditionally on the Ledger.Summary double-lock fold fix. sa-4 reviewed that follow-up (47da7e5, single-lock snapshot + concurrent regression test): approved, race-clean. Orchestrator independently re-ran the shell gates sa-3 could not: just ci full pass, go test -race 15/15 (plus implementer's 45), go vet clean, git diff --check clean, go.mod/go.sum untouched, diff scope confined to the six affected packages + tests + evidence receipts. Delta 1826f43 vs reviewed heads is the preflight-receipt chore only.",
+  "repo_root": "/Users/sammy/Developer/sentra-code-memory-v2",
+  "final_tree": "68df6c5b8b5a5dc079fbb22dc58a88fd86404959",
+  "implementer_session": "019ff331-5c49-7b44-b672-44e4cd5f7568",
+  "reviewer_session": "sa-3, sa-4"
+}
