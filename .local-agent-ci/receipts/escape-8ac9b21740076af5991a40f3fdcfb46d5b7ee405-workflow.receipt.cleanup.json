@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "8ac9b21740076af5991a40f3fdcfb46d5b7ee405",
+  "one_shot": true,
+  "rule": "workflow.receipt.cleanup",
+  "reason": "The current checkout has no spawned processes or temporary files, and the only remaining resources are intentional sibling implementation worktrees retained for audit until their reviewed changes are fully landed. Record cleanup at the current fixed point now.",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "user",
+  "approved_at": "2026-08-12T01:55:05.271Z"
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "8ac9b21740076af5991a40f3fdcfb46d5b7ee405",
+  "one_shot": true,
+  "rule": "workflow.stage-skip",
+  "reason": "The workflow manifest was recreated at spec-lock after the prior Phase 0 land; the current Phase 1-5 implementation is already complete, tested, and reviewed. Advance directly to implementation to record the current fixed point without redoing already-completed phases.",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "user",
+  "approved_at": "2026-08-12T01:53:52.400Z"
+}
