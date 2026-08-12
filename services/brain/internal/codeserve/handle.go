@@ -649,8 +649,22 @@ func handleMemoryPromote(req Request) Response {
 	}
 	id := str(req, "id")
 	tier := str(req, "tier")
+	principal := str(req, "principal")
 	if id == "" || tier == "" {
 		return errResp(string(VerbMemoryPromote), "id and tier required")
+	}
+	if principal != "" {
+		entries := store.SearchAgentMemory(principal, "", 10000)
+		found := false
+		for _, entry := range entries {
+			if entry.ID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return codeErrResp(string(VerbMemoryPromote), ErrPathDenied, "memory entry is not owned by principal")
+		}
 	}
 	if err := store.PromoteAgentMemory(id, tier); err != nil {
 		return errResp(string(VerbMemoryPromote), err.Error())

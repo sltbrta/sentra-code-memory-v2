@@ -18,8 +18,9 @@ go_library(
 go_test(
     name = "adapters_test",
     srcs = [
+        "adapters_memory_test.go",
         "adapters_test.go",
-        "trust_test.go",
+        "trust_test.go"
     ],
     embed = [":adapters"],
     deps = [

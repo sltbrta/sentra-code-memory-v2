@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeserve"
@@ -54,6 +55,15 @@ func dispatchHandler(timeout time.Duration) http.HandlerFunc {
 		if r.Method != http.MethodPost {
 			writeJSONStatus(w, http.StatusMethodNotAllowed, structuredErr(
 				"dispatch", "POST required", http.StatusMethodNotAllowed))
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" {
+			writeJSONStatus(w, http.StatusForbidden, structuredErr("dispatch", "cross-origin requests are forbidden", http.StatusForbidden))
+			return
+		}
+		contentType := r.Header.Get("Content-Type")
+		if contentType != "" && !strings.HasPrefix(strings.ToLower(contentType), "application/json") {
+			writeJSONStatus(w, http.StatusUnsupportedMediaType, structuredErr("dispatch", "application/json required", http.StatusUnsupportedMediaType))
 			return
 		}
 		raw, err := io.ReadAll(r.Body)

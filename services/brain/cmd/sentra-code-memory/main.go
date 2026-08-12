@@ -168,6 +168,9 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	repository := fs.String("repository", "", "continuation repository")
 	tree := fs.String("tree", "", "continuation tree")
 	now := fs.String("now", "", "continuation RFC3339 time")
+	allowIgnored := fs.Bool("allow-ignored", false, "allow code_read paths ignored by repository policy")
+	allowUnindexed := fs.Bool("allow-unindexed", false, "allow code_read paths absent from durable index")
+	render := fs.String("render", "", "context render mode: full|signatures|skeleton|compact")
 	if err := fs.Parse(args); err != nil {
 		return nil, 2
 	}
@@ -202,6 +205,7 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	put("tree", *tree)
 	put("now", *now)
 	put("mode", *mode)
+	put("render", *render)
 	put("pattern", *pattern)
 	put("rule_id", *ruleID)
 	if *changesetPath != "" {
@@ -227,6 +231,8 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	req["start_line"] = *startLine
 	req["max_lines"] = *maxLines
 	req["preview"] = *preview
+	req["allow_ignored"] = *allowIgnored
+	req["allow_unindexed"] = *allowUnindexed
 	req["limit"] = *limit
 	if *maxBytes > 0 {
 		req["max_bytes"] = *maxBytes

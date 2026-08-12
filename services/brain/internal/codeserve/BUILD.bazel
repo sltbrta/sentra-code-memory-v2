@@ -32,6 +32,7 @@ go_test(
         "handle_test.go",
         "read_gate_test.go",
         "read_watch_test.go",
+        "handle_memory_session_test.go",
     ],
     embed = [":codeserve"],
     deps = [
