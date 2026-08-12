@@ -24,8 +24,18 @@ symlink-escape rejection. `start_line` defaults to 1; `max_lines` defaults to
 200 and is capped at 1,000. Returns `path`, `content`, `start_line`,
 `end_line`, and `truncated` (true when the source extends beyond the window).
 The response is capped at 1 MiB and individual lines at 1 MiB; an empty window
-uses `end_line=start_line-1`. This adapter is intended for trusted local
-callers; the local HTTP/MCP surfaces do not provide authentication.
+uses `end_line=start_line-1`.
+
+Path policy (issue #41): after the non-bypassable safety rejections above, a
+read must also survive the repository ignore policy (`internal/repoignore`)
+and — when a durable index exists at `index_cache` or the default
+`.sentra/code-index.gob` — index membership. Violations fail with
+`error_code: "path_denied"`; a corrupt index fails closed as
+`index_unavailable`. The typed opt-in fields `allow_ignored` and
+`allow_unindexed` (reachable on CLI/JSONL/HTTP/MCP) restore the legacy
+behavior explicitly. Without a durable index the ignore gate is the only
+membership policy (compatibility fallback). The local HTTP trust policy is
+specified in `internal/adapters` (loopback default, optional bearer token).
 
 ### code_imports (exact import lane)
 

@@ -6,6 +6,7 @@ go_library(
         "doc.go",
         "http.go",
         "mcp.go",
+        "trust.go",
     ],
     importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/adapters",
     visibility = ["//services/brain:__subpackages__"],
@@ -16,7 +17,10 @@ go_library(
 
 go_test(
     name = "adapters_test",
-    srcs = ["adapters_test.go"],
+    srcs = [
+        "adapters_test.go",
+        "trust_test.go",
+    ],
     embed = [":adapters"],
     deps = [
         "//services/brain/internal/codeserve",

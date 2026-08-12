@@ -15,6 +15,7 @@ go_library(
         "//services/brain/internal/contextpack",
         "//services/brain/internal/hosted",
         "//services/brain/internal/productsearch",
+        "//services/brain/internal/repoignore",
     ],
 )
 
@@ -26,6 +27,7 @@ go_test(
         "impact_test.go",
         "handle_bounded_test.go",
         "handle_test.go",
+        "read_gate_test.go",
         "read_watch_test.go",
     ],
     embed = [":codeserve"],

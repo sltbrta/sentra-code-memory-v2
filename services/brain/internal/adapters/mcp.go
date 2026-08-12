@@ -135,7 +135,8 @@ func mcpFieldSchema(field string) map[string]any {
 		"debounce_ms", "queue_size", "retry_initial_ms", "retry_max_ms",
 		"max_cycles", "timeout_ms":
 		return map[string]any{"type": "integer"}
-	case "force", "no_refresh", "preview", "fsnotify":
+	case "force", "no_refresh", "preview", "fsnotify",
+		"allow_ignored", "allow_unindexed":
 		return map[string]any{"type": "boolean"}
 	case "paths":
 		return map[string]any{"oneOf": []any{

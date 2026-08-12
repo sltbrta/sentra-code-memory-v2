@@ -10,6 +10,8 @@ go_library(
         "graph.go",
         "impact.go",
         "persist.go",
+        "persist_lock_other.go",
+        "persist_lock_unix.go",
         "search.go",
         "symbol.go",
         "tokenize.go",
@@ -32,6 +34,7 @@ go_test(
     srcs = [
         "crawl_test.go",
         "graph_test.go",
+        "persist_hardening_test.go",
         "persist_test.go",
         "route_test.go",
         "symbol_test.go",

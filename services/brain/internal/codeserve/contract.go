@@ -34,6 +34,12 @@ const (
 	ErrIndexUnavailable ErrorCode = "index_unavailable"
 	// ErrInternal: unexpected local failure (e.g. persisting the index).
 	ErrInternal ErrorCode = "internal"
+	// ErrUnauthorized: local trust policy rejected the caller (missing or
+	// wrong bearer token on the HTTP surface).
+	ErrUnauthorized ErrorCode = "unauthorized"
+	// ErrPathDenied: path policy denied the read (ignored by repoignore or
+	// not a durable-index member; explicit opt-in fields can override).
+	ErrPathDenied ErrorCode = "path_denied"
 )
 
 // ErrorResponse is the canonical failure envelope. OK is always false.
@@ -120,13 +126,18 @@ type ExpandRequest struct {
 	Seed string `json:"seed"`
 }
 
-// ReadRequest reads a bounded source region (code_read).
+// ReadRequest reads a bounded source region (code_read). By default the
+// read is constrained by the repository ignore policy and — when a durable
+// index exists — by index membership; AllowIgnored / AllowUnindexed are the
+// explicit, typed opt-ins around those two gates.
 type ReadRequest struct {
 	Verb string `json:"verb"`
 	IndexSelector
-	Path      string `json:"path"`
-	StartLine int    `json:"start_line,omitempty"`
-	MaxLines  int    `json:"max_lines,omitempty"`
+	Path           string `json:"path"`
+	StartLine      int    `json:"start_line,omitempty"`
+	MaxLines       int    `json:"max_lines,omitempty"`
+	AllowIgnored   bool   `json:"allow_ignored"`
+	AllowUnindexed bool   `json:"allow_unindexed"`
 }
 
 // ImpactRequest computes the heuristic impact closure (code_impact).
@@ -404,9 +415,9 @@ func CatalogMetadata() []VerbSpec {
 			Optional: []string{"root", "index_cache", "no_refresh"},
 			Aliases:  []string{"expand"}},
 		{Name: string(VerbCodeRead), Status: StatusStable, Surface: "jsonl",
-			Summary:  "bounded source-region read (start_line default 1, max_lines default 200 cap 1000)",
+			Summary:  "bounded source-region read constrained by repoignore/index membership (start_line default 1, max_lines default 200 cap 1000)",
 			Required: []string{"root", "path"},
-			Optional: []string{"start_line", "max_lines"},
+			Optional: []string{"start_line", "max_lines", "index_cache", "allow_ignored", "allow_unindexed"},
 			Aliases:  []string{"read"}},
 		{Name: string(VerbImpact), Status: StatusStable, Surface: "jsonl",
 			Summary:  "heuristic impact closure over defs/refs/imports",
