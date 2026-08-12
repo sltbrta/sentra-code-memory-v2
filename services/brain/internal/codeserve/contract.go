@@ -6,9 +6,9 @@ package codeserve
 // The wire protocol stays the map-based JSONL shape in handle.go; these
 // structs are the canonical typed view of the same keys. Handlers keep their
 // current behavior — the types here codify it, and the conformance tests in
-// contract_test.go prove the two agree. Planned verbs (code_read,
-// code_imports, code_watch over JSONL) are typed here so later phases add
-// handlers without contract churn.
+// contract_test.go prove the two agree. The JSONL code-operator verbs are
+// represented here as the canonical typed view; handlers preserve the
+// existing map-based wire envelope.
 
 import (
 	"encoding/json"

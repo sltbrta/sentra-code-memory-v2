@@ -672,6 +672,10 @@ func handleCodeImports(ctx context.Context, req Request) Response {
 
 const (
 	defaultWatchMaxCycles = 1
+	maxWatchCyclesCap     = 10_000
+	maxWatchWorkers       = 256
+	maxWatchQueueSize     = 1 << 20
+	maxWatchDuration      = 24 * time.Hour
 )
 
 func handleCodeWatch(ctx context.Context, req Request) Response {
@@ -697,6 +701,9 @@ func handleCodeWatch(ctx context.Context, req Request) Response {
 	if workers <= 0 {
 		workers = 4
 	}
+	if workers > maxWatchWorkers {
+		workers = maxWatchWorkers
+	}
 	intervalMS := intField(req, "interval_ms", 0)
 	debounceMS := intField(req, "debounce_ms", 0)
 	queueSize := intField(req, "queue_size", 0)
@@ -705,6 +712,12 @@ func handleCodeWatch(ctx context.Context, req Request) Response {
 	maxCycles := intField(req, "max_cycles", defaultWatchMaxCycles)
 	if maxCycles <= 0 {
 		maxCycles = defaultWatchMaxCycles
+	}
+	if maxCycles > maxWatchCyclesCap {
+		maxCycles = maxWatchCyclesCap
+	}
+	if queueSize > maxWatchQueueSize {
+		queueSize = maxWatchQueueSize
 	}
 	fsnotify := boolField(req, "fsnotify", false)
 
@@ -740,29 +753,46 @@ func handleCodeWatch(ctx context.Context, req Request) Response {
 		},
 		MaxCycles: maxCycles,
 	}
-	if intervalMS > 0 {
-		opt.Interval = time.Duration(intervalMS) * time.Millisecond
+	toDuration := func(milliseconds int) time.Duration {
+		if milliseconds <= 0 {
+			return 0
+		}
+		d := time.Duration(milliseconds) * time.Millisecond
+		if d < 0 || d > maxWatchDuration {
+			return maxWatchDuration
+		}
+		return d
 	}
-	if debounceMS > 0 {
-		opt.Debounce = time.Duration(debounceMS) * time.Millisecond
+	if interval := toDuration(intervalMS); interval > 0 {
+		opt.Interval = interval
+	}
+	if debounce := toDuration(debounceMS); debounce > 0 {
+		opt.Debounce = debounce
 	}
 	if queueSize > 0 {
 		opt.QueueSize = queueSize
 	}
-	if retryInitialMS > 0 {
-		opt.RetryInitial = time.Duration(retryInitialMS) * time.Millisecond
+	if retryInitial := toDuration(retryInitialMS); retryInitial > 0 {
+		opt.RetryInitial = retryInitial
 	}
-	if retryMaxMS > 0 {
-		opt.RetryMax = time.Duration(retryMaxMS) * time.Millisecond
+	if retryMax := toDuration(retryMaxMS); retryMax > 0 {
+		opt.RetryMax = retryMax
 	}
 
 	t0 := time.Now()
+	var watchErr error
 	if fsnotify {
-		_ = codecrawl.WatchFS(ctx, opt)
+		watchErr = codecrawl.WatchFS(ctx, opt)
 	} else {
-		_ = codecrawl.WatchPoll(ctx, opt)
+		watchErr = codecrawl.WatchPoll(ctx, opt)
 	}
-	// Always return success; the events slice captures refresh cycles and errors.
+	if watchErr != nil && watchErr != context.Canceled {
+		return codeErrResp(string(VerbCodeWatch), ErrInternal, watchErr.Error())
+	}
+	if watchErr == context.Canceled && ctx.Err() != nil {
+		return codeErrResp(string(VerbCodeWatch), ErrInternal, watchErr.Error())
+	}
+	// The events slice captures refresh cycles and callback-level errors.
 	if events == nil {
 		events = []WatchEvent{}
 	}
