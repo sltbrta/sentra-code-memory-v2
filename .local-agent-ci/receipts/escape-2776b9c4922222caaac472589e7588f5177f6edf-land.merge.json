@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "2776b9c4922222caaac472589e7588f5177f6edf",
+  "one_shot": true,
+  "rule": "land.merge",
+  "reason": "Autonomous end-to-end run authorized by user: \"merge and cleanup everything into main both locally and on remote. go end to end autonomous\". Fast-forwarding phase1-5-vertical-slices to the reviewed-and-fixed head d5c3cb8 (preflight green, -race determinism proven 15/15 + implementer 45, vet/diff-check clean). Fresh-eyes re-review and PR merge still follow per the release path. | user authorization: lets continue existing work that was undergoing and merge and cleanup everything into main both locally and on remote. go end to end autonomous",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "autonomous-session",
+  "approved_at": "2026-08-12T11:01:11.919Z"
+}
