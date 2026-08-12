@@ -27,3 +27,8 @@ code-index-summary.json
 
 # Local agent-CI run logs (receipts are committed, logs are not)
 .local-agent-ci/logs/
+
+# Locally-built CLI binaries (use scripts/ or go run)
+sentra-code-memory
+bench-code
+product-brain

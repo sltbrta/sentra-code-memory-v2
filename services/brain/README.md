@@ -7,8 +7,8 @@
 [ADR
 0023](../../docs/decisions/0023-unified-product-durability-and-program-ladder.md)).
 
-Maps: [ARCHITECTURE.md](../../ARCHITECTURE.md) ·
-[program](../../docs/specs/product/program/README.md) ·
+Maps: [ARCHITECTURE.md](../../docs/architecture.md) ·
+[program](../../docs/decisions/0023-unified-product-durability-and-program-ladder.md) ·
 [deferred/non-goals](../../docs/roadmap/DEFERRED-AND-NON-GOALS.md) ·
 [ops profiles local/hosted](../../docs/runbooks/OPS-PROFILES-LOCAL-HOSTED.md)
 
@@ -93,7 +93,7 @@ reported as `retrieval_route_reason=force_residual`.
 local.
 Env `OUROBOROS_BRAIN_GARDENER_AUTO=1` starts background enrich+cortex after
 open.
-See [ARCHITECTURE](../../ARCHITECTURE.md) §3.2 ·
+See [ARCHITECTURE](../../docs/architecture.md) §3.2 ·
 [structure-brain
 foundation](../../docs/research/2026-07-28-structure-brain-foundation.md) ·
 [OPS-PROFILES](../../docs/runbooks/OPS-PROFILES-LOCAL-HOSTED.md).

@@ -63,14 +63,22 @@ func TestCatalogMetadataContract(t *testing.T) {
 		}
 		byName[s.Name] = s
 	}
-	// Every live catalog verb has a stable spec.
+	// Every catalogued verb has metadata and is either stable (live) or
+	// deferred (an explicit parity decision, issue #47).
 	for _, v := range codeserve.Catalog() {
 		s, ok := byName[v]
 		if !ok {
 			t.Fatalf("live verb %q missing catalog metadata", v)
 		}
-		if s.Status != codeserve.StatusStable {
-			t.Fatalf("live verb %q must be stable, got %q", v, s.Status)
+		if s.Status != codeserve.StatusStable && s.Status != codeserve.StatusDeferred {
+			t.Fatalf("catalogued verb %q must be stable or deferred, got %q", v, s.Status)
+		}
+	}
+	// Deferred verbs are catalogued for discoverability but never wired to a
+	// handler; they must carry the deferred status so MCP can skip them.
+	for _, d := range []string{"lifecycle_install", "session_product", "code_dense_rerank", "hosted_tenancy", "query_advanced"} {
+		if byName[d].Status != codeserve.StatusDeferred {
+			t.Fatalf("deferred verb %q must have deferred status, got %q", d, byName[d].Status)
 		}
 	}
 	// The remaining parity verbs are live and must remain discoverable.

@@ -2,7 +2,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "scmbench",
-    srcs = ["scmbench.go"],
+    srcs = ["qa.go", "qa_fixture.go", "scmbench.go"],
     importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/scmbench",
     visibility = ["//services/brain:__subpackages__"],
     deps = [
@@ -14,8 +14,9 @@ go_library(
 
 go_test(
     name = "scmbench_test",
-    srcs = ["scmbench_test.go"],
+    srcs = ["qa_test.go", "scmbench_test.go"],
     embed = [":scmbench"],
+    data = glob(["testdata/**"]),
     tags = [
         "ouroboros_affected",
         "ouroboros_check",

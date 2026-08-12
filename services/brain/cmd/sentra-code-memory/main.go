@@ -18,26 +18,32 @@ import (
 const maxRequestBytes = 8 << 20
 
 var aliases = map[string]string{
-	"index":           "code_index",
-	"code-index":      "code_index",
-	"search":          "code_search",
-	"code-search":     "code_search",
-	"relevant":        "code_find_relevant",
-	"expand":          "code_expand",
-	"impact":          "code_impact",
-	"route":           "code_find_route",
-	"freshness":       "code_freshness",
-	"ingest":          "code_ingest_paths",
-	"exact":           "code_exact",
-	"defs":            "code_defs",
-	"refs":            "code_refs",
-	"read":            "code_read",
-	"imports":         "code_imports",
-	"repo-map":        "code_repo_map",
-	"structural":      "code_structural_search",
-	"diagnostics":     "code_diagnostics",
-	"apply-changeset": "code_apply_changeset",
-	"memory-ask":      "memory_ask",
+	"index":                "code_index",
+	"code-index":           "code_index",
+	"search":               "code_search",
+	"code-search":          "code_search",
+	"relevant":             "code_find_relevant",
+	"expand":               "code_expand",
+	"impact":               "code_impact",
+	"route":                "code_find_route",
+	"freshness":            "code_freshness",
+	"ingest":               "code_ingest_paths",
+	"exact":                "code_exact",
+	"defs":                 "code_defs",
+	"refs":                 "code_refs",
+	"read":                 "code_read",
+	"imports":              "code_imports",
+	"repo-map":             "code_repo_map",
+	"structural":           "code_structural_search",
+	"diagnostics":          "code_diagnostics",
+	"apply-changeset":      "code_apply_changeset",
+	"memory-ask":           "memory_ask",
+	"memory-put":           "memory_put",
+	"memory-search":        "memory_search",
+	"memory-list":          "memory_list",
+	"memory-promote":       "memory_promote",
+	"session-continuation": "session_continuation",
+	"savings-summary":      "savings_summary",
 }
 
 func main() {
@@ -153,6 +159,15 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	maxTokens := fs.Int("max-tokens", 0, "maximum estimated returned tokens")
 	maxMatches := fs.Int("max-matches", 0, "maximum structural matches")
 	changesetPath := fs.String("changeset", "", "path to ChangeSet JSON")
+	principal := fs.String("principal", "", "agent-memory principal")
+	text := fs.String("text", "", "agent-memory text")
+	tier := fs.String("tier", "", "agent-memory tier")
+	tags := fs.String("tags", "", "comma-separated memory tags")
+	memoryID := fs.String("id", "", "agent-memory entry id")
+	limit := fs.Int("limit", 50, "memory result limit")
+	repository := fs.String("repository", "", "continuation repository")
+	tree := fs.String("tree", "", "continuation tree")
+	now := fs.String("now", "", "continuation RFC3339 time")
 	if err := fs.Parse(args); err != nil {
 		return nil, 2
 	}
@@ -178,6 +193,14 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	put("path", *readPath)
 	put("dir", *dir)
 	put("session", *session)
+	put("principal", *principal)
+	put("text", *text)
+	put("tier", *tier)
+	put("tags", *tags)
+	put("id", *memoryID)
+	put("repository", *repository)
+	put("tree", *tree)
+	put("now", *now)
 	put("mode", *mode)
 	put("pattern", *pattern)
 	put("rule_id", *ruleID)
@@ -204,6 +227,7 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	req["start_line"] = *startLine
 	req["max_lines"] = *maxLines
 	req["preview"] = *preview
+	req["limit"] = *limit
 	if *maxBytes > 0 {
 		req["max_bytes"] = *maxBytes
 	}
@@ -236,6 +260,8 @@ Commands:
   index, search, relevant, exact, defs, refs, read, imports, watch
   expand, impact, route, freshness, ingest, repo-map, structural, diagnostics
   apply-changeset, memory-ask
+  memory-put, memory-search, memory-list, memory-promote
+  session-continuation, savings-summary
   catalog, ping, serve, mlx
   http, mcp  # local HTTP and MCP-stdio adapters (issue #35)
 

@@ -32,8 +32,8 @@ returns a client when `OUROBOROS_OPENFGA_API_URL` is set (also requires
 - Elevated live path: when `OUROBOROS_OPENFGA_API_URL` is set, the same company
   fixtures run against the configured server. Live durable-store lifecycle and
   full external-service conformance remain
-[DEF-015](../../../../docs/roadmap/DEFERRED.md)
+[DEF-015](../../../../docs/roadmap/DEFERRED-AND-NON-GOALS.md)
   residual (issue #72 partial).
 
 Policy administration UI is out of scope
-([DEF-013](../../../../docs/roadmap/DEFERRED.md)).
+([DEF-013](../../../../docs/roadmap/DEFERRED-AND-NON-GOALS.md)).

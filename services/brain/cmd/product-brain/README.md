@@ -40,5 +40,6 @@ ingest → retrieval_ready + light memory seed
 
 Truth: [memory/README.md](../../internal/memory/README.md) ·
 [gardener/doc.go](../../internal/gardener/doc.go) ·
-[STAGE-VS-PRODUCT.md](../../../../docs/specs/product/STAGE-VS-PRODUCT.md) ·
-[REMAINING-GAPS.md](../../../../docs/roadmap/REMAINING-GAPS.md).
+[STAGE-VS-PRODUCT]
+(../../../../docs/decisions/0022-product-only-retire-stage.md) ·
+[REMAINING-GAPS](../../../../docs/roadmap/REMAINING-GAPS.md).

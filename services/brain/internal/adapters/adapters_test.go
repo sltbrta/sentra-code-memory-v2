@@ -226,7 +226,21 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 	for _, tm := range list.Tools {
 		names[tm["name"].(string)] = true
 	}
+	// Only stable verbs are advertised as callable MCP tools; deferred verbs
+	// (issue #47) are catalogued for discoverability but not exposed.
+	stable := map[string]bool{}
+	for _, s := range codeserve.CatalogMetadata() {
+		if s.Status == codeserve.StatusStable {
+			stable[s.Name] = true
+		}
+	}
 	for _, v := range codeserve.Catalog() {
+		if !stable[v] {
+			if names[v] {
+				t.Fatalf("non-stable verb %q must not be advertised by tools/list", v)
+			}
+			continue
+		}
 		if !names[v] {
 			t.Fatalf("stable verb %q not advertised by tools/list", v)
 		}

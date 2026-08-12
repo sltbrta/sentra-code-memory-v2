@@ -13,8 +13,11 @@ import (
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/contextpack"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/hosted"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/memory"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/productsearch"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/repoignore"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/savings"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/sessionlog"
 )
 
 // Request is one JSON-line protocol request.
@@ -80,6 +83,20 @@ func Handle(ctx context.Context, req Request) Response {
 		return handleApplyChangeSet(ctx, req)
 	case VerbMemoryAsk:
 		return handleMemoryAsk(ctx, req)
+	case VerbMemoryPut:
+		return handleMemoryPut(req)
+	case VerbMemorySearch:
+		return handleMemorySearch(req)
+	case VerbMemoryList:
+		return handleMemoryList(req)
+	case VerbMemoryPromote:
+		return handleMemoryPromote(req)
+	case VerbSessionContinuation:
+		return handleSessionContinuation(req)
+	case VerbSavingsSummary:
+		return handleSavingsSummary(req)
+	case VerbLifecycleInstall, VerbSessionProduct, VerbCodeDenseRerank, VerbHostedTenancy, VerbQueryAdvanced:
+		return deferredResp(Verb(verb))
 	// Back-compat alias used by earlier serve path.
 	case "find_route":
 		req["verb"] = string(VerbFindRoute)
@@ -558,6 +575,235 @@ func handleMemoryAsk(ctx context.Context, req Request) Response {
 	topK := intField(req, "top_k", 6)
 	ans := c.AnswerOpts(ctx, hosted.AnswerOptions{Question: q, TopK: topK, SessionID: sid})
 	return okResp(string(VerbMemoryAsk), map[string]any{"answer": ans})
+}
+
+func openMemoryStore(req Request) (*memory.Store, Response) {
+	dir := str(req, "dir")
+	if dir == "" {
+		return nil, errResp(str(req, "verb"), "dir required")
+	}
+	store, err := memory.Open(dir)
+	if err != nil {
+		return nil, errResp(str(req, "verb"), err.Error())
+	}
+	return store, nil
+}
+
+func handleMemoryPut(req Request) Response {
+	store, errRespIfAny := openMemoryStore(req)
+	if store == nil {
+		return errRespIfAny
+	}
+	principal := str(req, "principal")
+	text := str(req, "text")
+	if principal == "" || text == "" {
+		return errResp(string(VerbMemoryPut), "principal and text required")
+	}
+	kind := str(req, "kind")
+	tier := str(req, "tier")
+	tags := strSliceField(req, "tags")
+	entry, err := store.PutAgentMemoryTier(principal, kind, text, tags, tier)
+	if err != nil {
+		return errResp(string(VerbMemoryPut), err.Error())
+	}
+	return okResp(string(VerbMemoryPut), map[string]any{"entry": entry})
+}
+
+func handleMemorySearch(req Request) Response {
+	store, errRespIfAny := openMemoryStore(req)
+	if store == nil {
+		return errRespIfAny
+	}
+	principal := str(req, "principal")
+	if principal == "" {
+		return errResp(string(VerbMemorySearch), "principal required")
+	}
+	q := str(req, "q")
+	limit := intField(req, "limit", 50)
+	entries := store.SearchAgentMemory(principal, q, limit)
+	return okResp(string(VerbMemorySearch), map[string]any{
+		"entries": entries, "count": len(entries),
+	})
+}
+
+func handleMemoryList(req Request) Response {
+	store, errRespIfAny := openMemoryStore(req)
+	if store == nil {
+		return errRespIfAny
+	}
+	principal := str(req, "principal")
+	if principal == "" {
+		return errResp(string(VerbMemoryList), "principal required")
+	}
+	limit := intField(req, "limit", 50)
+	entries := store.GetAgentMemory(principal, limit)
+	return okResp(string(VerbMemoryList), map[string]any{
+		"entries": entries, "count": len(entries),
+	})
+}
+
+func handleMemoryPromote(req Request) Response {
+	store, errRespIfAny := openMemoryStore(req)
+	if store == nil {
+		return errRespIfAny
+	}
+	id := str(req, "id")
+	tier := str(req, "tier")
+	if id == "" || tier == "" {
+		return errResp(string(VerbMemoryPromote), "id and tier required")
+	}
+	if err := store.PromoteAgentMemory(id, tier); err != nil {
+		return errResp(string(VerbMemoryPromote), err.Error())
+	}
+	return okResp(string(VerbMemoryPromote), map[string]any{"id": id, "tier": tier})
+}
+
+// --- Bounded session continuation composite (issue #47) -------------------
+
+func handleSessionContinuation(req Request) Response {
+	dir := str(req, "dir")
+	if dir == "" {
+		return errResp(string(VerbSessionContinuation), "dir required")
+	}
+	w, err := sessionlog.Open(dir)
+	if err != nil {
+		return errResp(string(VerbSessionContinuation), err.Error())
+	}
+	events := w.Events()
+	base := sessionlog.Provenance{
+		Repository: str(req, "repository"),
+		Tree:       str(req, "tree"),
+	}
+	opts := sessionlog.DefaultContinuationOptions()
+	opts.IncludeSuperseded = boolField(req, "include_superseded", false)
+	budgets := sessionlog.Budgets{
+		L0: intField(req, "l0_bytes", opts.Budgets.L0),
+		L1: intField(req, "l1_bytes", opts.Budgets.L1),
+		L2: intField(req, "l2_bytes", opts.Budgets.L2),
+		L3: intField(req, "l3_bytes", opts.Budgets.L3),
+	}
+	opts.Budgets = budgets
+	now := time.Now().UTC()
+	if raw := str(req, "now"); raw != "" {
+		parsed, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			return errResp(string(VerbSessionContinuation), "now must be RFC3339: "+err.Error())
+		}
+		now = parsed.UTC()
+	}
+	cont, err := sessionlog.BuildContinuation(events, base, opts, now)
+	if err != nil {
+		return errResp(string(VerbSessionContinuation), err.Error())
+	}
+	return okResp(string(VerbSessionContinuation), map[string]any{
+		"continuation": cont, "source_events": len(events),
+	})
+}
+
+// --- Local token-savings read (issue #47) ---------------------------------
+
+func handleSavingsSummary(req Request) Response {
+	dir := str(req, "dir")
+	if dir == "" {
+		return errResp(string(VerbSavingsSummary), "dir required")
+	}
+	ledger, err := savings.Open(dir)
+	if err != nil {
+		return errResp(string(VerbSavingsSummary), err.Error())
+	}
+	summary := ledger.Summary()
+	return okResp(string(VerbSavingsSummary), map[string]any{
+		"summary": summary, "text": summary.String(),
+	})
+}
+
+// --- Deferred / non-goal disclosures (issue #47) --------------------------
+
+// deferredSpec is the parity disclosure for one intentionally-retired verb.
+type deferredSpec struct {
+	Decision string // deferred | non_goal
+	Reason   string
+	Doc      string
+}
+
+// deferredSpecs is the canonical parity decision for every catalogued verb
+// that the standalone product deliberately does not implement (issue #47).
+// Keeping the disclosure next to the catalog means the gap is discoverable
+// (catalog lists the verb) and honest (calling it returns a structured 501-
+// class response instead of an opaque unknown-verb error).
+var deferredSpecs = map[Verb]deferredSpec{
+	VerbLifecycleInstall: {
+		Decision: "deferred",
+		Reason:   "managed-server install/service/hook/uninstall lifecycle is not owned by the standalone local CLI; see the parity decision doc",
+		Doc:      "docs/decisions/0025-memory-session-lifecycle-parity.md",
+	},
+	VerbSessionProduct: {
+		Decision: "deferred",
+		Reason:   "full SCM session continuation product (agent continuation packets, latent development-state memory) is a different product class; the bounded local session_continuation composite is the standalone surface",
+		Doc:      "docs/specs/product/SCM-SESSION-PRODUCT.md",
+	},
+	VerbCodeDenseRerank: {
+		Decision: "deferred",
+		Reason:   "dense/reranked retrieval lane is not wired into the standalone code operator; retrieval is the local heuristic lane only",
+		Doc:      "docs/decisions/0025-memory-session-lifecycle-parity.md",
+	},
+	VerbHostedTenancy: {
+		Decision: "non_goal",
+		Reason:   "hosted multi-tenancy, cloud sync/overlays, and billing are explicit non-goals of the standalone local-first product",
+		Doc:      "docs/roadmap/DEFERRED-AND-NON-GOALS.md",
+	},
+	VerbQueryAdvanced: {
+		Decision: "deferred",
+		Reason:   "prior query modes (patch plans, test hints, related graph/source context, greenfield/native-first) are not part of the standalone operator surface",
+		Doc:      "docs/decisions/0025-memory-session-lifecycle-parity.md",
+	},
+}
+
+// deferredResp returns the structured disclosure for a deferred verb. OK is
+// false with a stable error_code=deferred so callers can distinguish a
+// deliberate gap from a typo (unknown_verb) or a malformed request.
+func deferredResp(verb Verb) Response {
+	spec, ok := deferredSpecs[verb]
+	if !ok {
+		return codeErrResp(string(verb), ErrUnknownVerb, "unknown verb")
+	}
+	return Response{
+		"ok": false, "verb": string(verb),
+		"error":         spec.Decision + ": " + spec.Reason,
+		"error_code":    string(ErrDeferred),
+		"deferred":      true,
+		"decision":      spec.Decision,
+		"reason":        spec.Reason,
+		"doc":           spec.Doc,
+		"product_owned": true,
+	}
+}
+
+// strSliceField reads a string-slice field that may arrive as a JSON array or
+// a comma-separated string.
+func strSliceField(req Request, key string) []string {
+	switch v := req[key].(type) {
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				if s = strings.TrimSpace(s); s != "" {
+					out = append(out, s)
+				}
+			}
+		}
+		return out
+	case string:
+		var out []string
+		for _, part := range strings.Split(v, ",") {
+			if part = strings.TrimSpace(part); part != "" {
+				out = append(out, part)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 // --- code_read: bounded source-region read with path safety -----------------

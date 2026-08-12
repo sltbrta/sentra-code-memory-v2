@@ -18,6 +18,24 @@ See `Catalog()` — `code_index`, `code_search`, `code_find_relevant`,
 `code_diagnostics`, `code_apply_changeset`, plus `memory_ask` (company
 residual) and `catalog` / `ping`.
 
+Issue #47 adds the bounded local typed operators:
+
+- `memory_put`, `memory_search`, `memory_list`, `memory_promote` — typed
+  agent-memory admit/recall/lifecycle over `internal/memory` tiers
+  (principal-gated, stm/mtm/ltm). Not the company-doc residual lane.
+- `session_continuation` — a single safe composite over `internal/sessionlog`
+  that folds the repo-local event stream into a budgeted continuation packet.
+  Accepts an optional RFC3339 `now` for deterministic replays. Not the full
+  SCM session product.
+- `savings_summary` — reads the local `internal/savings` token-savings ledger.
+
+Issue #47 also catalogues deferred/non-goal verbs (`lifecycle_install`,
+`session_product`, `code_dense_rerank`, `hosted_tenancy`, `query_advanced`).
+They have no handler: calling one returns a structured disclosure
+(`ok:false`, `error_code:"deferred"`, `deferred:true`, `decision`, `reason`,
+`doc`) instead of an opaque unknown-verb error, and MCP does not expose them
+as callable tools.
+
 ### code_read (bounded source-region read)
 
 Reads a workspace-relative path with path-traversal, absolute-path, and
@@ -90,6 +108,10 @@ HTTP remains unauthenticated and should remain loopback-only.
 
 SCM session continuation packets —
 [SCM-SESSION-PRODUCT.md](../../../../docs/specs/product/SCM-SESSION-PRODUCT.md).
+Broader deferred/non-goal disclosure —
+[DEFERRED-AND-NON-GOALS.md](../../../../docs/roadmap/DEFERRED-AND-NON-GOALS.md).
+Per-surface parity decision —
+[0025-memory-session-lifecycle-parity.md](../../../../docs/decisions/0025-memory-session-lifecycle-parity.md).
 
 ## Contracts
 

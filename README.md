@@ -43,9 +43,16 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call",'\
 ```
 
 Run `catalog` to discover every supported verb. Each input line produces one
-JSON response; errors are structured as `ok:false`. A real VS Code benchmark
-and answer-quality report is in
-[docs/benchmarks/vscode-qa.md](docs/benchmarks/vscode-qa.md).
+JSON response; errors are structured as `ok:false`. Beyond the code operators,
+the surface exposes bounded local typed memory (`memory_put`/`memory_search`/
+`memory_list`/`memory_promote`), a session continuation composite
+(`session_continuation`), and the token-savings summary (`savings_summary`);
+catalogued-but-retired surfaces return a structured `deferred` disclosure
+(issue #47). A real VS Code benchmark and answer-quality report is in
+[docs/benchmarks/vscode-qa.md](docs/benchmarks/vscode-qa.md), and the
+deterministic offline retrieval gate is
+[docs/benchmarks/bench-code.md](docs/benchmarks/bench-code.md)
+(`just bench-code`).
 
 ## Offline model profile
 
@@ -77,6 +84,7 @@ and
 
 ```sh
 go test ./services/brain/cmd/sentra-code-memory \
+  ./services/brain/cmd/bench-code \
   ./services/brain/internal/codecrawl \
   ./services/brain/internal/codeindex \
   ./services/brain/internal/codeserve \
@@ -84,9 +92,11 @@ go test ./services/brain/cmd/sentra-code-memory \
   ./services/brain/internal/sessionlog \
   ./services/brain/internal/workflow \
   ./services/brain/internal/memory \
+  ./services/brain/internal/scmbench \
   ./services/brain/internal/productsearch
 
 go vet ./services/brain/cmd/sentra-code-memory \
+  ./services/brain/cmd/bench-code \
   ./services/brain/internal/codecrawl \
   ./services/brain/internal/codeindex \
   ./services/brain/internal/codeserve \
@@ -94,6 +104,7 @@ go vet ./services/brain/cmd/sentra-code-memory \
   ./services/brain/internal/sessionlog \
   ./services/brain/internal/workflow \
   ./services/brain/internal/memory \
+  ./services/brain/internal/scmbench \
   ./services/brain/internal/productsearch
 ```
 
