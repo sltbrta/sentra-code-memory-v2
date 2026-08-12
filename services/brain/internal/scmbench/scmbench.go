@@ -23,6 +23,7 @@ import (
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeserve"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/savings"
 )
 
 // placeholderRoot is the sentinel value used to mask absolute paths in
@@ -232,6 +233,33 @@ func (rep Report) Normalize(root, cache string) Report {
 	// Normalize paths that embed machine-local roots in the scenario label too.
 	n.Scenario = normalizePath(normalizePath(n.Scenario, root), cache)
 	return n
+}
+
+// RecordSavings appends the measured scenario to the optional local savings
+// ledger beneath cacheDir. A benchmark baseline covers the whole scenario, so
+// the report is recorded as one ledger step rather than double-counting it
+// across protocol calls. Calling this method is opt-in and does not change the
+// codeserve wire response or the Report JSON shape.
+func (rep Report) RecordSavings(cacheDir string) error {
+	if rep.FailedSteps > 0 {
+		return fmt.Errorf("benchmark has %d failed step(s)", rep.FailedSteps)
+	}
+	if rep.SavedBytes != rep.BaselineBytes-int64(rep.Totals.ResponseBytes) ||
+		rep.SavedTokens != rep.BaselineTokens-rep.Totals.EstTokens {
+		return fmt.Errorf("benchmark baseline has not been measured or is stale")
+	}
+	ledger, err := savings.Open(cacheDir)
+	if err != nil {
+		return err
+	}
+	return ledger.Record(savings.Step{
+		Name:           rep.Scenario,
+		Category:       savings.CategoryRetrieval,
+		BaselineBytes:  rep.BaselineBytes,
+		ServedBytes:    int64(rep.Totals.ResponseBytes),
+		BaselineTokens: int64(rep.BaselineTokens),
+		ServedTokens:   int64(rep.Totals.EstTokens),
+	})
 }
 
 // MeasureBaseline fills the baseline and savings fields against root.

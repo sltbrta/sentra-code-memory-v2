@@ -104,6 +104,11 @@ status, err := engine.Status(ctx, principal, sourceID)       // GetStatus
   query; a path-free query selects files whose syntax-aware definition
   spellings match query terms (case-insensitively). Lexically degraded files
   are selectable only by exact path and disclose `lane_degraded`.
+- **Optional offline hybrid.** Lexical retrieval remains the default when no
+  `DenseSearcher` is configured. `NewHybridEmbedDense(nil, bodies)` uses the
+  deterministic bag-of-words fallback with no provider/model calls; configured
+  dense results are fused with lexical candidates through the existing RRF
+  path, with optional local lexical reranking.
 - **Hydration.** Every entry is reverified against canonical facts: SHA-256
   of the hydrated bytes must match the manifest content digest, the Git blob
   identity must match, and the projection digest must agree. A mismatch

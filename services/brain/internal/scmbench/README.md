@@ -14,6 +14,9 @@ Per workflow step through the `codeserve` protocol:
 
 `Report.MeasureBaseline` compares the workflow against the naive
 "read the whole tree" agent baseline and reports byte/token savings.
+`Report.RecordSavings(projectCache)` optionally appends those totals to the
+local `internal/savings` ledger; omitting it preserves the existing report and
+codeserve wire behavior.
 
 ## Guarantees
 
@@ -29,7 +32,9 @@ go test ./services/brain/internal/scmbench/ -bench . -benchtime 20x
 ```
 
 Build a `Scenario` (root, index cache, ordered verb steps), call `Run`,
-then `MeasureBaseline(root)`. Call `Report.Normalize(root, cache)` before
-serializing to strip machine-local paths and zero timing fields so the
+then `MeasureBaseline(root)`. Optionally call `RecordSavings(projectCache)` to
+persist one scenario-level retrieval measurement without double-counting the
+scenario baseline across protocol calls. Call `Report.Normalize(root, cache)`
+before serializing to strip machine-local paths and zero timing fields so the
 output is deterministic across machines. The resulting JSON artifact is
 suitable for committing or diffing across phases.
