@@ -16,7 +16,7 @@ type Summary struct {
 	// Totals aggregates caller-supplied counts across all events.
 	Totals map[string]int64 `json:"totals,omitempty"`
 	// ReadRanges are the unique path/range pointers seen (L0 retention).
-	ReadRanges []Range `json:"read_ranges,omitempty"`
+	ReadRanges []ReadPointer `json:"read_ranges,omitempty"`
 	// ChangedFiles are the unique edited/refreshed paths (sorted, unique).
 	ChangedFiles []string `json:"changed_files,omitempty"`
 	// Failures are the bounded failure notes (issue #27 continuation field).
@@ -37,13 +37,23 @@ type Summary struct {
 // used by both Append-time state and Replay/Rebuild to prove determinism.
 type summaryBuilder struct {
 	s            Summary
-	readRangeSet map[Range]struct{}
+	readRangeSet map[readPointerKey]struct{}
 	changedSet   map[string]struct{}
 }
 
+type readPointerKey struct {
+	path string
+	r    Range
+}
+
+const (
+	maxSummaryFailures = 64
+	maxSummaryWarnings = 64
+)
+
 func newSummaryBuilder() *summaryBuilder {
 	return &summaryBuilder{
-		readRangeSet: map[Range]struct{}{},
+		readRangeSet: map[readPointerKey]struct{}{},
 		changedSet:   map[string]struct{}{},
 		s: Summary{
 			EventCounts: map[string]int64{},
@@ -68,9 +78,12 @@ func (b *summaryBuilder) Apply(ev Event) error {
 		b.s.Totals[k] += v
 	}
 	if ev.Provenance.Path != "" && ev.Provenance.Range != (Range{}) {
-		if _, ok := b.readRangeSet[ev.Provenance.Range]; !ok && ev.Provenance.Path != "" {
-			b.readRangeSet[ev.Provenance.Range] = struct{}{}
-			b.s.ReadRanges = append(b.s.ReadRanges, ev.Provenance.Range)
+		key := readPointerKey{path: ev.Provenance.Path, r: ev.Provenance.Range}
+		if _, ok := b.readRangeSet[key]; !ok {
+			b.readRangeSet[key] = struct{}{}
+			b.s.ReadRanges = append(b.s.ReadRanges, ReadPointer{
+				Path: ev.Provenance.Path, Range: ev.Provenance.Range,
+			})
 		}
 	}
 	switch ev.Kind {
@@ -83,7 +96,9 @@ func (b *summaryBuilder) Apply(ev Event) error {
 		}
 	case KindFailure:
 		if ev.FreeText != "" {
-			b.s.Failures = append(b.s.Failures, ev.FreeText)
+			if len(b.s.Failures) < maxSummaryFailures {
+				b.s.Failures = append(b.s.Failures, ev.FreeText)
+			}
 		}
 	case KindTaskStart:
 		b.s.Started = true
@@ -91,7 +106,9 @@ func (b *summaryBuilder) Apply(ev Event) error {
 		b.s.Completed = true
 	}
 	for _, w := range ev.CoverageWarnings {
-		b.s.CoverageWarnings = append(b.s.CoverageWarnings, w)
+		if len(b.s.CoverageWarnings) < maxSummaryWarnings {
+			b.s.CoverageWarnings = append(b.s.CoverageWarnings, w)
+		}
 	}
 	if ev.Kind != KindCompaction && ev.Freshness != "" {
 		b.s.LastFreshness = ev.Freshness
@@ -105,10 +122,13 @@ func (b *summaryBuilder) finalize() Summary {
 	s.EventCounts = canonicalCounts(s.EventCounts)
 	s.Totals = canonicalCounts(s.Totals)
 	sort.Slice(s.ReadRanges, func(i, j int) bool {
-		if s.ReadRanges[i].Start != s.ReadRanges[j].Start {
-			return s.ReadRanges[i].Start < s.ReadRanges[j].Start
+		if s.ReadRanges[i].Path != s.ReadRanges[j].Path {
+			return s.ReadRanges[i].Path < s.ReadRanges[j].Path
 		}
-		return s.ReadRanges[i].End < s.ReadRanges[j].End
+		if s.ReadRanges[i].Range.Start != s.ReadRanges[j].Range.Start {
+			return s.ReadRanges[i].Range.Start < s.ReadRanges[j].Range.Start
+		}
+		return s.ReadRanges[i].Range.End < s.ReadRanges[j].Range.End
 	})
 	sort.Strings(s.ChangedFiles)
 	sort.Strings(s.CoverageWarnings)

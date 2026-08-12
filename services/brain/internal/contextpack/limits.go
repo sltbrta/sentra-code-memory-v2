@@ -123,12 +123,15 @@ func (g *Governor) CheckTime() error {
 
 // Report is a visible snapshot of configured limits and current usage.
 type Report struct {
-	Limits          Limits `json:"limits"`
-	ActiveWorkers   int    `json:"active_workers"`
-	Candidates      int    `json:"candidates"`
-	OutputBytes     int    `json:"output_bytes"`
-	ElapsedMillis   int64  `json:"elapsed_ms"`
-	WallTimeLimited bool   `json:"wall_time_limited"`
+	Limits        Limits `json:"limits"`
+	ActiveWorkers int    `json:"active_workers"`
+	Candidates    int    `json:"candidates"`
+	OutputBytes   int    `json:"output_bytes"`
+	// ElapsedMillis is retained for in-process metrics but is intentionally not
+	// serialized: timing would make otherwise identical packed results differ.
+	ElapsedMillis int64 `json:"-"`
+	// WallTimeLimited is also runtime state, not packed-context content.
+	WallTimeLimited bool `json:"-"`
 }
 
 // Report returns the current usage snapshot. Limits stay visible even when

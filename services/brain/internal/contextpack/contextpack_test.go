@@ -310,3 +310,21 @@ func TestGovernorLimitsFailSafe(t *testing.T) {
 		t.Fatalf("wall-time omission wrong: %+v", res.Meta)
 	}
 }
+
+func TestGovernorTimingIsNotPacked(t *testing.T) {
+	t.Parallel()
+	start := time.Date(2026, 8, 12, 9, 0, 0, 0, time.UTC)
+	now := start
+	gov := NewGovernor(Limits{}, func() time.Time {
+		now = now.Add(time.Millisecond)
+		return now
+	})
+	res := Pack(Request{Sources: []Source{{Path: "a.go", Content: "package a\n"}}, Governor: gov})
+	raw, err := json.Marshal(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "elapsed_ms") || strings.Contains(string(raw), "wall_time_limited") {
+		t.Fatalf("runtime governor timing leaked into packed JSON: %s", raw)
+	}
+}

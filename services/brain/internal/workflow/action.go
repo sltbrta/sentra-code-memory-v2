@@ -130,12 +130,12 @@ func BuildEnvelope(verb string, ok bool, payload any, actions []Action,
 	}
 	env.Actions = dedupActions(actions, opts.MaxActions)
 	env.ExpansionHandles = dedupHandles(handles, opts.MaxHandles)
-	env.CoverageWarnings = dedupStrings(warnings)[:minInt(len(dedupStrings(warnings)), opts.MaxWarnings)]
+	dedupedWarnings := dedupStrings(warnings)
+	env.CoverageWarnings = dedupedWarnings[:minInt(len(dedupedWarnings), opts.MaxWarnings)]
 	return env
 }
 
-// MarshalJSON emits canonical envelope JSON (struct field order is stable and
-// maps inside Args are normalized through SortMap).
+// MarshalJSON emits canonical envelope JSON; encoding/json sorts map keys.
 func (e ActionEnvelope) MarshalJSON() ([]byte, error) {
 	type alias ActionEnvelope
 	return json.Marshal(alias(e))
@@ -187,7 +187,10 @@ func dedupHandles(in []ExpansionHandle, limit int) []ExpansionHandle {
 		if out[i].Symbol != out[j].Symbol {
 			return out[i].Symbol < out[j].Symbol
 		}
-		return out[i].Path < out[j].Path
+		if out[i].Path != out[j].Path {
+			return out[i].Path < out[j].Path
+		}
+		return out[i].Handle < out[j].Handle
 	})
 	if len(out) > limit {
 		out = out[:limit]

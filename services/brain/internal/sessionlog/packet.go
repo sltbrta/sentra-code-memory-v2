@@ -131,6 +131,21 @@ func BuildContinuation(events []Event, base Provenance, opts ContinuationOptions
 	seen := map[ptrKey]struct{}{}
 	used := Budgets{}
 	addTier := func(tier BudgetTier, bytes int) bool {
+		reserved, current := 0, 0
+		switch tier {
+		case TierL0:
+			reserved, current = opts.Budgets.L0, used.L0
+		case TierL1:
+			reserved, current = opts.Budgets.L1, used.L1
+		case TierL2:
+			reserved, current = opts.Budgets.L2, used.L2
+		case TierL3:
+			reserved, current = opts.Budgets.L3, used.L3
+		}
+		if reserved > 0 && current+bytes > reserved {
+			c.Budgets.Truncated = true
+			return false
+		}
 		switch tier {
 		case TierL0:
 			used.L0 += bytes
@@ -140,34 +155,6 @@ func BuildContinuation(events []Event, base Provenance, opts ContinuationOptions
 			used.L2 += bytes
 		case TierL3:
 			used.L3 += bytes
-		}
-		cap := 0
-		switch tier {
-		case TierL0:
-			cap = opts.Budgets.L0
-		case TierL1:
-			cap = opts.Budgets.L1
-		case TierL2:
-			cap = opts.Budgets.L2
-		case TierL3:
-			cap = opts.Budgets.L3
-		}
-		if cap > 0 {
-			cur := 0
-			switch tier {
-			case TierL0:
-				cur = used.L0
-			case TierL1:
-				cur = used.L1
-			case TierL2:
-				cur = used.L2
-			case TierL3:
-				cur = used.L3
-			}
-			if cur > cap {
-				c.Budgets.Truncated = true
-				return false
-			}
 		}
 		return true
 	}
@@ -202,7 +189,9 @@ func BuildContinuation(events []Event, base Provenance, opts ContinuationOptions
 		if ev.Provenance.Path != "" && len(c.ReadRanges) < opts.MaxReadRanges {
 			key := ptrKey{ev.Provenance.Path, ev.Provenance.Range.Start, ev.Provenance.Range.End}
 			if _, ok := seen[key]; !ok {
-				bytes := len(ev.Provenance.Path) + ev.Provenance.Range.End
+				// Range.End is a line number, not a byte count. Account for
+				// pointer metadata with a stable conservative estimate instead.
+				bytes := len(ev.Provenance.Path) + 32
 				if addTier(tier, bytes) {
 					seen[key] = struct{}{}
 					c.ReadRanges = append(c.ReadRanges, ReadPointer{
@@ -296,8 +285,6 @@ func appendUniqueString(dst []string, s string) []string {
 	}
 	return append(dst, s)
 }
-
-// appendUniqueWarning appends w when an equal warning is not present.
 
 // appendUniqueWarning appends w when an equal warning is not present.
 func appendUniqueWarning(dst []FreshnessWarning, w FreshnessWarning) []FreshnessWarning {

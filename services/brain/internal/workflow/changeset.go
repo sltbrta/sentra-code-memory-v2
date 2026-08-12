@@ -25,6 +25,8 @@ const (
 	RejectEmpty RejectReason = "empty_changeset"
 	// RejectBadRange: an edit range is malformed.
 	RejectBadRange RejectReason = "bad_range"
+	// RejectMissingDigest: required base or predicted/observed evidence is absent.
+	RejectMissingDigest RejectReason = "missing_digest"
 )
 
 // EditRange is a half-open source coordinate [Start, End).
@@ -62,8 +64,9 @@ type CandidateEdit struct {
 
 // ChangeSet is a fail-closed candidate validation unit (issue #34). It freezes
 // a base (tree ref + per-file base digests), carries isolated candidate edits,
-// and validates them atomically: a stale base, a path escape, an overlap, or a
-// single partial failure rejects the whole set so partial work never lands.
+// and validates them atomically. Missing digest evidence is rejected, as are
+// stale bases, path escapes, overlaps, and partial failures, so an edit is
+// never silently reported as fully verified.
 type ChangeSet struct {
 	Schema string `json:"schema"`
 	// Base is the frozen tree ref (e.g. git HEAD).
@@ -127,8 +130,8 @@ func Digest(body []byte) string {
 // digests. Validation order is deterministic so the receipt is reproducible.
 //
 // Gates (issue #34): empty set, path escape, bad range, overlapping edits,
-// stale base, partial failure (predicted != observed). Any gate failure
-// rejects the whole set; partial work never lands.
+// missing/stale base evidence, and partial failure (predicted != observed).
+// Any gate failure rejects the whole set; partial work never lands.
 func (cs ChangeSet) Validate() ValidationResult {
 	res := ValidationResult{
 		Schema:               Schema,
@@ -157,10 +160,14 @@ func (cs ChangeSet) Validate() ValidationResult {
 			res.Reasons = append(res.Reasons, fmt.Sprintf("edit %d: bad range %+v", i, edit.Range))
 			er.Note = "bad range"
 		}
-		// Stale base: the file's frozen digest must equal the edit's base digest
-		// (the agent's view of the file when it planned the edit).
+		// Stale base: both the frozen and planned digests are required evidence;
+		// absence fails closed rather than being treated as a match.
 		frozen := cs.BaseDigests[edit.Path]
-		if frozen != "" && edit.BaseDigest != "" && frozen != edit.BaseDigest {
+		if frozen == "" || edit.BaseDigest == "" {
+			res.Rejected = append(res.Rejected, RejectMissingDigest)
+			res.Reasons = append(res.Reasons, fmt.Sprintf("edit %d %s: base digest evidence required", i, edit.Path))
+			er.Note = "base digest evidence missing"
+		} else if frozen != edit.BaseDigest {
 			res.Rejected = append(res.Rejected, RejectStaleBase)
 			res.Reasons = append(res.Reasons,
 				fmt.Sprintf("edit %d %s: stale base (frozen %s != planned %s)",
@@ -168,9 +175,17 @@ func (cs ChangeSet) Validate() ValidationResult {
 			er.Stale = true
 			er.Note = "base digest moved since freeze"
 		}
-		// Partial failure: predicted must match observed when both are present.
-		match := true
-		if edit.PredictedDigest != "" && edit.ObservedDigest != "" {
+		// Partial failure: predicted and observed evidence are both required and
+		// must match.
+		match := false
+		if edit.PredictedDigest == "" || edit.ObservedDigest == "" {
+			res.Rejected = append(res.Rejected, RejectMissingDigest)
+			res.Reasons = append(res.Reasons, fmt.Sprintf("edit %d %s: predicted and observed digest evidence required", i, edit.Path))
+			if er.Note == "" {
+				er.Note = "predicted or observed digest evidence missing"
+			}
+		} else {
+			match = true
 			if edit.PredictedDigest != edit.ObservedDigest {
 				match = false
 				res.Rejected = append(res.Rejected, RejectPartialFailure)
@@ -180,7 +195,7 @@ func (cs ChangeSet) Validate() ValidationResult {
 				er.Note = "predicted digest did not match observed"
 			}
 		}
-		er.DigestMatch = match
+		er.DigestMatch = match && frozen != "" && edit.BaseDigest != ""
 		res.PerEdit = append(res.PerEdit, er)
 		byPath[edit.Path] = append(byPath[edit.Path], edit)
 	}
@@ -285,8 +300,9 @@ func shortDigest(d string) string {
 	return d[:8]
 }
 
-// validateChangePath rejects absolute, backslash, and ".." escapes. It mirrors
-// sessionlog.validatePath so pointer and edit paths agree across packages.
+// validateChangePath rejects absolute, backslash, and ".." escapes. Its path
+// rules intentionally match the sessionlog contract except that workflow does
+// not accept URL-encoded paths.
 func validateChangePath(p string) error {
 	p = strings.TrimSpace(p)
 	if p == "" {

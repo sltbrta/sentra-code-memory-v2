@@ -17,7 +17,10 @@ import (
 const (
 	// Filename is the ledger file stored beneath the caller-provided cache.
 	Filename = "token-savings.json"
-	version  = 1
+	// DefaultMaxSteps bounds active per-step history. Older steps are folded
+	// into the persisted rollup while totals remain available to callers.
+	DefaultMaxSteps = 256
+	version         = 1
 )
 
 // Category identifies the local optimization measured by a step.
@@ -96,16 +99,26 @@ func (s Summary) String() string {
 }
 
 type diskLedger struct {
-	Version int    `json:"version"`
-	Steps   []Step `json:"steps"`
+	Version int           `json:"version"`
+	Steps   []Step        `json:"steps"`
+	Rollup  *ledgerRollup `json:"rollup,omitempty"`
+}
+
+type ledgerRollup struct {
+	Steps      int               `json:"steps"`
+	Totals     Totals            `json:"totals"`
+	Categories []CategorySummary `json:"categories,omitempty"`
 }
 
 // Ledger appends measurements to one project-cache file. A Ledger is safe for
 // concurrent use within a process; callers should use one Ledger per file.
 type Ledger struct {
-	mu    sync.Mutex
-	path  string
-	steps []Step
+	mu               sync.Mutex
+	path             string
+	steps            []Step
+	rolledSteps      int
+	rolledTotals     Totals
+	rolledCategories []CategorySummary
 }
 
 // Open loads the ledger beneath cacheDir. Missing ledgers start empty;
@@ -139,7 +152,13 @@ func Open(cacheDir string) (*Ledger, error) {
 			return nil, fmt.Errorf("savings: invalid persisted step %d: %w", i, err)
 		}
 	}
-	return &Ledger{path: path, steps: append([]Step(nil), disk.Steps...)}, nil
+	ledger := &Ledger{path: path, steps: append([]Step(nil), disk.Steps...)}
+	if disk.Rollup != nil {
+		ledger.rolledSteps = disk.Rollup.Steps
+		ledger.rolledTotals = disk.Rollup.Totals
+		ledger.rolledCategories = append([]CategorySummary(nil), disk.Rollup.Categories...)
+	}
+	return ledger, nil
 }
 
 func ensureJSONEOF(decoder *json.Decoder) error {
@@ -164,10 +183,35 @@ func (l *Ledger) Record(step Step) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	next := append(append([]Step(nil), l.steps...), step)
-	if err := writeAtomic(l.path, diskLedger{Version: version, Steps: next}); err != nil {
+	rolledSteps := l.rolledSteps
+	rolledTotals := l.rolledTotals
+	rolledCategories := append([]CategorySummary(nil), l.rolledCategories...)
+	if len(next) > DefaultMaxSteps {
+		overflow := len(next) - DefaultMaxSteps
+		for _, old := range next[:overflow] {
+			addStep(&rolledTotals, old)
+			addRollupCategory(&rolledCategories, old)
+			rolledSteps++
+		}
+		next = next[overflow:]
+	}
+	sort.Slice(rolledCategories, func(i, j int) bool {
+		return rolledCategories[i].Category < rolledCategories[j].Category
+	})
+	var rollup *ledgerRollup
+	if rolledSteps > 0 {
+		rollup = &ledgerRollup{
+			Steps: rolledSteps, Totals: rolledTotals,
+			Categories: rolledCategories,
+		}
+	}
+	if err := writeAtomic(l.path, diskLedger{Version: version, Steps: next, Rollup: rollup}); err != nil {
 		return err
 	}
 	l.steps = next
+	l.rolledSteps = rolledSteps
+	l.rolledTotals = rolledTotals
+	l.rolledCategories = rolledCategories
 	return nil
 }
 
@@ -185,8 +229,17 @@ func (l *Ledger) Steps() []Step {
 // is lexical and therefore independent of record order.
 func (l *Ledger) Summary() Summary {
 	steps := l.Steps()
-	summary := Summary{Version: version, Steps: len(steps)}
+	l.mu.Lock()
+	rolledSteps := l.rolledSteps
+	rolledTotals := l.rolledTotals
+	rolledCategories := append([]CategorySummary(nil), l.rolledCategories...)
+	l.mu.Unlock()
+	summary := Summary{Version: version, Steps: rolledSteps + len(steps), Totals: rolledTotals}
 	byCategory := make(map[Category]*CategorySummary)
+	for _, category := range rolledCategories {
+		copy := category
+		byCategory[category.Category] = &copy
+	}
 	for _, step := range steps {
 		addStep(&summary.Totals, step)
 		category := byCategory[step.Category]
@@ -206,6 +259,19 @@ func (l *Ledger) Summary() Summary {
 		summary.Categories = append(summary.Categories, *byCategory[Category(category)])
 	}
 	return summary
+}
+
+func addRollupCategory(categories *[]CategorySummary, step Step) {
+	for i := range *categories {
+		if (*categories)[i].Category == step.Category {
+			(*categories)[i].Steps++
+			addStep(&(*categories)[i].Totals, step)
+			return
+		}
+	}
+	category := CategorySummary{Category: step.Category, Steps: 1}
+	addStep(&category.Totals, step)
+	*categories = append(*categories, category)
 }
 
 func addStep(total *Totals, step Step) {

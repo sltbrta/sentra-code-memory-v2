@@ -3,6 +3,7 @@ package sessionlog_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -143,6 +144,34 @@ func TestFreeTextBounded(t *testing.T) {
 	}
 	if len(ev.FreeText) > sessionlog.MaxFreeTextBytes {
 		t.Fatalf("free_text not bounded: %d", len(ev.FreeText))
+	}
+}
+
+func TestOversizedEventIsRejectedWithoutBrickingLog(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	w, err := sessionlog.Open(dir, sessionlog.WithClock(fixedClock()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Append(sessionlog.Event{Kind: sessionlog.KindRead, Session: "s"}); err != nil {
+		t.Fatal(err)
+	}
+	warnings := make([]string, 0, 200)
+	for i := 0; i < 200; i++ {
+		warnings = append(warnings, strings.Repeat("warning", sessionlog.MaxFreeTextBytes/7))
+	}
+	if _, err := w.Append(sessionlog.Event{Kind: sessionlog.KindRead, Session: "s", CoverageWarnings: warnings}); err == nil {
+		t.Fatal("oversized encoded event must be rejected")
+	} else if !errors.Is(err, sessionlog.ErrEventTooLarge) {
+		t.Fatalf("want ErrEventTooLarge, got %v", err)
+	}
+	reopened, err := sessionlog.Open(dir)
+	if err != nil {
+		t.Fatalf("rejected append must leave an openable log: %v", err)
+	}
+	if reopened.Len() != 1 {
+		t.Fatalf("prior event was not preserved: %d", reopened.Len())
 	}
 }
 

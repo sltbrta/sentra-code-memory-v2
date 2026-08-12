@@ -3,6 +3,7 @@ package workflow_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -108,16 +109,38 @@ func TestEvidenceDeterministicDigest(t *testing.T) {
 	}
 }
 
+func TestEvidenceTruncationIsExplicitAndDoesNotMutateInput(t *testing.T) {
+	t.Parallel()
+	edits := make([]workflow.FileEdit, 33)
+	for i := range edits {
+		edits[i] = workflow.FileEdit{Path: fmt.Sprintf("%02d.go", i)}
+	}
+	report := workflow.Build(workflow.Report{Edits: edits}, workflow.BuildOptions{MaxSlice: 32})
+	if len(report.Edits) != 32 || !report.Truncated || report.TotalEdits != 33 {
+		t.Fatalf("truncation marker/count missing: %+v", report)
+	}
+	if len(edits) != 33 || edits[0].Path != "00.go" {
+		t.Fatal("Build mutated caller-owned evidence")
+	}
+	raw, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(raw, []byte(`"truncated":true`)) || !bytes.Contains(raw, []byte(`"total_edits":33`)) {
+		t.Fatalf("serialized receipt hides truncation: %s", raw)
+	}
+}
+
 func TestChangeSetAcceptsValid(t *testing.T) {
 	t.Parallel()
 	base := workflow.Digest([]byte("package a\nfunc Alpha() {}\n"))
 	cs := workflow.ChangeSet{
 		Base:        "abc123",
-		BaseDigests: map[string]string{"a.go": base},
+		BaseDigests: map[string]string{"a.go": base, "b.go": "b-base"},
 		Edits: []workflow.CandidateEdit{
 			{Path: "a.go", Range: workflow.EditRange{Start: 1, End: 3}, Symbol: "Alpha",
 				BaseDigest: base, PredictedDigest: "p1", ObservedDigest: "p1"},
-			{Path: "b.go", Range: workflow.EditRange{Start: 5, End: 8},
+			{Path: "b.go", Range: workflow.EditRange{Start: 5, End: 8}, BaseDigest: "b-base",
 				PredictedDigest: "p2", ObservedDigest: "p2"},
 		},
 		VerificationCommands: []string{"go test ./...", "go vet ./..."},
@@ -149,6 +172,24 @@ func TestChangeSetRejectsStaleBase(t *testing.T) {
 	}
 	if !containsReason(res.Rejected, workflow.RejectStaleBase) {
 		t.Fatalf("want stale_base rejection, got %+v", res.Rejected)
+	}
+}
+
+func TestChangeSetRejectsMissingDigestEvidence(t *testing.T) {
+	t.Parallel()
+	cs := workflow.ChangeSet{Edits: []workflow.CandidateEdit{{
+		Path: "a.go", Range: workflow.EditRange{Start: 1, End: 2},
+		PredictedDigest: "same", ObservedDigest: "same",
+	}}}
+	res := cs.Validate()
+	if res.Accepted || res.Digest == "" {
+		t.Fatalf("missing base digest must not be fully accepted: %+v", res)
+	}
+	if res.PerEdit[0].DigestMatch {
+		t.Fatalf("missing evidence must not report DigestMatch=true: %+v", res.PerEdit[0])
+	}
+	if !containsReason(res.Rejected, workflow.RejectMissingDigest) {
+		t.Fatalf("want missing_digest rejection, got %+v", res.Rejected)
 	}
 }
 

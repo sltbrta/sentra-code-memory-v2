@@ -43,6 +43,17 @@ type Report struct {
 	Verification []Verification `json:"verification,omitempty"`
 	// NextActions are bounded suggested next steps.
 	NextActions []string `json:"next_actions,omitempty"`
+	// Truncated discloses that one or more bounded evidence slices were cut.
+	Truncated bool `json:"truncated,omitempty"`
+	// Total* preserve pre-bound counts whenever the corresponding slice is cut.
+	TotalEdits           int `json:"total_edits,omitempty"`
+	TotalGraphChanges    int `json:"total_graph_changes,omitempty"`
+	TotalDirect          int `json:"total_direct,omitempty"`
+	TotalClosure         int `json:"total_closure,omitempty"`
+	TotalTestFiles       int `json:"total_test_files,omitempty"`
+	TotalUnknownCoverage int `json:"total_unknown_coverage,omitempty"`
+	TotalVerification    int `json:"total_verification,omitempty"`
+	TotalNextActions     int `json:"total_next_actions,omitempty"`
 	// Digest is the sha256:hex of the report body (reproducibility receipt).
 	Digest string `json:"digest"`
 }
@@ -116,6 +127,11 @@ func Build(r Report, opts BuildOptions) Report {
 	}
 	r.ContextServed = canonical(r.ContextServed)
 	r.Savings = canonical(r.Savings)
+	r.Impact.Direct = append([]string(nil), r.Impact.Direct...)
+	r.Impact.Closure = append([]string(nil), r.Impact.Closure...)
+	r.Tests.Files = append([]string(nil), r.Tests.Files...)
+	r.UnknownCoverage = append([]string(nil), r.UnknownCoverage...)
+	r.NextActions = append([]string(nil), r.NextActions...)
 	sort.Strings(r.Impact.Direct)
 	sort.Strings(r.Impact.Closure)
 	sort.Strings(r.Tests.Files)
@@ -181,24 +197,32 @@ func sortVerification(in []Verification) []Verification {
 }
 
 func bound(r Report, n int) Report {
-	boundStr := func(s []string) []string {
+	boundStr := func(s []string, total *int) []string {
 		if len(s) > n {
+			*total = len(s)
+			r.Truncated = true
 			return s[:n]
 		}
 		return s
 	}
-	r.Impact.Direct = boundStr(r.Impact.Direct)
-	r.Impact.Closure = boundStr(r.Impact.Closure)
-	r.Tests.Files = boundStr(r.Tests.Files)
-	r.UnknownCoverage = boundStr(r.UnknownCoverage)
-	r.NextActions = boundStr(r.NextActions)
+	r.Impact.Direct = boundStr(r.Impact.Direct, &r.TotalDirect)
+	r.Impact.Closure = boundStr(r.Impact.Closure, &r.TotalClosure)
+	r.Tests.Files = boundStr(r.Tests.Files, &r.TotalTestFiles)
+	r.UnknownCoverage = boundStr(r.UnknownCoverage, &r.TotalUnknownCoverage)
+	r.NextActions = boundStr(r.NextActions, &r.TotalNextActions)
 	if len(r.Edits) > n {
+		r.TotalEdits = len(r.Edits)
+		r.Truncated = true
 		r.Edits = r.Edits[:n]
 	}
 	if len(r.GraphChanges) > n {
+		r.TotalGraphChanges = len(r.GraphChanges)
+		r.Truncated = true
 		r.GraphChanges = r.GraphChanges[:n]
 	}
 	if len(r.Verification) > n {
+		r.TotalVerification = len(r.Verification)
+		r.Truncated = true
 		r.Verification = r.Verification[:n]
 	}
 	return r

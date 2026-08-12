@@ -31,6 +31,8 @@ const (
 var (
 	// ErrEmpty is returned by Open when dir is blank.
 	ErrEmpty = errors.New("sessionlog: log directory required")
+	// ErrEventTooLarge is returned before an oversized event can be committed.
+	ErrEventTooLarge = errors.New("sessionlog: event exceeds maximum encoded size")
 )
 
 // Clock is injectable for deterministic write times in tests; nil uses UTC now.
@@ -263,6 +265,13 @@ func (w *Writer) writeAtomic(events []Event) error {
 	}
 	enc := json.NewEncoder(tmp)
 	for _, ev := range events {
+		line, err := json.Marshal(ev)
+		if err != nil {
+			return fmt.Errorf("sessionlog: encode event: %w", err)
+		}
+		if len(line) > DefaultMaxEventBytes {
+			return fmt.Errorf("%w: %d > %d bytes", ErrEventTooLarge, len(line), DefaultMaxEventBytes)
+		}
 		if err := enc.Encode(ev); err != nil {
 			return fmt.Errorf("sessionlog: encode event: %w", err)
 		}

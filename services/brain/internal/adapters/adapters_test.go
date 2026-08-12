@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -252,6 +254,80 @@ func TestMCPParseError(t *testing.T) {
 	r := parseResp(t, serveMCP(t, `{not valid json}`)[0])
 	if r.Error == nil || r.Error.Code != -32700 {
 		t.Fatalf("parse error want -32700, got %+v", r.Error)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(serveMCP(t, `{not valid json}`)[0]), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := raw["id"]; !ok || raw["id"] != nil {
+		t.Fatalf("parse error must carry id:null: %s", serveMCP(t, `{not valid json}`)[0])
+	}
+}
+
+func TestMCPAdvertisedTypesMatchCodeserveFields(t *testing.T) {
+	t.Parallel()
+	integer := map[string]bool{"workers": true, "top_k": true, "max_bytes": true,
+		"max_tokens": true, "start_line": true, "max_lines": true,
+		"max_depth": true, "max_files": true, "max_bridges": true}
+	boolean := map[string]bool{"force": true, "no_refresh": true, "preview": true}
+	for _, tool := range adapters.MCPTools() {
+		props, _ := tool.InputSchema["properties"].(map[string]any)
+		for field, value := range props {
+			schema, _ := value.(map[string]any)
+			if field == "paths" {
+				if schema["oneOf"] == nil {
+					t.Fatalf("paths schema must accept its string/array wire forms: %s", tool.Name)
+				}
+				continue
+			}
+			want := "string"
+			if integer[field] {
+				want = "integer"
+			} else if boolean[field] {
+				want = "boolean"
+			}
+			if schema["type"] != want {
+				t.Fatalf("%s.%s schema type=%v want %s", tool.Name, field, schema["type"], want)
+			}
+		}
+	}
+}
+
+func TestMCPNumericArgumentEnablesBoundedMode(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("package a\nfunc Alpha() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cache := filepath.Join(root, "cache")
+	indexed := codeserve.Handle(context.Background(), codeserve.Request{
+		"verb": "code_index", "root": root, "index_cache": cache,
+	})
+	if indexed["ok"] != true {
+		t.Fatalf("index fixture: %v", indexed)
+	}
+	line := `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"code_find_relevant","arguments":{"root":"` + root + `","index_cache":"` + cache + `","q":"Alpha","no_refresh":true,"max_bytes":40}}}`
+	responses := serveMCP(t, line)
+	inner := mustToolCallInner(t, responses[0])
+	if inner["ok"] != true || inner["context"] == nil {
+		t.Fatalf("numeric max_bytes did not enable bounded context: %+v", inner)
+	}
+}
+
+func TestMCPOversizedLineReturnsParseErrorAndContinues(t *testing.T) {
+	t.Parallel()
+	huge := `{"jsonrpc":"2.0","id":1,"method":"ping","padding":"` + strings.Repeat("x", adapters.MaxRequestBytes) + `"}`
+	lines := serveMCP(t, huge, `{"jsonrpc":"2.0","id":2,"method":"ping"}`)
+	if len(lines) != 2 {
+		t.Fatalf("oversized line must not terminate session: %d (%q)", len(lines), lines)
+	}
+	first := parseResp(t, lines[0])
+	if first.Error == nil || first.Error.Code != -32700 || string(first.ID) != "null" {
+		t.Fatalf("oversized line response wrong: %s", lines[0])
+	}
+	second := parseResp(t, lines[1])
+	if second.Error != nil || string(second.ID) != "2" {
+		t.Fatalf("next valid request was not served: %s", lines[1])
 	}
 }
 

@@ -50,8 +50,7 @@ func dispatchHandler(timeout time.Duration) http.HandlerFunc {
 				"dispatch", "POST required", http.StatusMethodNotAllowed))
 			return
 		}
-		body := http.MaxBytesReader(w, r.Body, MaxRequestBytes)
-		raw, err := io.ReadAll(body)
+		raw, err := io.ReadAll(r.Body)
 		if err != nil {
 			writeJSONStatus(w, http.StatusRequestEntityTooLarge, structuredErr(
 				"dispatch", "request exceeds bound", http.StatusRequestEntityTooLarge))

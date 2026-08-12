@@ -70,6 +70,9 @@ func isDeclLine(line string) bool {
 			return true
 		}
 		if strings.HasPrefix(t, kw) {
+			if len(t) <= len(kw) {
+				continue
+			}
 			rest := t[len(kw)]
 			switch rest {
 			case ' ', '\t', '(', '{', ':':

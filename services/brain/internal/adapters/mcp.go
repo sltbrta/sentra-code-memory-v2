@@ -37,7 +37,7 @@ type rpcRequest struct {
 // rpcResponse is a JSON-RPC 2.0 response.
 type rpcResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id,omitempty"`
+	ID      json.RawMessage `json:"id"`
 	Result  any             `json:"result,omitempty"`
 	Error   *rpcError       `json:"error,omitempty"`
 }
@@ -101,11 +101,11 @@ func MCPTools() []MCPTool {
 		props := map[string]any{}
 		required := []string{}
 		for _, f := range s.Required {
-			props[f] = map[string]any{"type": "string"}
+			props[f] = mcpFieldSchema(f)
 			required = append(required, f)
 		}
 		for _, f := range s.Optional {
-			props[f] = map[string]any{"type": "string"}
+			props[f] = mcpFieldSchema(f)
 		}
 		schema := map[string]any{
 			"type":                 "object",
@@ -126,18 +126,62 @@ func MCPTools() []MCPTool {
 	return tools
 }
 
+// mcpFieldSchema mirrors the concrete JSON values accepted by codeserve's
+// intField and boolField helpers. Unknown fields remain strings by default.
+func mcpFieldSchema(field string) map[string]any {
+	switch field {
+	case "workers", "top_k", "max_bytes", "max_tokens", "start_line",
+		"max_lines", "max_depth", "max_files", "max_bridges":
+		return map[string]any{"type": "integer"}
+	case "force", "no_refresh", "preview":
+		return map[string]any{"type": "boolean"}
+	case "paths":
+		return map[string]any{"oneOf": []any{
+			map[string]any{"type": "string"},
+			map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+		}}
+	default:
+		return map[string]any{"type": "string"}
+	}
+}
+
 // ServeMCP runs the MCP stdio loop: read newline-delimited JSON-RPC requests
 // from in, write responses to out, and diagnostics to errOut. It returns when
 // in reaches EOF. The loop is bounded: lines longer than MaxRequestBytes are
 // rejected as parse errors. It reuses codeserve.Handle so behavior matches the
 // JSONL/CLI/HTTP surfaces (issue #35 equivalence).
 func ServeMCP(ctx context.Context, in io.Reader, out, errOut io.Writer) error {
-	scanner := bufio.NewScanner(in)
-	scanner.Buffer(make([]byte, 64<<10), MaxRequestBytes)
+	reader := bufio.NewReader(in)
 	enc := json.NewEncoder(out)
-	for scanner.Scan() {
-		line := scanner.Bytes()
+	for {
+		line, tooLong, readErr := readMCPLine(reader)
+		if tooLong {
+			responses := []*rpcResponse{{JSONRPC: jsonRPCVersion, Error: &rpcError{
+				Code: codeParseError, Message: "parse error: request line exceeds maximum size",
+			}}}
+			for _, resp := range responses {
+				if err := enc.Encode(resp); err != nil {
+					fmt.Fprintf(errOut, "mcp: write response: %v\n", err)
+					return err
+				}
+			}
+		}
+		if readErr == io.EOF && len(line) == 0 && !tooLong {
+			break
+		}
+		if readErr != nil && readErr != io.EOF {
+			return readErr
+		}
+		if tooLong {
+			if readErr == io.EOF {
+				break
+			}
+			continue
+		}
 		if len(strings.TrimSpace(string(line))) == 0 {
+			if readErr == io.EOF {
+				break
+			}
 			continue
 		}
 		responses := handleMCPLine(ctx, line)
@@ -153,8 +197,39 @@ func ServeMCP(ctx context.Context, in io.Reader, out, errOut io.Writer) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+		if readErr == io.EOF {
+			break
+		}
 	}
-	return scanner.Err()
+	return nil
+}
+
+// readMCPLine consumes exactly one line while retaining at most the protocol
+// limit. Oversized lines are drained so the next request can still be served.
+func readMCPLine(reader *bufio.Reader) ([]byte, bool, error) {
+	var line []byte
+	lineBytes := 0
+	tooLong := false
+	for {
+		part, err := reader.ReadSlice('\n')
+		if !tooLong {
+			partBytes := len(part)
+			if len(part) > 0 && part[len(part)-1] == '\n' {
+				partBytes--
+			}
+			if lineBytes+partBytes > MaxRequestBytes {
+				tooLong = true
+				line = nil
+			} else {
+				line = append(line, part...)
+				lineBytes += partBytes
+			}
+		}
+		if err == bufio.ErrBufferFull {
+			continue
+		}
+		return line, tooLong, err
+	}
 }
 
 // handleMCPLine parses one JSON-RPC line and returns the responses to emit.

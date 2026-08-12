@@ -324,6 +324,9 @@ func packFindRelevant(req Request, rootAbs string, payload codecrawl.AgentPayloa
 	}
 	sources := make([]contextpack.Source, 0, len(payload.Hits))
 	for _, h := range payload.Hits {
+		if len(sources) >= findRelevantCandidateCap {
+			break
+		}
 		abs, ok := codecrawl.SafeRootPath(rootAbs, h.Path)
 		if !ok {
 			continue

@@ -131,3 +131,35 @@ func TestSummaryIsStableAcrossRecordOrder(t *testing.T) {
 		t.Fatalf("summary unexpectedly contains per-step names: %s", leftJSON)
 	}
 }
+
+func TestLedgerRollsUpBeyondActiveStepCap(t *testing.T) {
+	t.Parallel()
+	cache := t.TempDir()
+	ledger, err := savings.Open(cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < savings.DefaultMaxSteps+17; i++ {
+		if err := ledger.Record(savings.Step{
+			Name: "step", Category: savings.CategoryRetrieval,
+			BaselineBytes: 10, ServedBytes: 4, BaselineTokens: 5, ServedTokens: 2,
+		}); err != nil {
+			t.Fatalf("record %d: %v", i, err)
+		}
+	}
+	if len(ledger.Steps()) > savings.DefaultMaxSteps {
+		t.Fatalf("active ledger steps exceeded cap: %d", len(ledger.Steps()))
+	}
+	summary := ledger.Summary()
+	want := savings.DefaultMaxSteps + 17
+	if summary.Steps != want || summary.Totals.BaselineBytes != int64(want*10) {
+		t.Fatalf("rollup lost logical totals: %+v", summary)
+	}
+	reopened, err := savings.Open(cache)
+	if err != nil {
+		t.Fatalf("rolled-up ledger is not loadable: %v", err)
+	}
+	if got := reopened.Summary(); got.Steps != summary.Steps || got.Totals != summary.Totals {
+		t.Fatalf("reopened summary drifted: got=%+v want=%+v", got, summary)
+	}
+}
