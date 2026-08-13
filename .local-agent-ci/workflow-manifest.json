@@ -1,7 +1,7 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-1786566011279",
-  "head": "226eb498b712c75e815f901bf6352d69be0f9169",
+  "run_id": "run-1786611192359",
+  "head": "dfe36f636da62773cca41b8f934db85de16df20d",
   "implementer_session": "019ff79c-0fe8-77a6-bf18-0119b5abe291",
   "workflow": "post-parity-blocker-hardening",
   "scope": "Fix the two valid post-#52 review findings: canonicalize localhost loopback binding before HTTP startup and surface ChangeSet rollback restoration failures without falsely claiming recovery.",
@@ -29,9 +29,9 @@
   "issue_ids": [
     "53"
   ],
-  "created_at": "2026-08-12T20:20:11.279Z",
+  "created_at": "2026-08-13T08:53:12.359Z",
   "tier": "T1",
-  "stage": "finalize",
+  "stage": "fresh-eyes",
   "phases": [
     {
       "id": "spec-lock",
