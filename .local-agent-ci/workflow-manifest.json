@@ -1,37 +1,31 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-1786611375574",
-  "head": "3e1b8b22a3b925e83c0c0bc2e2a8e79e16ae9c6c",
+  "run_id": "run-1786612511168",
+  "head": "e8830265bf9ea38427466ecdf36835530a8ce1a7",
   "implementer_session": "019ff79c-0fe8-77a6-bf18-0119b5abe291",
-  "workflow": "post-parity-blocker-hardening",
-  "scope": "Fix the two valid post-#52 review findings: canonicalize localhost loopback binding before HTTP startup and surface ChangeSet rollback restoration failures without falsely claiming recovery.",
+  "workflow": "post-p6-closeout-documentation",
+  "scope": "Document the completed post-P6 state and bounded non-blocking follow-ups in docs/roadmap/NEXT-STEPS.md; no runtime behavior changes.",
   "non_goals": [
-    "Do not redesign the HTTP protocol or trust token policy.",
-    "Do not change ChangeSet validation, staging, or promotion semantics beyond rollback error reporting.",
-    "Do not add dependencies or implement unrelated backlog work."
+    "Do not implement deferred dense/rerank, hosted tenancy, lifecycle, full session product, or compiler/LSP expansion.",
+    "Do not alter runtime contracts or benchmark thresholds.",
+    "Do not modify historical research artifacts beyond the new roadmap pointer."
   ],
   "affected_files": [
-    "services/brain/internal/adapters/trust.go",
-    "services/brain/internal/adapters/trust_test.go",
-    "services/brain/cmd/sentra-code-memory/adapters.go",
-    "services/brain/internal/workflow/apply.go",
-    "services/brain/internal/workflow/apply_atomic_test.go"
+    "docs/roadmap/NEXT-STEPS.md"
   ],
   "acceptance_commands": [
-    "go test ./services/brain/internal/adapters ./services/brain/internal/workflow ./services/brain/cmd/sentra-code-memory",
-    "go test ./services/...",
+    "markdownlint-cli2 docs/roadmap/NEXT-STEPS.md",
     "git diff --check"
   ],
   "risks": [
-    "Trust binding changes could break localhost startup if canonicalization mishandles IPv6 or ephemeral ports.",
-    "Rollback error handling must preserve existing successful rollback behavior while reporting partial recovery accurately."
+    "The roadmap must distinguish shipped bounded capabilities from deferred broader design targets and avoid overstating parity."
   ],
   "issue_ids": [
-    "53"
+    "54"
   ],
-  "created_at": "2026-08-13T08:56:15.574Z",
-  "tier": "T1",
-  "stage": "cleanup",
+  "created_at": "2026-08-13T09:15:11.168Z",
+  "tier": "T0",
+  "stage": "preflight",
   "phases": [
     {
       "id": "spec-lock",
@@ -52,10 +46,6 @@
     {
       "id": "implementation",
       "title": "Implementation"
-    },
-    {
-      "id": "paired-review",
-      "title": "Paired review"
     },
     {
       "id": "preflight",
