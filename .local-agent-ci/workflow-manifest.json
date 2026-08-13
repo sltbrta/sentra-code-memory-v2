@@ -1,14 +1,14 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-1786619095636",
-  "head": "d331c9b2130a2a866e1908128f8daebc724e9237",
+  "run_id": "run-1786619214540",
+  "head": "53ad0d3882ac7256bfabd8e960e6b1296dc57c9f",
   "implementer_session": "019ff79c-0fe8-77a6-bf18-0119b5abe291",
-  "workflow": "local-first-ranked-retrieval-slice-final",
-  "scope": "Expose the existing deterministic hybrid ranked retrieval pipeline through codeserve as an explicit opt-in mode, preserving legacy code_find_relevant behavior by default and surfacing existing impact test hints without new network dependencies.",
+  "workflow": "local-first-ranked-retrieval-slice-closeout",
+  "scope": "Close out the already reviewed deterministic ranked retrieval slice and its capability audit; runtime code is complete at current HEAD, with no further implementation in this closeout.",
   "non_goals": [
-    "Do not add Gemini or any network provider in this slice.",
-    "Do not change default code_find_relevant wire behavior.",
-    "Do not implement SCIP ingestion, session recall, lifecycle hooks, dense embeddings, or hosted features in this slice."
+    "Do not add Gemini or other network providers.",
+    "Do not implement additional deferred capabilities in this closeout.",
+    "Do not change the ranked retrieval runtime behavior."
   ],
   "affected_files": [
     "services/brain/internal/codeserve/handle.go",
@@ -24,16 +24,15 @@
     "markdownlint-cli2 docs/research/2026-08-13-local-first-deferred-capability-audit.md services/brain/internal/codeserve/README.md"
   ],
   "risks": [
-    "Opt-in ranked payload must remain bounded and deterministic.",
-    "Catalog metadata and tests must accurately describe the new opt-in field without implying semantic/compiler authority."
+    "Receipt-only commits must not be mistaken for runtime changes; all acceptance commands must remain green on the final head."
   ],
   "issue_ids": [
     "56",
     "55"
   ],
-  "created_at": "2026-08-13T11:04:55.636Z",
+  "created_at": "2026-08-13T11:06:54.540Z",
   "tier": "T1",
-  "stage": "fresh-eyes",
+  "stage": "land",
   "phases": [
     {
       "id": "spec-lock",
