@@ -1,0 +1,13 @@
+{
+  "schema": "pi-agent:review:v1",
+  "head": "226eb498b712c75e815f901bf6352d69be0f9169",
+  "status": "approved",
+  "review_type": "fresh-eyes",
+  "reviewer": "sa-2 / Pi fresh-eyes reviewer",
+  "reviewed_at": "2026-08-12T21:35:18.063Z",
+  "summary": "Fresh-eyes review approved HEAD 226eb49. CanonicalListenAddr pins localhost to numeric 127.0.0.1 before all HTTP listener/config/log uses; non-loopback fail-closed behavior remains. ApplyChangeSet propagates rollback restoration errors, reports RolledBack=false on incomplete rollback, and preserves successful rollback. Focused tests pass; no findings.",
+  "repo_root": "/Users/sammy/Developer/sentra-code-memory-v2",
+  "final_tree": "a215e924509b8e9533cfe526585e3c6be13942d8",
+  "implementer_session": "019ff79c-0fe8-77a6-bf18-0119b5abe291",
+  "reviewer_session": "sa-2"
+}
