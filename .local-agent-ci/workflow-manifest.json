@@ -12,6 +12,7 @@
   ],
   "affected_files": [
     "services/brain/internal/codeserve/handle.go",
+    "services/brain/internal/codeserve/relevant.go",
     "services/brain/internal/codeserve/contract.go",
     "services/brain/internal/codeserve/contract_test.go",
     "services/brain/internal/codeserve/README.md",
