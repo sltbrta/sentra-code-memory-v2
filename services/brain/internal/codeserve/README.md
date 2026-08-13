@@ -74,7 +74,13 @@ The CLI streaming watcher (`sentra-code-memory watch`) is unchanged.
 ## Bounded context packing (opt-in)
 
 `code_find_relevant` accepts optional `max_bytes`, `max_tokens`, `render`
-(`full|signatures|skeleton|compact`), and `session` fields. When any of
+(`full|signatures|skeleton|compact`), `session`, and `ranked` fields. `ranked`
+adds the deterministic identifier-floor/PageRank/MMR result under
+`ranked_payload`; it is opt-in so the legacy `payload` remains compatible.
+`impact_tests` additionally exposes deterministic affected test paths in
+`affected_tests` (and applies only with `ranked=true`). When ranked and
+context packing are both requested, the ranked hits drive the packed context.
+When any of
 `max_bytes` / `max_tokens` / `render` is set, the response adds a `context`
 block from `internal/contextpack`: hard byte/token budgets with
 relevance-proportional allocation and a direct-source floor, explicit

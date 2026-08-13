@@ -190,6 +190,34 @@ func TestResponseContractConformance(t *testing.T) {
 		if !out.OK || out.Payload.Query != "Alpha" || len(out.Payload.Hits) == 0 {
 			t.Fatalf("%+v", out)
 		}
+		if out.RankedPayload != nil {
+			t.Fatalf("ranked payload must be opt-in: %+v", out)
+		}
+		rankedReq := sel()
+		rankedReq["verb"], rankedReq["q"], rankedReq["ranked"], rankedReq["impact_tests"] = "code_find_relevant", "Alpha", true, true
+		ranked := decode[codeserve.FindRelevantResponse](t, codeserve.Handle(ctx, rankedReq))
+		if !ranked.OK || ranked.RankedPayload == nil || ranked.RankedPayload.Diagnostic.Schema == "" {
+			t.Fatalf("ranked payload missing diagnostic: %+v", ranked)
+		}
+		if ranked.RankedPayload.Diagnostic.Rerank.Strategy == "" {
+			t.Fatalf("ranked strategy missing: %+v", ranked.RankedPayload.Diagnostic)
+		}
+		if len(ranked.RankedPayload.Hits) > 8 {
+			t.Fatalf("ranked hit bound exceeded: %d", len(ranked.RankedPayload.Hits))
+		}
+		if ranked.AffectedTests == nil {
+			t.Fatalf("affected_tests missing: %+v", ranked)
+		}
+		boundedReq := sel()
+		boundedReq["verb"], boundedReq["q"], boundedReq["ranked"], boundedReq["impact_tests"], boundedReq["max_bytes"] = "code_find_relevant", "Alpha", true, true, 4096
+		bounded := decode[codeserve.FindRelevantResponse](t, codeserve.Handle(ctx, boundedReq))
+		if !bounded.OK || bounded.Context == nil || bounded.RankedPayload == nil {
+			t.Fatalf("ranked bounded response incomplete: %+v", bounded)
+		}
+		first := decode[codeserve.FindRelevantResponse](t, codeserve.Handle(ctx, rankedReq))
+		if len(first.RankedPayload.Hits) != len(ranked.RankedPayload.Hits) || first.AffectedTests == nil {
+			t.Fatalf("ranked response is not stable: first=%+v second=%+v", ranked, first)
+		}
 	})
 
 	t.Run("expand", func(t *testing.T) {

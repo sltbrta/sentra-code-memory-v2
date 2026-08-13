@@ -305,15 +305,31 @@ func handleFindRelevant(req Request) Response {
 		topK = findRelevantCandidateCap
 	}
 	preview := boolField(req, "preview", true)
+	ranked := boolField(req, "ranked", false)
 	t0 := time.Now()
 	payload := idx.FindRelevant(rootAbs, q, topK, preview)
+	packingPayload := payload
 	out := map[string]any{
-		"payload": payload, "duration_ms": time.Since(t0).Milliseconds(),
+		"payload":        payload,
 		"search_backend": "codecrawl",
 	}
-	if bounded {
-		out["context"] = packFindRelevant(req, rootAbs, payload, mode, maxBytes, maxTokens)
+	if ranked {
+		rankedPayload := idx.FindRelevantRanked(rootAbs, q, topK, preview, codecrawl.DefaultRankerConfig())
+		out["ranked_payload"] = rankedPayload
+		packingPayload = rankedPayload.AgentPayload
+		if boolField(req, "impact_tests", false) {
+			rec := idx.Impact(q, 3, 64)
+			affectedTests := rec.AffectedTests
+			if affectedTests == nil {
+				affectedTests = []string{}
+			}
+			out["affected_tests"] = affectedTests
+		}
 	}
+	if bounded {
+		out["context"] = packFindRelevant(req, rootAbs, packingPayload, mode, maxBytes, maxTokens)
+	}
+	out["duration_ms"] = time.Since(t0).Milliseconds()
 	return okResp(string(VerbFindRelevant), out)
 }
 

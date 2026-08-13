@@ -112,16 +112,20 @@ type SearchRequest struct {
 // MaxBytes/MaxTokens/Render opt into bounded context packing (contextpack);
 // when all are unset the response shape is exactly the legacy payload.
 // Session shares a dedup/handle registry across bounded calls.
+// Ranked opts into the deterministic hybrid identifier/graph/MMR pipeline;
+// the default remains the legacy lexical payload for compatibility.
 type FindRelevantRequest struct {
 	Verb string `json:"verb"`
 	IndexSelector
-	Q         string `json:"q"`
-	TopK      int    `json:"top_k,omitempty"`
-	Preview   bool   `json:"preview"`
-	MaxBytes  int    `json:"max_bytes,omitempty"`
-	MaxTokens int    `json:"max_tokens,omitempty"`
-	Render    string `json:"render,omitempty"`
-	Session   string `json:"session,omitempty"`
+	Q           string `json:"q"`
+	TopK        int    `json:"top_k,omitempty"`
+	Preview     bool   `json:"preview"`
+	MaxBytes    int    `json:"max_bytes,omitempty"`
+	MaxTokens   int    `json:"max_tokens,omitempty"`
+	Render      string `json:"render,omitempty"`
+	Session     string `json:"session,omitempty"`
+	Ranked      bool   `json:"ranked"`
+	ImpactTests bool   `json:"impact_tests"`
 }
 
 // ExpandRequest returns defs+refs neighborhoods of a seed (code_expand).
@@ -386,13 +390,16 @@ type SearchResponse struct {
 
 // FindRelevantResponse wraps the lean agent payload. Context is present
 // only when the request opted into bounded packing (max_bytes, max_tokens,
-// or render).
+// or render). RankedPayload is present only when ranked=true. AffectedTests
+// is present when ranked=true and impact_tests=true.
 type FindRelevantResponse struct {
 	ResponseMeta
-	Payload       codecrawl.AgentPayload `json:"payload"`
-	Context       *contextpack.Result    `json:"context,omitempty"`
-	DurationMS    int64                  `json:"duration_ms"`
-	SearchBackend string                 `json:"search_backend"`
+	Payload       codecrawl.AgentPayload        `json:"payload"`
+	RankedPayload *codecrawl.RankedAgentPayload `json:"ranked_payload,omitempty"`
+	AffectedTests []string                      `json:"affected_tests,omitempty"`
+	Context       *contextpack.Result           `json:"context,omitempty"`
+	DurationMS    int64                         `json:"duration_ms"`
+	SearchBackend string                        `json:"search_backend"`
 }
 
 // ExpandResponse is the heuristic defs+refs neighborhood of a seed.
@@ -527,7 +534,7 @@ func CatalogMetadata() []VerbSpec {
 			Summary:  "lean top-k agent payload with optional source previews and opt-in bounded context packing",
 			Required: []string{"q"},
 			Optional: []string{"root", "index_cache", "top_k", "preview", "no_refresh",
-				"max_bytes", "max_tokens", "render", "session"},
+				"max_bytes", "max_tokens", "render", "session", "ranked", "impact_tests"},
 			Aliases: []string{"relevant"}},
 		{Name: string(VerbExpand), Status: StatusStable, Surface: "jsonl",
 			Summary:  "heuristic defs+refs neighborhood of a seed symbol",
