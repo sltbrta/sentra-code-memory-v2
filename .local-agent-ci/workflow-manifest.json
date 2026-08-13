@@ -1,9 +1,9 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-1786612511168",
-  "head": "e8830265bf9ea38427466ecdf36835530a8ce1a7",
+  "run_id": "run-1786612660389",
+  "head": "fe2457c846abf9e5bae3b03cf9757e4af59f42be",
   "implementer_session": "019ff79c-0fe8-77a6-bf18-0119b5abe291",
-  "workflow": "post-p6-closeout-documentation",
+  "workflow": "post-p6-closeout-documentation-final",
   "scope": "Document the completed post-P6 state and bounded non-blocking follow-ups in docs/roadmap/NEXT-STEPS.md; no runtime behavior changes.",
   "non_goals": [
     "Do not implement deferred dense/rerank, hosted tenancy, lifecycle, full session product, or compiler/LSP expansion.",
@@ -23,9 +23,9 @@
   "issue_ids": [
     "54"
   ],
-  "created_at": "2026-08-13T09:15:11.168Z",
+  "created_at": "2026-08-13T09:17:40.389Z",
   "tier": "T0",
-  "stage": "preflight",
+  "stage": "land",
   "phases": [
     {
       "id": "spec-lock",
@@ -46,6 +46,10 @@
     {
       "id": "implementation",
       "title": "Implementation"
+    },
+    {
+      "id": "paired-review",
+      "title": "Paired review"
     },
     {
       "id": "preflight",
