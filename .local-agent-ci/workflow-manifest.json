@@ -1,31 +1,39 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-1786612660389",
-  "head": "fe2457c846abf9e5bae3b03cf9757e4af59f42be",
+  "run_id": "run-1786619095636",
+  "head": "d331c9b2130a2a866e1908128f8daebc724e9237",
   "implementer_session": "019ff79c-0fe8-77a6-bf18-0119b5abe291",
-  "workflow": "post-p6-closeout-documentation-final",
-  "scope": "Document the completed post-P6 state and bounded non-blocking follow-ups in docs/roadmap/NEXT-STEPS.md; no runtime behavior changes.",
+  "workflow": "local-first-ranked-retrieval-slice-final",
+  "scope": "Expose the existing deterministic hybrid ranked retrieval pipeline through codeserve as an explicit opt-in mode, preserving legacy code_find_relevant behavior by default and surfacing existing impact test hints without new network dependencies.",
   "non_goals": [
-    "Do not implement deferred dense/rerank, hosted tenancy, lifecycle, full session product, or compiler/LSP expansion.",
-    "Do not alter runtime contracts or benchmark thresholds.",
-    "Do not modify historical research artifacts beyond the new roadmap pointer."
+    "Do not add Gemini or any network provider in this slice.",
+    "Do not change default code_find_relevant wire behavior.",
+    "Do not implement SCIP ingestion, session recall, lifecycle hooks, dense embeddings, or hosted features in this slice."
   ],
   "affected_files": [
-    "docs/roadmap/NEXT-STEPS.md"
+    "services/brain/internal/codeserve/handle.go",
+    "services/brain/internal/codeserve/contract.go",
+    "services/brain/internal/codeserve/contract_test.go",
+    "services/brain/internal/codeserve/README.md",
+    "docs/research/2026-08-13-local-first-deferred-capability-audit.md"
   ],
   "acceptance_commands": [
-    "markdownlint-cli2 docs/roadmap/NEXT-STEPS.md",
-    "git diff --check"
+    "go test ./services/brain/internal/codecrawl ./services/brain/internal/codeserve",
+    "go test ./services/...",
+    "git diff --check",
+    "markdownlint-cli2 docs/research/2026-08-13-local-first-deferred-capability-audit.md services/brain/internal/codeserve/README.md"
   ],
   "risks": [
-    "The roadmap must distinguish shipped bounded capabilities from deferred broader design targets and avoid overstating parity."
+    "Opt-in ranked payload must remain bounded and deterministic.",
+    "Catalog metadata and tests must accurately describe the new opt-in field without implying semantic/compiler authority."
   ],
   "issue_ids": [
-    "54"
+    "56",
+    "55"
   ],
-  "created_at": "2026-08-13T09:17:40.389Z",
-  "tier": "T0",
-  "stage": "land",
+  "created_at": "2026-08-13T11:04:55.636Z",
+  "tier": "T1",
+  "stage": "fresh-eyes",
   "phases": [
     {
       "id": "spec-lock",

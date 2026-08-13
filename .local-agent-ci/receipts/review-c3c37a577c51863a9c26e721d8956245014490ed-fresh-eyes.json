@@ -1,0 +1,13 @@
+{
+  "schema": "pi-agent:review:v1",
+  "head": "c3c37a577c51863a9c26e721d8956245014490ed",
+  "status": "approved",
+  "review_type": "fresh-eyes",
+  "reviewer": "sa-7 / Pi fresh-eyes reviewer",
+  "reviewed_at": "2026-08-13T11:03:58.931Z",
+  "summary": "Fresh-eyes review approved the ranked retrieval slice. Legacy defaults remain unchanged; ranked output is deterministic/bounded; ranked hits drive context packing; impact_tests returns stable affected_tests; duration includes ranked work. Additional coverage now checks ranked bounded packing and repeat-call stability. No blockers.",
+  "repo_root": "/Users/sammy/Developer/sentra-code-memory-v2",
+  "final_tree": "50b4db6424aa6ee1f992046fab90fe04c7ced341",
+  "implementer_session": "019ff79c-0fe8-77a6-bf18-0119b5abe291",
+  "reviewer_session": "sa-7"
+}

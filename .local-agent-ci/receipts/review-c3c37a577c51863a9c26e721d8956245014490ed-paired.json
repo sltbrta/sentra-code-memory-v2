@@ -1,0 +1,13 @@
+{
+  "schema": "pi-agent:review:v1",
+  "head": "c3c37a577c51863a9c26e721d8956245014490ed",
+  "status": "approved",
+  "review_type": "paired",
+  "reviewer": "sa-6 / Pi reviewer",
+  "reviewed_at": "2026-08-13T10:58:10.987Z",
+  "summary": "Re-review approved the ranked retrieval slice after fixes. Ranked output remains opt-in and bounded/deterministic; ranked hits now drive bounded context packing; optional impact_tests exposes a non-nil affected_tests list; duration includes ranked work; conformance asserts legacy omission, diagnostics strategy, bounds, and affected-tests contract. No remaining findings.",
+  "repo_root": "/Users/sammy/Developer/sentra-code-memory-v2",
+  "final_tree": "50b4db6424aa6ee1f992046fab90fe04c7ced341",
+  "implementer_session": "019ff79c-0fe8-77a6-bf18-0119b5abe291",
+  "reviewer_session": "sa-6"
+}
