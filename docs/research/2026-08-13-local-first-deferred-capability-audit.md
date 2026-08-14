@@ -21,7 +21,7 @@ product.
 | --- | --- | --- | --- | --- |
 | Hybrid ranked retrieval | Local-only | Route `code_find_relevant` through `codecrawl.FindRelevantRanked`; retain deterministic MMR fallback | On | None required |
 
-| Local dense code retrieval | Local-only | Use existing pure-Go dense/HNSW and bag-of-words fallback behind a bounded optional arm | Off until explicitly requested | None required |
+| Local lexical code retrieval (`dense_local_search`) | Local-only | Ship deterministic bag-of-words cosine behind a bounded optional arm; dense vectors and ANN/HNSW serving remain deferred | Off until explicitly requested | None required |
 
 | SCIP authority | Local-only | Add bounded `code_ingest_scip` accepting user-generated SCIP JSON and persist authority-tagged edges | Explicit request only | None |
 | Affected test hints / related context | Local-only | Expose existing `ImpactReceipt.AffectedTests` and compose existing expand/impact/repo-map surfaces | On in existing receipts | None |
@@ -95,8 +95,8 @@ existing MLX/Gemma path remains the local alternative.
    redaction, budgets, and fallback tests.
 3. Wire Gemini only into query expansion/semantic scoring; do not put it on the
    critical path for indexing, reads, or ChangeSet application.
-4. Revisit local dense retrieval and reversible hook management separately after
-   measuring the first slice.
+4. Measure the shipped lexical `dense_local_search` arm and reversible hooks;
+   revisit dense vectors and ANN/HNSW serving only as a separate deferred slice.
 
 ## Non-goals
 

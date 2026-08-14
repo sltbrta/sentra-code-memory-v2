@@ -30,10 +30,11 @@ matching codeserve verb returns a structured `deferred` disclosure.
 - **Lifecycle/install/server management** (`lifecycle_install`). Managed server
   start/status, hooks install/uninstall, login/whoami, and uninstall are not
   owned by the standalone CLI.
-- **Dense/reranked retrieval** (`code_dense_rerank`). The code lane is local
-  heuristic only; dense code vectors and cross-encoder rerank are deferred.
-  Local/hosted model clients exist for the memory path but are not wired into
-  code retrieval.
+- **Dense/reranked retrieval** (`code_dense_rerank`). Dense code vectors,
+  ANN/HNSW serving, and cross-encoder reranking are deferred. The shipped
+  `dense_local_search` verb is lexical bag-of-words cosine only despite its
+  legacy name; it does not load or query a dense/ANN index. Local/hosted model
+  clients exist for the memory path but are not wired into code retrieval.
 - **Prior query modes** (`query_advanced`). Patch plans, test hints, related
   graph/source context, and greenfield/native-first context are not part of the
   standalone operator surface.
@@ -68,8 +69,10 @@ boundaries in force today:
   repo-local session log with abstention), and `hooks_local` (repo-confined
   git hook installer with rollback manifest; mutating actions are
   operator-trust-gated on HTTP/MCP per issue #63).
-- **Dense code retrieval stays deferred.** Pure-Go dense/HNSW exists for the
-  memory path only; the code lane is lexical/heuristic.
+- **Lexical local retrieval is shipped; true dense retrieval stays deferred.**
+  The opt-in stable `dense_local_search` verb performs bounded lexical
+  bag-of-words cosine only. Dense reranking, vector retrieval, and ANN/HNSW
+  serving remain deferred; pure-Go dense/HNSW exists for the memory path only.
 
 ## Retrieval benchmark lanes
 
@@ -79,6 +82,8 @@ substituting one for another:
 
 - `local_heuristic` — the lexical/heuristic codecrawl lane. **Measured** by
   `just bench-code` against the checked-in `qafixture` corpus (24 probes).
+  The shipped `dense_local_search` verb is also lexical, not the deferred
+  `dense_reranked` lane.
 - `dense_reranked` — dense vectors plus cross-encoder rerank. **Deferred.**
 - `compiler_authority` — Tree-sitter/SCIP/LSP authority. **Deferred.**
 

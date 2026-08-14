@@ -224,22 +224,42 @@ func TestCodeserveDenseLocalSearchHappyPath(t *testing.T) {
 	if got["route"] != "lexical" {
 		t.Fatalf("unexpected route: %s", got["route"])
 	}
+	if got["model"] != "bag-of-words:v1" {
+		t.Fatalf("model = %v, want bag-of-words:v1", got["model"])
+	}
 	raw, _ := json.Marshal(got["hits"])
 	if !strings.Contains(string(raw), "billing.go") {
 		t.Fatalf("hits missing billing.go: %s", raw)
 	}
 }
 
-// TestCodeserveDenseLocalSearchRefusesUnknown is the friendly-error path.
-func TestCodeserveDenseLocalSearchRefusesUnknown(t *testing.T) {
-	got := codeserve.Handle(context.Background(), codeserve.Request{
-		"verb": "dense_local_search", "q": "x", "root": "/nonexistent-path",
-	})
-	if got["ok"] != false {
-		t.Fatalf("expected fail: %+v", got)
+func TestCodeserveDenseLocalSearchRejectsUnsupportedModel(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("package a\n"), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if code, _ := got["error_code"].(string); code == "" {
-		t.Fatalf("missing error_code: %+v", got)
+	for _, model := range []any{"", "embedding:v2", 42} {
+		got := codeserve.Handle(context.Background(), codeserve.Request{
+			"verb": "dense_local_search", "q": "a", "root": dir, "model": model,
+		})
+		if got["ok"] != false || got["error_code"] != string(codeserve.ErrInvalidRequest) {
+			t.Fatalf("model %v should be rejected as invalid_request: %+v", model, got)
+		}
+	}
+}
+
+// TestCodeserveDenseLocalSearchPropagatesCorpusWalkError ensures an invalid
+// root is reported as the real path failure, never disguised as an empty corpus.
+func TestCodeserveDenseLocalSearchPropagatesCorpusWalkError(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "nonexistent")
+	got := codeserve.Handle(context.Background(), codeserve.Request{
+		"verb": "dense_local_search", "q": "x", "root": root,
+	})
+	if got["ok"] != false || got["error_code"] != string(codeserve.ErrPathDenied) {
+		t.Fatalf("expected path_denied: %+v", got)
+	}
+	if errText, _ := got["error"].(string); !strings.Contains(errText, "nonexistent") {
+		t.Fatalf("walk error was not propagated: %+v", got)
 	}
 }
 
