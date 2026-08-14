@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "69c862b5901b138752852a9354fa42660038fbf3",
+  "one_shot": true,
+  "rule": "cleanup.apply",
+  "reason": "User explicitly authorized cleanup bypass. All 20 stale branches are now verified ancestors of the no-op consolidation merge commit, so cadence can delete them with ordinary branch -d/CAS safety checks; no force deletion or remote override is needed. | user authorization: I am giving you permission to clean up so bypass",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "autonomous-session",
+  "approved_at": "2026-08-14T17:56:56.838Z"
+}
