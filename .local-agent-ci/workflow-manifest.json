@@ -1,7 +1,7 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
   "run_id": "run-remaining-six-final-land",
-  "head": "6d1156c09dea9b1977d773feff3a2a986e8db6f8",
+  "head": "9c3a4cf",
   "implementer_session": "01a00039-dc60-7581-a1fd-05f6ce69ef11",
   "workflow": "remaining-six-final-land",
   "scope": "Finalize and clean up the completed six-area local-first release at current HEAD: SCIP/session recall, optional official Gemini SDK seam with deterministic fallback, reversible local hooks with operator-trust gating, bounded lexical dense arm, authority/docs hygiene, and expanded benchmark evidence.",
