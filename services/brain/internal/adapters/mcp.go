@@ -96,7 +96,7 @@ func MCPTools() []MCPTool {
 	tools := make([]MCPTool, 0, len(specs))
 	for _, s := range specs {
 		if s.Status != codeserve.StatusStable {
-			continue // planned verbs have no handler; do not advertise them
+			continue // deferred verbs have no handler; do not advertise them
 		}
 		props := map[string]any{}
 		required := []string{}

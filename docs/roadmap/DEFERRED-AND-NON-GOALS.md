@@ -39,7 +39,44 @@ matching codeserve verb returns a structured `deferred` disclosure.
   standalone operator surface.
 - **Compiler/SCIP/LSP authority.** Exact projections are deterministic Go
   lexical/AST; Tree-sitter/SCIP/LSP lanes are deferred (see the code-intelligence
-  spec).
+  spec). SCIP ingestion exists as a tested package seam
+  (`codecrawl.Index.IngestSCIP` / `codeindex.IngestSCIP`) but is **not wired to
+  a codeserve verb**; the default graph stays honest about heuristic authority
+  outside Go. See the local-first deferred audit for the planned
+  `code_ingest_scip` boundary.
+
+## Local-first deferred capabilities (issue #55)
+
+A cited capability matrix separating local-only, local-plus-optional-LLM, and
+inherently-hosted/non-goal features lives in
+`docs/research/2026-08-13-local-first-deferred-capability-audit.md`. The
+boundaries in force today:
+
+- **Deterministic/local is the default.** No LLM configuration is required for
+  any shipped surface; a missing key or transport/parse/policy failure always
+  returns the deterministic fallback.
+- **Optional Gemini adapter is cloud and memory-lane only.** An opt-in Gemini
+  `gemini-3.6-flash` adapter (bounded requests, structured outputs, redaction,
+  timeouts, deterministic fallback) may augment query expansion/semantic
+  scoring off the critical path. It is planned against the official Google
+  Gemini SDK, not raw HTTP or the OpenAI-compatible endpoint (see #60). It is
+  **not** on the code index/read/ChangeSet path.
+- **SCIP ingestion, session recall, and lifecycle hooks remain unwired.** The
+  package seams exist (`IngestSCIP`, `sessionlog.Recall`) but have no codeserve
+  verb; they are deferred until measured behind deterministic tests.
+- **Dense code retrieval stays deferred.** Pure-Go dense/HNSW exists for the
+  memory path only; the code lane is lexical/heuristic.
+
+## Retrieval benchmark lanes
+
+Benchmark claims must state which lane produced them. The standalone product
+measures exactly one lane and declares the other two as deferred, never
+substituting one for another:
+
+- `local_heuristic` — the lexical/heuristic codecrawl lane. **Measured** by
+  `just bench-code` against the checked-in `qafixture` corpus (24 probes).
+- `dense_reranked` — dense vectors plus cross-encoder rerank. **Deferred.**
+- `compiler_authority` — Tree-sitter/SCIP/LSP authority. **Deferred.**
 
 ## What ships instead
 

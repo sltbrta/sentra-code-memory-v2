@@ -529,9 +529,7 @@ type VerbStatus string
 const (
 	// StatusStable verbs are live and covered by conformance tests.
 	StatusStable VerbStatus = "stable"
-	// StatusPlanned verbs are typed here but have no handler yet.
-	StatusPlanned VerbStatus = "planned"
-	// StatusDeferred is an explicit non-goal disclosure.
+	// StatusDeferred is an explicit non-goal disclosure with no handler.
 	StatusDeferred VerbStatus = "deferred"
 )
 
@@ -548,8 +546,8 @@ type VerbSpec struct {
 }
 
 // CatalogMetadata is the typed companion to Catalog(): every live JSONL
-// verb plus planned verbs whose contracts are fixed in this package.
-// Aliases preserve existing entry points (CLI subcommands and the
+// verb plus deferred non-goal verbs whose contracts are fixed in this
+// package. Aliases preserve existing entry points (CLI subcommands and the
 // back-compat "find_route" serve alias); no alias is a new behavior.
 func CatalogMetadata() []VerbSpec {
 	return []VerbSpec{

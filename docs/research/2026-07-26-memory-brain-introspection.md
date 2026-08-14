@@ -4,11 +4,12 @@
 
 **Date:** 2026-07-27  
 **Method:** Code/spec inventory + competitor/OSS survey + paper landscape  
-**Companions:** [ARCHITECTURE.md](../../ARCHITECTURE.md) ·
+**Companions:** [architecture.md](../../architecture.md) ·
 [memory/README.md](../../services/brain/internal/memory/README.md) ·
 [DEFERRED-AND-NON-GOALS](../roadmap/DEFERRED-AND-NON-GOALS.md) ·
 [REMAINING-GAPS](../roadmap/REMAINING-GAPS.md) (walkable remaining inventory) ·
-[SYNTHESIS.md](SYNTHESIS.md) · [PAPER-LANDSCAPE.md](PAPER-LANDSCAPE.md)
+`SYNTHESIS.md` and `PAPER-LANDSCAPE.md` (pre-extraction sibling artifacts, not
+vendored in this repo)
 
 This is an **honest** assessment: what we are, what we are not, what
 human-memory
@@ -283,10 +284,10 @@ REM and second brands.
 - MemoryOS: arxiv 2506.06326 / EMNLP 2025; github.com/BAI-LAB/MemoryOS  
 - PageIndex concepts: github.com/VectifyAI/PageIndex (native Go
   reimplementation)
-- In-repo: SYNTHESIS.md, PAPER-LANDSCAPE.md, LOCAL-ARCHAEOLOGY.md, Lattice
-  GARDENER.md
-- Product truth: ARCHITECTURE.md, memory/README.md, gardener/doc.go,
-  DEFERRED-AND-NON-GOALS.md, REMAINING-GAPS.md, phase 01–05 specs
+- In-repo: `SYNTHESIS.md`, `PAPER-LANDSCAPE.md`, `LOCAL-ARCHAEOLOGY.md`, Lattice
+  `GARDENER.md` (pre-extraction sibling artifacts, not vendored in this repo)
+- Product truth: `architecture.md`, `memory/README.md`, `gardener/doc.go`,
+  `DEFERRED-AND-NON-GOALS.md`, `REMAINING-GAPS.md`, phase 01–05 specs
 
 ---
 

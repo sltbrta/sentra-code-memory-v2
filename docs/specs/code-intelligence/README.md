@@ -1,7 +1,14 @@
 # Code intelligence and transactional ChangeSet specification
 
-Status: **[planned]**. This is the canonical code-intelligence domain
-specification; no runtime change engine exists yet.
+Status: **partially implemented**. The bounded transactional ChangeSet engine
+ships behind `code_apply_changeset` (staging, verification, and promote with
+stale-base and path-escape rejection), and the exact lane is deterministic Go
+lexical/AST with honest non-Go lexical fallback. The broader compiler-grade
+design target below — live LSP/SCIP authority, full blast-radius closure, and
+the complete transaction flow with compare-and-swap — remains a design target
+and is not yet a shipped runtime. The deferred/non-goal disclosure lives in
+`docs/roadmap/DEFERRED-AND-NON-GOALS.md`; do not read this spec as a claim that
+the whole layered pipeline is implemented.
 
 ## 1. Objective
 

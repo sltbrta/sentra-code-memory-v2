@@ -22,11 +22,28 @@ func QAFixtureSuite(root, cache string) QASuite {
 			{Name: "exact-open-conn", Q: "OpenConn", Expect: []string{"db/conn.go"}},
 			{Name: "exact-handle-auth", Q: "HandleAuth", Expect: []string{"api/handler.go"}},
 			{Name: "exact-log-error", Q: "LogError", Expect: []string{"util/log.go"}},
+			// Extended exact-identifier probes (issue #54): broaden the
+			// checked-in corpus so hit@k is measured across every fixture
+			// package rather than a seven-file slice.
+			{Name: "exact-new-router", Q: "NewRouter", Expect: []string{"api/router.go"}},
+			{Name: "exact-logging-middleware", Q: "LoggingMiddleware", Expect: []string{"api/middleware.go"}},
+			{Name: "exact-ok-response", Q: "OKResponse", Expect: []string{"api/response.go"}},
+			{Name: "exact-begin-tx", Q: "BeginTx", Expect: []string{"db/tx.go"}},
+			{Name: "exact-migrate", Q: "Migrate", Expect: []string{"db/migrate.go"}},
+			{Name: "exact-authorize", Q: "Authorize", Expect: []string{"auth/rbac.go"}},
+			{Name: "exact-new-user", Q: "NewUser", Expect: []string{"models/user.go"}},
+			{Name: "exact-total-cents", Q: "TotalCents", Expect: []string{"models/order.go"}},
+			{Name: "exact-new-counter", Q: "NewCounter", Expect: []string{"util/metrics.go"}},
+			{Name: "exact-new-app-error", Q: "NewAppError", Expect: []string{"util/errors.go"}},
+			{Name: "exact-end-session", Q: "EndSession", Expect: []string{"auth/session.go"}},
+			{Name: "exact-default-retry-policy", Q: "DefaultRetryPolicy", Expect: []string{"util/retry.go"}},
 			// Lexical probes: multi-word queries over content, with a distractor
 			// (util/config.go mentions token/query) to exercise ranking.
 			{Name: "lexical-token-validation", Q: "token validation claims", Expect: []string{"auth/token.go"}},
 			{Name: "lexical-query-execution", Q: "database query execution prepared statement", Expect: []string{"db/query.go"}},
 			{Name: "lexical-session-lifecycle", Q: "session lifecycle authenticated subject", Expect: []string{"auth/session.go", "auth/token.go"}},
+			{Name: "lexical-transaction-commit", Q: "transaction stage commit rollback", Expect: []string{"db/tx.go"}},
+			{Name: "lexical-role-action-permit", Q: "role action authorization permit", Expect: []string{"auth/rbac.go"}},
 		},
 	}
 }

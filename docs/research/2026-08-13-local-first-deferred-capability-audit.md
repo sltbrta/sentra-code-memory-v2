@@ -80,7 +80,9 @@ existing MLX/Gemma path remains the local alternative.
   the injected claim-extraction seam the adapter can back.
 - **Google model details:** [Gemini 3.6 Flash model page](https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash),
   [Go SDK (google.golang.org/genai)](https://pkg.go.dev/google.golang.org/genai),
-  [structured output](https://ai.google.dev/gemini-api/docs/structured-output).
+  [Gemini API SDKs](https://ai.google.dev/gemini-api/docs/downloads),
+  [structured output](https://ai.google.dev/gemini-api/docs/structured-output),
+  [function calling](https://ai.google.dev/gemini-api/docs/function-calling).
 - **Prior parity evidence:** `docs/research/2026-08-12-parity-audit-and-remaining-work.md`,
   `docs/research/2026-07-25-codecrawl-scm-parity.md`, and
   `docs/decisions/0025-memory-session-lifecycle-parity.md`.
