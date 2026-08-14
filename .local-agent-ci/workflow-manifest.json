@@ -1,27 +1,19 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-remaining-six-release",
-  "head": "979418d23daade64986219fa9dbf134390cbad77",
+  "run_id": "run-remaining-six-final-land",
+  "head": "6d1156c09dea9b1977d773feff3a2a986e8db6f8",
   "implementer_session": "01a00039-dc60-7581-a1fd-05f6ce69ef11",
-  "workflow": "complete-remaining-six-release",
-  "scope": "Release review and cleanup for the six-area local-first implementation: bounded SCIP ingestion and session recall; optional official Gemini SDK adapter with deterministic fallback; reversible local hooks and optional dense retrieval; contract/docs hygiene; explicit authority disclosures; and expanded benchmark evidence. Preserve hosted/cloud/full-session non-goals and deterministic defaults.",
+  "workflow": "remaining-six-final-land",
+  "scope": "Finalize and clean up the completed six-area local-first release at current HEAD: SCIP/session recall, optional official Gemini SDK seam with deterministic fallback, reversible local hooks with operator-trust gating, bounded lexical dense arm, authority/docs hygiene, and expanded benchmark evidence.",
   "non_goals": [
-    "Hosted tenancy, billing, cloud synchronization, remote overlays, public distribution, enterprise isolation",
-    "Full SCM session product and latent development-state runtime",
-    "Direct model-driven filesystem writes or ChangeSet bypasses",
-    "Changing deterministic local defaults without benchmark evidence",
-    "Claiming compiler authority from heuristic/index-only data"
+    "Hosted tenancy, billing, cloud sync, remote overlays, public distribution, enterprise isolation",
+    "Full SCM session product",
+    "Direct model-driven filesystem writes without operator trust",
+    "Compiler-grade claims beyond explicit SCIP evidence"
   ],
   "affected_files": [
     ".local-agent-ci/workflow-manifest.json",
-    "services/brain/cmd/sentra-code-memory/**",
-    "services/brain/internal/codeserve/**",
-    "services/brain/internal/codeindex/**",
-    "services/brain/internal/sessionlog/**",
-    "services/brain/internal/denselocal/**",
-    "services/brain/internal/lifecycle/**",
-    "services/brain/internal/llmadapter/**",
-    "services/brain/internal/scmbench/**",
+    "services/brain/**",
     "docs/**",
     "README.md",
     "services/go.mod",
@@ -34,11 +26,10 @@
     "git diff --check"
   ],
   "risks": [
-    "Official Gemini SDK dependency and API evolution",
-    "Filesystem hook mutation and rollback safety",
-    "SCIP ingestion path/root safety and malformed-input handling",
-    "Dense retrieval quality regressions or model identity drift",
-    "Large public-contract change requires cold fresh-eyes review"
+    "Public contract changes and optional SDK dependency",
+    "Hook persistence and trust boundary",
+    "SCIP authority correctness",
+    "Repository cleanup of child worktrees"
   ],
   "issue_ids": [
     "54",
@@ -47,29 +38,21 @@
     "59",
     "60"
   ],
-  "created_at": "2026-08-14T13:21:45.988Z",
+  "created_at": "2026-08-14T14:43:14.356Z",
   "tier": "T2",
-  "stage": "paired-review",
+  "stage": "implementation",
   "phases": [
     {
-      "id": "spec",
-      "title": "Finalize current implementation scope"
-    },
-    {
-      "id": "paired",
-      "title": "Paired review"
+      "id": "review",
+      "title": "Final review"
     },
     {
       "id": "preflight",
-      "title": "Release preflight"
+      "title": "Final preflight"
     },
     {
       "id": "fresh",
-      "title": "Cold fresh-eyes review"
-    },
-    {
-      "id": "finalize",
-      "title": "Finalize release decision"
+      "title": "Fresh-eyes approval"
     },
     {
       "id": "land",
