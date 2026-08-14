@@ -299,9 +299,11 @@ func TestHooksLocalRequiresOperatorTrust(t *testing.T) {
 // TestApplyChangeSetRequiresOperatorTrust locks the trust contract for
 // code_apply_changeset: the verb takes no `action` parameter and every
 // dispatch promotes a ChangeSet onto the filesystem under root, so the
-// whole verb is gated via the empty-action key. Direct CLI / JSONL
-// operator pipelines are unaffected because codeserve.Handle never
-// inspects the gate.
+// whole verb is gated. Direct CLI / JSONL operator pipelines are
+// unaffected because codeserve.Handle never inspects the gate. The
+// empty-action check below is a regression lock on the historical
+// behavior; TestApplyChangeSetGateIgnoresIrrelevantActionValues covers
+// the post-fix contract that any action value triggers the gate.
 func TestApplyChangeSetRequiresOperatorTrust(t *testing.T) {
 	apply := mustSpec(t, codeserve.CatalogMetadata(), "code_apply_changeset")
 	if !apply.RequiresOperatorTrust {
@@ -309,6 +311,55 @@ func TestApplyChangeSetRequiresOperatorTrust(t *testing.T) {
 	}
 	if !codeserve.IsOperatorTrustAction("code_apply_changeset", "") {
 		t.Fatalf("code_apply_changeset (no action param) must be gated via the empty-action key")
+	}
+}
+
+// TestApplyChangeSetGateIgnoresIrrelevantActionValues locks the F3
+// regression fix: code_apply_changeset has a whole-verb gate, so the
+// gate must apply regardless of any action value the caller attaches.
+// The previous implementation keyed the gate on the empty-action string
+// and a non-empty action value (e.g. "ignored") silently bypassed the
+// gate; the new OperatorTrustGate.AllActions flag closes that surface.
+func TestApplyChangeSetGateIgnoresIrrelevantActionValues(t *testing.T) {
+	for _, action := range []string{
+		"",           // documented empty action (verb has no action parameter)
+		"ignored",    // hostile override: irrelevant action field
+		"run",        // matches another verb's gated action key
+		"install",    // matches another verb's gated action key
+		"status",     // would be a read-only action on another verb
+		"   status ", // whitespace variant of a read-only alias
+		"apply",      // plausible-sounding override
+		"unknown",    // unknown value, never enumerated
+	} {
+		if !codeserve.IsOperatorTrustAction("code_apply_changeset", action) {
+			t.Fatalf("code_apply_changeset is whole-verb gated; action=%q must be refused", action)
+		}
+	}
+	// The verb has no per-action read-only set: any value is gated,
+	// including the ones the codeserve handler would later reject as
+	// invalid. The gate's job is to refuse mutating actions; the
+	// handler's job is to validate. Together they keep the surface
+	// closed.
+}
+
+// TestHooksLocalGateIsPerActionNotWholeVerb locks the per-action half of
+// the F3 regression fix: hooks_local is per-action gated, so an unknown
+// action like "ignored" must NOT be refused by the trust gate. The
+// codeserve handler will reject it as "unknown action" — that's the
+// handler's responsibility, not the gate's. The gate refuses mutating
+// actions; the handler validates them. Mixing the two responsibilities
+// would either gate read-only actions (status) or pretend an unknown
+// action is trusted (the original bypass).
+func TestHooksLocalGateIsPerActionNotWholeVerb(t *testing.T) {
+	for _, action := range []string{"install", "uninstall", "run"} {
+		if !codeserve.IsOperatorTrustAction("hooks_local", action) {
+			t.Fatalf("hooks_local action=%q must be gated", action)
+		}
+	}
+	for _, action := range []string{"status", "", "ignored", "unknown"} {
+		if codeserve.IsOperatorTrustAction("hooks_local", action) {
+			t.Fatalf("hooks_local action=%q must NOT be gated by the trust gate (handler validates)", action)
+		}
 	}
 }
 
