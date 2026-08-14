@@ -128,6 +128,65 @@ func TestCodeserveHooksLocalIdempotent(t *testing.T) {
 	}
 }
 
+// TestCodeserveHooksLocalSequentialSubsets drives two subset installs in a
+// row through the JSONL verb and asserts the manifest accumulates both
+// hooks instead of orphaning the first one.
+func TestCodeserveHooksLocalSequentialSubsets(t *testing.T) {
+	dir := localGitRepo(t)
+	ctx := context.Background()
+
+	first := codeserve.Handle(ctx, codeserve.Request{
+		"verb": "hooks_local", "action": "install", "root": dir,
+		"strategy": "repo-hooks", "kinds": "post-commit",
+	})
+	if first["ok"] != true {
+		t.Fatalf("first install: %+v", first)
+	}
+	second := codeserve.Handle(ctx, codeserve.Request{
+		"verb": "hooks_local", "action": "install", "root": dir,
+		"strategy": "repo-hooks", "kinds": "post-merge",
+	})
+	if second["ok"] != true {
+		t.Fatalf("second install: %+v", second)
+	}
+	raw, _ := json.Marshal(second["manifest"])
+	var m struct {
+		Installed []struct {
+			Kind string `json:"kind"`
+		} `json:"installed"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	kinds := map[string]bool{}
+	for _, e := range m.Installed {
+		kinds[e.Kind] = true
+	}
+	if !kinds["post-commit"] || !kinds["post-merge"] {
+		t.Fatalf("sequential subset install lost entries: %s", raw)
+	}
+
+	status := codeserve.Handle(ctx, codeserve.Request{
+		"verb": "hooks_local", "action": "status", "root": dir,
+	})
+	installed, _ := status["installed"].([]string)
+	if len(installed) != 2 {
+		t.Fatalf("status installed=%v want both subset hooks", installed)
+	}
+
+	uninstall := codeserve.Handle(ctx, codeserve.Request{
+		"verb": "hooks_local", "action": "uninstall", "root": dir,
+	})
+	if uninstall["ok"] != true {
+		t.Fatalf("uninstall: %+v", uninstall)
+	}
+	for _, kind := range []string{"post-commit", "post-merge"} {
+		if _, err := os.Stat(filepath.Join(dir, ".sentra", "hooks", kind)); !os.IsNotExist(err) {
+			t.Fatalf("%s should be removed: %v", kind, err)
+		}
+	}
+}
+
 // TestCodeserveDenseLocalSearchValidates exercises the JSONL handler's
 // required-fields contract.
 func TestCodeserveDenseLocalSearchValidates(t *testing.T) {
