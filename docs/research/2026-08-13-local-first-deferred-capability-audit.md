@@ -37,11 +37,10 @@ product.
 
 ## Gemini adapter contract
 
-Google documents the stable model identifier as `gemini-3.6-flash` and exposes an
-OpenAI-compatible endpoint at
-`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`.
-The adapter must be opt-in and must never be required for a successful local
-request:
+Google documents the stable model identifier as `gemini-3.6-flash`. The planned
+adapter uses the **official Google Gemini SDK** rather than raw HTTP or the
+OpenAI-compatible endpoint (decision recorded in #60). The adapter must be
+opt-in and must never be required for a successful local request:
 
 - key: `GEMINI_API_KEY` (no key means deterministic local behavior);
 - model default: `gemini-3.6-flash`, overrideable for testing/operations;
@@ -72,7 +71,7 @@ existing MLX/Gemma path remains the local alternative.
 - **Current local model path:** `services/brain/internal/hosted/api_substrate.go`,
   `scripts/mlx-serve.sh`, and the `SENTRA_CODE_MEMORY_MLX_*` settings.
 - **Google model details:** [Gemini 3.6 Flash model page](https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash),
-  [OpenAI compatibility](https://ai.google.dev/gemini-api/docs/openai),
+  [Gemini API SDKs](https://ai.google.dev/gemini-api/docs/downloads),
   [structured output](https://ai.google.dev/gemini-api/docs/structured-output),
   [function calling](https://ai.google.dev/gemini-api/docs/function-calling).
 - **Prior parity evidence:** `docs/research/2026-08-12-parity-audit-and-remaining-work.md`,

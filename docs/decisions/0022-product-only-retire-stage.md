@@ -35,8 +35,9 @@ continual ingestion and async gardener.
 - Stage closed stack **snapshotted** at `archive/2026-07-stage-retirement/`
   (source archaeology; no Bazel packages). Live libraries restored as product
   substrate; sole binary is `product-brain` (authority via
-  `product-brain authority`). See `ARCHITECTURE.md` and
-  `docs/specs/product/STAGE-VS-PRODUCT.md`.
+  `product-brain authority`). See [architecture.md](../../architecture.md) and
+  the product specs under `docs/specs/product/` (the pre-extraction
+  `STAGE-VS-PRODUCT.md` was not vendored into this repo).
 - Product owns async gardener + continual ingestion.
 - Stage-exit Bazel suites under `tools/stage-*` are retired markers.
 - Honest gaps (ACL, vault, Git-object authority, Connect TUI) remain Stage

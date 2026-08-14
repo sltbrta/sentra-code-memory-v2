@@ -5,10 +5,15 @@ second copy that can drift. The authoritative remaining-work matrix is:
 
 - `docs/research/2026-08-12-parity-audit-and-remaining-work.md` — the post-P6
   parity audit: what shipped, what is missing, and the prioritized backlog
-  (authority, retrieval quality, security, durability, benchmarks).
+  (authority, retrieval quality, security, durability, benchmarks). Reconciled
+  under issue #54; its stale rows are marked in the embedded “Reconciliation”
+  section rather than re-stated here.
 
 Related disclosures:
 
+- `docs/research/2026-08-13-local-first-deferred-capability-audit.md` — the
+  issue #55 capability matrix (local-only / local-plus-optional-LLM /
+  inherently-hosted) and the Gemini adapter contract.
 - `docs/roadmap/DEFERRED-AND-NON-GOALS.md` — capabilities intentionally not
   shipped (hosted/cloud, full session product, lifecycle/install, dense/rerank).
 - `docs/decisions/0025-memory-session-lifecycle-parity.md` — the per-surface

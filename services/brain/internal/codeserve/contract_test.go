@@ -48,8 +48,9 @@ func decode[T any](t *testing.T, resp codeserve.Response) T {
 	return out
 }
 
-// TestCatalogMetadataContract: metadata covers every live verb, marks planned
-// verbs, and keeps aliases compatible with existing entry points.
+// TestCatalogMetadataContract: metadata covers every live verb, marks stable
+// versus deferred verbs, and keeps aliases compatible with existing entry
+// points.
 func TestCatalogMetadataContract(t *testing.T) {
 	t.Parallel()
 	specs := codeserve.CatalogMetadata()
@@ -101,6 +102,22 @@ func TestCatalogMetadataContract(t *testing.T) {
 	}
 	if !slices.Contains(byName["code_index"].Aliases, "index") {
 		t.Fatal("CLI index alias missing from code_index spec")
+	}
+}
+
+// TestNoPlannedVerbStatus locks the issue #54 hygiene invariant: the
+// `StatusPlanned` value was removed because no planned verb remains. Every
+// catalogued verb is either stable (live) or deferred (explicit non-goal),
+// and the literal "planned" status string never appears in metadata.
+func TestNoPlannedVerbStatus(t *testing.T) {
+	t.Parallel()
+	for _, s := range codeserve.CatalogMetadata() {
+		if s.Status == "planned" {
+			t.Fatalf("verb %q still carries planned status: %+v", s.Name, s)
+		}
+		if s.Status != codeserve.StatusStable && s.Status != codeserve.StatusDeferred {
+			t.Fatalf("verb %q has unknown status %q (must be stable or deferred)", s.Name, s.Status)
+		}
 	}
 }
 

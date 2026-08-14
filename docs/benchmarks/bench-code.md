@@ -49,8 +49,10 @@ attributed to a lane that is not implemented.
 The corpus is checked in at
 `services/brain/internal/scmbench/testdata/qafixture/`: a small multi-package
 Go tree (auth, db, api, util, models, config) with distinct symbols and a few
-lexical distractors. Probes pair exact-identifier queries (expected at rank 1)
-with multi-word lexical queries to exercise ranking.
+lexical distractors. The checked-in probe set (issue #48, expanded under
+issue #54) carries 24 probes — 19 exact-identifier queries (expected at
+rank 1) plus 5 multi-word lexical queries — spanning every fixture package so
+hit@k is measured across the whole corpus rather than a seven-file slice.
 
 The baseline is checked in at
 `services/brain/internal/scmbench/testdata/qafixture-baseline.json`. It records
