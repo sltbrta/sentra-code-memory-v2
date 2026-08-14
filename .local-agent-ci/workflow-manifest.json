@@ -1,51 +1,44 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-1786710819651",
-  "head": "857cfa9a581ead849d86e0c4ac3bf1d2ec0dbffb",
+  "run_id": "run-remaining-six-finalize",
+  "head": "14b6cad51ebce0938ba82f795157fe20fece4a6c",
   "implementer_session": "01a00039-dc60-7581-a1fd-05f6ce69ef11",
-  "workflow": "complete-remaining-six-local-first",
-  "scope": "End-to-end completion of the six remaining local-first work areas: expose bounded SCIP ingestion and session recall; implement optional official Google Gemini SDK adapter with deterministic fallback; evaluate and implement reversible local hooks and optional dense retrieval only where evidence supports it; complete documentation and contract hygiene; advance compiler/authority integration without overstating heuristics; and broaden benchmark evidence. Preserve hosted/cloud/full-session non-goals and local deterministic defaults.",
+  "workflow": "complete-remaining-six-local-first-finalize",
+  "scope": "Finalize the six-area local-first implementation already merged into the current working head: bounded SCIP ingestion and session recall; optional official Gemini SDK adapter with deterministic fallback; reversible local hooks and optional dense retrieval; contract/docs hygiene; explicit authority disclosures; and expanded benchmark evidence. Preserve hosted/cloud/full-session non-goals and deterministic defaults.",
   "non_goals": [
     "Hosted tenancy, billing, cloud synchronization, remote overlays, public distribution, enterprise isolation",
     "Full SCM session product and latent development-state runtime",
     "Direct model-driven filesystem writes or ChangeSet bypasses",
     "Changing deterministic local defaults without benchmark evidence",
-    "Claiming Tree-sitter/LSP/compiler authority where only lexical or explicit SCIP evidence exists"
+    "Claiming compiler authority from heuristic/index-only data"
   ],
   "affected_files": [
+    ".local-agent-ci/workflow-manifest.json",
+    "services/brain/cmd/sentra-code-memory/**",
     "services/brain/internal/codeserve/**",
-    "services/brain/internal/codecrawl/**",
     "services/brain/internal/codeindex/**",
     "services/brain/internal/sessionlog/**",
-    "services/brain/internal/rerank/**",
-    "services/brain/internal/workflow/**",
-    "services/brain/internal/adapters/**",
-    "services/brain/cmd/sentra-code-memory/**",
+    "services/brain/internal/denselocal/**",
+    "services/brain/internal/lifecycle/**",
+    "services/brain/internal/llmadapter/**",
     "services/brain/internal/scmbench/**",
-    "services/brain/internal/memory/**",
-    "docs/roadmap/**",
-    "docs/research/**",
-    "docs/specs/code-intelligence/**",
+    "docs/**",
     "README.md",
-    "justfile",
-    "go.work",
     "services/go.mod",
     "services/go.sum"
   ],
   "acceptance_commands": [
     "just check-all",
     "just bench-code",
-    "go vet ./...",
-    "go test ./services/... ./packages/contracts/...",
-    "cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml"
+    "go vet ./services/... ./packages/contracts/...",
+    "git diff --check"
   ],
   "risks": [
     "Official Gemini SDK dependency and API evolution",
     "Filesystem hook mutation and rollback safety",
-    "Dense retrieval quality regressions or model identity drift",
     "SCIP ingestion path/root safety and malformed-input handling",
-    "Benchmark expansion may reveal quality regressions",
-    "Large cross-module change can drift from the declared local-first scope"
+    "Dense retrieval quality regressions or model identity drift",
+    "Large public-contract change requires cold fresh-eyes review"
   ],
   "issue_ids": [
     "54",
@@ -54,37 +47,29 @@
     "59",
     "60"
   ],
-  "created_at": "2026-08-14T12:33:39.651Z",
+  "created_at": "2026-08-14T13:21:14.154Z",
   "tier": "T2",
-  "stage": "implementation",
+  "stage": "spec-lock",
   "phases": [
     {
-      "id": "research",
-      "title": "Audit active gaps and current contracts"
+      "id": "spec",
+      "title": "Finalize current implementation scope"
     },
     {
-      "id": "scip-session",
-      "title": "Expose SCIP and session recall"
+      "id": "paired",
+      "title": "Paired review"
     },
     {
-      "id": "gemini",
-      "title": "Implement optional official Gemini SDK adapter"
+      "id": "preflight",
+      "title": "Release preflight"
     },
     {
-      "id": "hooks-dense",
-      "title": "Evaluate reversible hooks and dense retrieval"
+      "id": "fresh",
+      "title": "Cold fresh-eyes review"
     },
     {
-      "id": "authority",
-      "title": "Advance authority and compiler evidence"
-    },
-    {
-      "id": "bench-docs",
-      "title": "Expand benchmarks and repair documentation"
-    },
-    {
-      "id": "review",
-      "title": "Preflight and fresh-eyes review"
+      "id": "finalize",
+      "title": "Finalize release decision"
     },
     {
       "id": "land",
