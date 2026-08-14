@@ -93,6 +93,12 @@ reported as `retrieval_route_reason=force_residual`.
 local.
 Env `OUROBOROS_BRAIN_GARDENER_AUTO=1` starts background enrich+cortex after
 open.
+**Optional Gemini adapter** (`internal/llmadapter`): setting `GEMINI_API_KEY`
+enables bounded structured query expansion, semantic scoring, and claim
+extraction through the official Google Gemini Go SDK (default model
+`gemini-3.6-flash`, override `SENTRA_CODE_MEMORY_GEMINI_MODEL`). With no key,
+behavior stays deterministic/local; provider failures always fall back with
+safe diagnostics.
 See [ARCHITECTURE](../../docs/architecture.md) §3.2 ·
 [structure-brain
 foundation](../../docs/research/2026-07-28-structure-brain-foundation.md) ·

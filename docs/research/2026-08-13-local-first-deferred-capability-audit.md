@@ -37,17 +37,19 @@ product.
 
 ## Gemini adapter contract
 
-Google documents the stable model identifier as `gemini-3.6-flash` and exposes an
-OpenAI-compatible endpoint at
-`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`.
-The adapter must be opt-in and must never be required for a successful local
-request:
+Google documents the stable model identifier as `gemini-3.6-flash`. Integration
+uses the official Google Gemini Go SDK (`google.golang.org/genai`), not
+hand-written HTTP and not the OpenAI-compatible endpoint. The adapter
+(`services/brain/internal/llmadapter`) is opt-in and is never required for a
+successful local request:
 
 - key: `GEMINI_API_KEY` (no key means deterministic local behavior);
-- model default: `gemini-3.6-flash`, overrideable for testing/operations;
-- endpoint override allowed only for tests/BYOK-compatible gateways;
-- strict request timeout and maximum input/output bytes/tokens;
-- structured JSON response mode where supported, with schema validation;
+- model default: `gemini-3.6-flash`, overrideable for testing/operations via
+  `SENTRA_CODE_MEMORY_GEMINI_MODEL`;
+- strict per-call timeout clamped to the caller deadline, plus maximum
+  input/output bytes/tokens;
+- structured JSON responses through the SDK's response-schema support, with
+  strict local validation before use;
 - redact credentials, absolute workspace paths, and source outside the bounded
   candidate set before transmission;
 - no automatic retries that exceed the caller deadline;
@@ -71,10 +73,14 @@ existing MLX/Gemma path remains the local alternative.
   `Embedder` and `Reranker` seams.
 - **Current local model path:** `services/brain/internal/hosted/api_substrate.go`,
   `scripts/mlx-serve.sh`, and the `SENTRA_CODE_MEMORY_MLX_*` settings.
+- **Optional LLM seam:** `services/brain/internal/llmadapter` implements the
+  provider-neutral adapter (query expansion, semantic scoring, claim
+  extraction) with deterministic local fallback and a Gemini implementation on
+  the official Go SDK. `services/brain/internal/memory/extract_llm.go` remains
+  the injected claim-extraction seam the adapter can back.
 - **Google model details:** [Gemini 3.6 Flash model page](https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash),
-  [OpenAI compatibility](https://ai.google.dev/gemini-api/docs/openai),
-  [structured output](https://ai.google.dev/gemini-api/docs/structured-output),
-  [function calling](https://ai.google.dev/gemini-api/docs/function-calling).
+  [Go SDK (google.golang.org/genai)](https://pkg.go.dev/google.golang.org/genai),
+  [structured output](https://ai.google.dev/gemini-api/docs/structured-output).
 - **Prior parity evidence:** `docs/research/2026-08-12-parity-audit-and-remaining-work.md`,
   `docs/research/2026-07-25-codecrawl-scm-parity.md`, and
   `docs/decisions/0025-memory-session-lifecycle-parity.md`.
