@@ -14,6 +14,22 @@ import (
 	"testing"
 )
 
+// TestMain isolates every test in this package from the host's git config:
+// the installer reads the effective core.hooksPath across all scopes, so a
+// global hooksPath on the developer machine must not leak into test repos.
+func TestMain(m *testing.M) {
+	tmp, err := os.MkdirTemp("", "sentra-lifecycle-gitconfig-")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	os.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(tmp, "gitconfig"))
+	os.Setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+	code := m.Run()
+	os.RemoveAll(tmp)
+	os.Exit(code)
+}
+
 // withTempRepo creates a temp dir with a `.sentra` directory already present
 // (so the installer does not need to create nested paths from scratch) and
 // pretends it is a git repository by writing a fake `.git` file. Real
@@ -363,7 +379,7 @@ func TestRenderedScriptsAreValid(t *testing.T) {
 	}
 	for _, k := range AllHooks {
 		t.Run(string(k), func(t *testing.T) {
-			script := renderScript(string(k), "")
+			script := renderScript(string(k), "", "")
 			dir := t.TempDir()
 			path := filepath.Join(dir, string(k))
 			if err := os.WriteFile(path, script, 0o755); err != nil {

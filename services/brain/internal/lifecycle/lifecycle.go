@@ -8,6 +8,13 @@
 // snapshot is preserved in a JSON manifest so uninstall restores prior state
 // bit-perfect.
 //
+// The repo-hooks strategy additionally records the pre-existing
+// core.hooksPath value in the manifest and never silently disables a hook
+// that git used to run: hooks for kinds this installer manages delegate to
+// the prior hook script, and every other active hook in the prior hooks
+// directory gets a passthrough script. Uninstall restores the prior
+// core.hooksPath value (or unsets it when there was none).
+//
 // This package is intentionally offline. It does not import net/http or any
 // networking package. All writes are local files. The git binary is invoked
 // with -c core.hooksPath=/dev/null so the installer cannot recurse into
@@ -73,8 +80,11 @@ type Strategy string
 const (
 	// StrategyRepoHooks writes to <root>/.sentra/hooks and, when root is a
 	// git repository, sets core.hooksPath there so the hook scripts take
-	// effect for subsequent git operations on this checkout. Reversed by
-	// uninstall.
+	// effect for subsequent git operations on this checkout. The prior
+	// core.hooksPath value (local scope) is recorded in the manifest and
+	// restored on uninstall; hooks already active in the prior hooks
+	// directory keep working through delegation or passthrough scripts.
+	// Fully reversed by uninstall.
 	StrategyRepoHooks Strategy = "repo-hooks"
 	// StrategyGitCommon writes to <git-common-dir>/hooks (the shared
 	// repository hooks directory). Per-checkout core.hooksPath is left
@@ -90,10 +100,12 @@ type Options struct {
 	Root string
 	// Strategy selects the destination layout. The default is
 	// StrategyRepoHooks, the only one safe to invoke without explicit
-	// reviewer approval because it never writes into .git/.
+	// reviewer approval because hook files stay under <root>/.sentra/ and
+	// the only git mutation is the local core.hooksPath setting.
 	Strategy Strategy
-	// Hooks restricts the install/uninstall set. When empty, AllHooks is
-	// used. Status ignores Hooks and reports every installed hook.
+	// Hooks restricts the install set. When empty, AllHooks is used.
+	// Uninstall always restores every hook recorded in the manifest, and
+	// Status reports every installed hook regardless of Hooks.
 	Hooks []HookKind
 	// AllowUnsafeGitCommon must be true to opt into StrategyGitCommon. The
 	// non-zero requirement is defensive even though Strategy==GitCommon is
@@ -118,8 +130,21 @@ type Manifest struct {
 	HooksDir  string          `json:"hooks_dir"`
 	Installed []InstalledHook `json:"installed"`
 	// HooksPath is the git value of core.hooksPath after install. Empty
-	// when Strategy != StrategyRepoHooks. Uninstall clears it.
-	HooksPath     string `json:"hooks_path,omitempty"`
+	// when Strategy != StrategyRepoHooks. Uninstall restores the prior
+	// value recorded below (or clears the setting when there was none).
+	HooksPath string `json:"hooks_path,omitempty"`
+	// PriorHooksPath is the local core.hooksPath value recorded before the
+	// first install flipped it. Empty when no local value existed. Uninstall
+	// writes it back when the live value still matches HooksPath.
+	PriorHooksPath string `json:"prior_hooks_path,omitempty"`
+	// PriorHooksPathSet distinguishes "no prior local value" from an empty
+	// string stored in git config.
+	PriorHooksPathSet bool `json:"prior_hooks_path_set,omitempty"`
+	// PriorHooksDir is the directory git read hooks from before the install
+	// (the resolved prior hooksPath, or <git-common-dir>/hooks by default).
+	// Sequential installs reuse it so re-installs never rescan our own
+	// hooks directory.
+	PriorHooksDir string `json:"prior_hooks_dir,omitempty"`
 	InstalledAt   string `json:"installed_at,omitempty"`
 	CLIExecutable string `json:"cli_executable,omitempty"`
 }
@@ -369,13 +394,16 @@ func readFileIfExists(path string) ([]byte, bool, error) {
 
 // renderScript returns the bash hook body. The script:
 //   - exits 0 if the CLI is not on PATH (graceful fallback)
-//   - forwards the event to the JSONL handler (when reachable) with a strict
-//     timeout so a hung CLI cannot stall commit/checkout operations
+//   - forwards the event to the JSONL handler (when reachable); a failed or
+//     hung sentra call never fails the user's git operation
+//   - when delegatePath is non-empty, runs the repository's original hook
+//     afterwards with the original arguments and propagates its exit status,
+//     so flipping core.hooksPath never silently disables an existing hook
 //   - never modifies the user's git working tree
 //
 // ShellShebang + SentinelHeader is the first line so we can identify our own
 // hooks on rollback.
-func renderScript(event string, cliPath string) []byte {
+func renderScript(event, cliPath, delegatePath string) []byte {
 	var b strings.Builder
 	b.WriteString("#!/usr/bin/env bash\n")
 	b.WriteString(SentinelHeader)
@@ -392,8 +420,42 @@ func renderScript(event string, cliPath string) []byte {
 	} else {
 		b.WriteString("cli=\"$(command -v sentra-code-memory || true)\"\n")
 	}
-	b.WriteString("if [[ -z \"$cli\" ]]; then\n  exit 0\nfi\n")
-	b.WriteString("\"$cli\" hooks run --event \"$event\" --root \"$(git rev-parse --show-toplevel)\" </dev/null || exit 0\n")
+	b.WriteString("if [[ -n \"$cli\" ]]; then\n")
+	b.WriteString("  \"$cli\" hooks run --event \"$event\" --root \"$(git rev-parse --show-toplevel)\" </dev/null || true\n")
+	b.WriteString("fi\n")
+	if delegatePath != "" {
+		b.WriteString("prior=")
+		b.WriteString(shellQuote(delegatePath))
+		b.WriteString("\n")
+		b.WriteString("if [[ -x \"$prior\" ]]; then\n")
+		b.WriteString("  rc=0\n")
+		b.WriteString("  \"$prior\" \"$@\" || rc=$?\n")
+		b.WriteString("  exit \"$rc\"\n")
+		b.WriteString("fi\n")
+	}
+	b.WriteString("exit 0\n")
+	return []byte(b.String())
+}
+
+// renderPassthroughScript returns a sentinel-tagged script whose only job is
+// to run the repository's original hook (for a kind this installer does not
+// manage) so flipping core.hooksPath never disables it. When the original
+// hook disappears the shim degrades to exit 0.
+func renderPassthroughScript(priorPath string) []byte {
+	var b strings.Builder
+	b.WriteString("#!/usr/bin/env bash\n")
+	b.WriteString(SentinelHeader)
+	b.WriteString("# Passthrough hook installed by sentra-code-memory because core.hooksPath\n")
+	b.WriteString("# points at .sentra/hooks. It delegates to the repository's original hook.\n")
+	b.WriteString("# Remove with:\n")
+	b.WriteString("#   sentra-code-memory hooks uninstall --root <root>\n")
+	b.WriteString("set -euo pipefail\n")
+	b.WriteString("prior=")
+	b.WriteString(shellQuote(priorPath))
+	b.WriteString("\n")
+	b.WriteString("if [[ -x \"$prior\" ]]; then\n")
+	b.WriteString("  exec \"$prior\" \"$@\"\n")
+	b.WriteString("fi\n")
 	b.WriteString("exit 0\n")
 	return []byte(b.String())
 }
@@ -549,54 +611,170 @@ func Install(opts Options) (Result, error) {
 	}
 
 	var notes []string
+
+	// Flipping core.hooksPath shadows whatever hooks git used to run. Before
+	// any write, capture the prior config value and the prior hooks directory
+	// so existing hooks keep working: managed kinds delegate to the prior
+	// script, every other active hook gets a passthrough. Scan errors fail
+	// closed.
+	delegate := map[HookKind]string{}
+	var shimNames []string
+	trackConfig := strategy == StrategyRepoHooks && IsGitRepo(root)
+	if trackConfig {
+		priorLocal, err := currentHooksPath(root)
+		if err != nil {
+			return Result{}, err
+		}
+		priorHooksPath := priorLocal
+		priorHooksPathSet := priorLocal != ""
+		scanValue := priorLocal
+		if scanValue == "" {
+			scanValue = effectiveHooksPath(root)
+		}
+		// A re-install sees our own hooksPath in local config; inherit the
+		// original prior state recorded by the first install so sequential
+		// installs never lose the pre-first-install snapshot or rescan our
+		// own hooks directory.
+		if prevManifest != nil && prevManifest.HooksPath != "" && priorLocal != "" &&
+			samePath(priorLocal, prevManifest.HooksPath) {
+			priorHooksPath = prevManifest.PriorHooksPath
+			priorHooksPathSet = prevManifest.PriorHooksPathSet
+			if prevManifest.PriorHooksDir != "" {
+				scanValue = prevManifest.PriorHooksDir
+			}
+		}
+		common, err := gitCommonDir(root)
+		if err != nil {
+			return Result{}, err
+		}
+		priorDir := resolvePriorHooksDir(root, scanValue, common)
+		active, err := scanActiveHooks(priorDir)
+		if err != nil {
+			return Result{}, fmt.Errorf("scan existing hooks in %s: %w", priorDir, err)
+		}
+		selected := map[HookKind]bool{}
+		for _, k := range kinds {
+			selected[k] = true
+		}
+		for _, name := range active {
+			if selected[HookKind(name)] {
+				delegate[HookKind(name)] = filepath.Join(priorDir, name)
+				continue
+			}
+			shimNames = append(shimNames, name)
+		}
+		manifest.PriorHooksPath = priorHooksPath
+		manifest.PriorHooksPathSet = priorHooksPathSet
+		manifest.PriorHooksDir = priorDir
+	}
+
+	changed := false
 	for _, k := range kinds {
-		entry, err := installOne(root, hooksDir, k, opts, strategy, prevByKind)
+		entry, wrote, err := installOne(hooksDir, k, opts, strategy, prevByKind, delegate[k])
 		if err != nil {
 			return Result{}, fmt.Errorf("%s: %w", k, err)
 		}
+		changed = changed || wrote
 		manifest.Installed = append(manifest.Installed, entry)
 		if entry.PriorExisted {
 			notes = append(notes, fmt.Sprintf("%s: replaced prior file (%d bytes); snapshot preserved", k, len(entry.PriorSnapshot)))
 		} else {
 			notes = append(notes, fmt.Sprintf("%s: installed (no prior file at target path)", k))
 		}
+		if delegate[k] != "" {
+			notes = append(notes, fmt.Sprintf("%s: delegates to existing hook at %s", k, delegate[k]))
+		}
+	}
+	for _, name := range shimNames {
+		content := renderPassthroughScript(filepath.Join(manifest.PriorHooksDir, name))
+		prevEntry, hasPrev := prevByKind[HookKind(name)]
+		entry, wrote, err := installScript(hooksDir, name, content, prevEntry, hasPrev, strategy)
+		if err != nil {
+			return Result{}, fmt.Errorf("%s: %w", name, err)
+		}
+		changed = changed || wrote
+		manifest.Installed = append(manifest.Installed, entry)
+		notes = append(notes, fmt.Sprintf(
+			"%s: passthrough hook preserves existing hook at %s", name, filepath.Join(manifest.PriorHooksDir, name)))
 	}
 
-	// For repo-hooks strategy, set core.hooksPath to the local .sentra/hooks
-	// path so subsequent git operations on this checkout run our hooks.
-	if strategy == StrategyRepoHooks && IsGitRepo(root) {
-		hooksPath, err := setHooksPath(root, hooksDir)
+	// Carry forward manifest entries this run did not rewrite so sequential
+	// subset installs never lose a hook or its prior snapshot.
+	owned := map[HookKind]bool{}
+	for _, entry := range manifest.Installed {
+		owned[entry.Kind] = true
+	}
+	if prevManifest != nil {
+		for _, entry := range prevManifest.Installed {
+			if owned[entry.Kind] {
+				continue
+			}
+			manifest.Installed = append(manifest.Installed, entry)
+			owned[entry.Kind] = true
+		}
+	}
+	sortInstalled(manifest.Installed)
+
+	// For repo-hooks strategy, point core.hooksPath at the local .sentra/hooks
+	// directory so subsequent git operations on this checkout run our hooks.
+	if trackConfig {
+		actual, err := currentHooksPath(root)
 		if err != nil {
 			return Result{}, err
 		}
-		manifest.HooksPath = hooksPath
-		notes = append(notes, "set git config core.hooksPath to "+hooksPath)
+		if actual == "" || !samePath(actual, hooksDir) {
+			hooksPath, err := setLocalHooksPath(root, hooksDir)
+			if err != nil {
+				return Result{}, err
+			}
+			manifest.HooksPath = hooksPath
+			changed = true
+			notes = append(notes, "set git config core.hooksPath to "+hooksPath)
+		} else {
+			manifest.HooksPath = actual
+		}
 	}
 
-	manifest.InstalledAt = nowUTC()
 	manifest.CLIExecutable = opts.CLIExecutable
+	manifest.InstalledAt = nowUTC()
+	if prevManifest != nil && !changed &&
+		manifestSignature(*prevManifest) == manifestSignature(manifest) {
+		// True no-op install: keep the original timestamp so repeated
+		// installs produce a byte-identical manifest.
+		manifest.InstalledAt = prevManifest.InstalledAt
+	}
 	if err := writeManifest(stateDir, manifest); err != nil {
 		return Result{}, err
 	}
 	return Result{OK: true, Action: "install", Strategy: strategy, Manifest: manifest, Notes: notes}, nil
 }
 
-// installOne handles a single hook kind: capture prior state, render the
-// script, atomic-write it with mode 0755. Idempotency skips the write when
-// the rendered content already matches the live file (so repeated installs
-// never bump mtimes).
-func installOne(root, hooksDir string, k HookKind, opts Options, strategy Strategy, prev map[HookKind]InstalledHook) (InstalledHook, error) {
-	target := filepath.Join(hooksDir, string(k))
-	content := renderScript(string(k), opts.CLIExecutable)
+// installOne renders and writes the script for one managed hook kind. The
+// delegatePath (possibly empty) points at a pre-existing hook script that
+// the installed script must keep running after the sentra event.
+func installOne(hooksDir string, k HookKind, opts Options, strategy Strategy, prev map[HookKind]InstalledHook, delegatePath string) (InstalledHook, bool, error) {
+	content := renderScript(string(k), opts.CLIExecutable, delegatePath)
+	prevEntry, hasPrev := prev[k]
+	return installScript(hooksDir, string(k), content, prevEntry, hasPrev, strategy)
+}
+
+// installScript atomically writes one hook script (managed or passthrough)
+// to hooksDir/name with mode 0755. It captures any prior file for rollback,
+// inherits the original snapshot when reinstalling over our own
+// sentinel-tagged script, and skips the write entirely when the live file
+// already matches (so repeated installs never bump mtimes). The boolean
+// return reports whether a write occurred.
+func installScript(hooksDir, name string, content []byte, prevEntry InstalledHook, hasPrev bool, strategy Strategy) (InstalledHook, bool, error) {
+	target := filepath.Join(hooksDir, name)
 	entry := InstalledHook{
-		Kind:       k,
+		Kind:       HookKind(name),
 		Path:       target,
 		ContentSHA: hashContent(content),
 		Mode:       "0755",
 	}
 	priorData, priorExists, err := readFileIfExists(target)
 	if err != nil {
-		return entry, err
+		return entry, false, err
 	}
 	if priorExists {
 		// For StrategyGitCommon we share git's hooks directory with other
@@ -604,7 +782,7 @@ func installOne(root, hooksDir string, k HookKind, opts Options, strategy Strate
 		// another tool's contract. For StrategyRepoHooks we own the
 		// .sentra directory outright and capturing any prior file is safe.
 		if strategy == StrategyGitCommon && !bytesHaveSentinel(priorData) {
-			return entry, fmt.Errorf("%w: %s is not a sentra-installed hook", ErrInstalledByOther, target)
+			return entry, false, fmt.Errorf("%w: %s is not a sentra-installed hook", ErrInstalledByOther, target)
 		}
 		// Idempotent: when the live file content already matches what we
 		// would write, the install is a no-op and we report whatever the
@@ -612,35 +790,89 @@ func installOne(root, hooksDir string, k HookKind, opts Options, strategy Strate
 		// snapshot through repeated identical installs, even after the first
 		// install placed a sentra hook in the slot.
 		if hashContent(priorData) == entry.ContentSHA {
-			if prevEntry, ok := prev[k]; ok {
-				return prevEntry, nil
+			if hasPrev {
+				return prevEntry, false, nil
 			}
 			// No previous manifest entry: keep the live file's metadata
 			// so uninstall will still restore byte-for-byte.
 			entry.PriorExisted = true
 			entry.PriorPath = target
 			entry.PriorSnapshot = string(priorData)
-			if info, statErr := os.Stat(target); statErr == nil {
-				entry.PriorMode = fmt.Sprintf("%04o", info.Mode().Perm())
-			}
-			return entry, nil
+			entry.PriorMode = fileModeString(target)
+			return entry, false, nil
 		}
-		// Live file exists but differs from what we would write; capture
-		// its current state as the prior so uninstall restores byte-for-byte.
-		entry.PriorExisted = true
-		entry.PriorPath = target
-		entry.PriorSnapshot = string(priorData)
-		if info, statErr := os.Stat(target); statErr == nil {
-			entry.PriorMode = fmt.Sprintf("%04o", info.Mode().Perm())
+		if bytesHaveSentinel(priorData) && hasPrev {
+			// Reinstalling our own hook with different content (e.g. a new
+			// CLI path): inherit the pre-first-install snapshot so the
+			// original prior state survives sequential installs instead of
+			// being replaced by a snapshot of our own earlier script.
+			entry.PriorExisted = prevEntry.PriorExisted
+			entry.PriorPath = prevEntry.PriorPath
+			entry.PriorSnapshot = prevEntry.PriorSnapshot
+			entry.PriorMode = prevEntry.PriorMode
+		} else {
+			// Live file exists but differs from what we would write; capture
+			// its current state as the prior so uninstall restores
+			// byte-for-byte.
+			entry.PriorExisted = true
+			entry.PriorPath = target
+			entry.PriorSnapshot = string(priorData)
+			entry.PriorMode = fileModeString(target)
 		}
 	}
 	if err := ensureConfined(target, filepath.Dir(hooksDir)); err != nil {
-		return entry, err
+		return entry, false, err
 	}
 	if err := writeHookFile(target, content, 0o755); err != nil {
-		return entry, err
+		return entry, false, err
 	}
-	return entry, nil
+	return entry, true, nil
+}
+
+// fileModeString returns the octal permission string (e.g. "0755") of path,
+// or "" when the file cannot be stat'ed.
+func fileModeString(path string) string {
+	if info, err := os.Stat(path); err == nil {
+		return fmt.Sprintf("%04o", info.Mode().Perm())
+	}
+	return ""
+}
+
+// sortInstalled orders manifest entries deterministically: managed kinds in
+// AllHooks order first, passthrough/foreign names alphabetically after.
+func sortInstalled(list []InstalledHook) {
+	order := func(name string) (int, string) {
+		for i, k := range AllHooks {
+			if string(k) == name {
+				return i, ""
+			}
+		}
+		return len(AllHooks), name
+	}
+	sort.SliceStable(list, func(i, j int) bool {
+		oi, ni := order(string(list[i].Kind))
+		oj, nj := order(string(list[j].Kind))
+		if oi != oj {
+			return oi < oj
+		}
+		return ni < nj
+	})
+}
+
+// manifestSignature summarizes every state-bearing manifest field except the
+// timestamp so no-op installs can be detected deterministically.
+func manifestSignature(m Manifest) string {
+	var b strings.Builder
+	b.WriteString(string(m.Strategy))
+	b.WriteByte('|')
+	b.WriteString(m.HooksPath)
+	for _, e := range m.Installed {
+		b.WriteByte('|')
+		b.WriteString(string(e.Kind))
+		b.WriteByte(':')
+		b.WriteString(e.ContentSHA)
+	}
+	return b.String()
 }
 
 // bytesHaveSentinel reports whether buf contains the sentinel header
@@ -685,8 +917,22 @@ func Uninstall(opts Options) (Result, error) {
 	var notes []string
 	for _, entry := range manifest.Installed {
 		target := entry.Path
+		if target == "" {
+			notes = append(notes, fmt.Sprintf("%s: skipped (manifest entry has no path)", entry.Kind))
+			continue
+		}
 		if err := ensureConfined(target, filepath.Dir(hooksDir)); err != nil {
 			return Result{}, err
+		}
+		live, liveExists, err := readFileIfExists(target)
+		if err != nil {
+			return Result{}, fmt.Errorf("%s: %w", entry.Kind, err)
+		}
+		if liveExists && !bytesHaveSentinel(live) {
+			// The live file is no longer sentra-managed (the user or another
+			// tool replaced it). Never destroy a file we do not own.
+			notes = append(notes, fmt.Sprintf("%s: skipped (live file is not sentra-managed)", entry.Kind))
+			continue
 		}
 		if !entry.PriorExisted {
 			if err := os.Remove(target); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -705,13 +951,30 @@ func Uninstall(opts Options) (Result, error) {
 		notes = append(notes, fmt.Sprintf("%s: restored prior file (%d bytes)", entry.Kind, len(entry.PriorSnapshot)))
 	}
 
-	// Clear core.hooksPath if we set it ourselves (only repo-hooks strategy
-	// touches git config; verified manifest.HooksPath is non-empty).
+	// Restore core.hooksPath when it still points at the hooks dir we
+	// installed: write back the prior local value recorded in the manifest,
+	// or unset the setting when there was none. A value the user changed
+	// after the install is left untouched.
 	if strategy == StrategyRepoHooks && manifest.HooksPath != "" && IsGitRepo(root) {
-		if err := clearHooksPath(root, manifest.HooksPath); err != nil {
+		actual, err := currentHooksPath(root)
+		if err != nil {
 			return Result{}, err
 		}
-		notes = append(notes, "cleared git config core.hooksPath")
+		if actual != "" && samePath(actual, manifest.HooksPath) {
+			if manifest.PriorHooksPathSet {
+				if _, err := setLocalHooksPath(root, manifest.PriorHooksPath); err != nil {
+					return Result{}, err
+				}
+				notes = append(notes, "restored prior git config core.hooksPath ("+manifest.PriorHooksPath+")")
+			} else {
+				if err := unsetLocalHooksPath(root); err != nil {
+					return Result{}, err
+				}
+				notes = append(notes, "cleared git config core.hooksPath")
+			}
+		} else {
+			notes = append(notes, "core.hooksPath does not match the installed hooks dir; left unchanged")
+		}
 	}
 
 	// Remove the manifest after a successful uninstall. Any subsequent
@@ -842,19 +1105,15 @@ func allowedRootFor(strategy Strategy, root, gitCommon string) string {
 	}
 }
 
-// setHooksPath runs `git config --local core.hooksPath <dir>` for root. The
-// invocation uses the same sandboxed flags as gitCommonDir to prevent
-// recursion into installed hooks.
-func setHooksPath(root, dir string) (string, error) {
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return "", err
-	}
+// setLocalHooksPath runs `git config --local core.hooksPath <dir>` for root
+// and returns the value git now reports. The invocation uses the same
+// sandboxed flags as gitCommonDir to prevent recursion into installed hooks.
+func setLocalHooksPath(root, dir string) (string, error) {
 	cmd := exec.Command("git", "-C", root,
 		"-c", "core.hooksPath=/dev/null",
 		"-c", "core.fsmonitor=false",
 		"-c", "credential.helper=",
-		"config", "--local", "core.hooksPath", absDir)
+		"config", "--local", "core.hooksPath", dir)
 	cmd.Env = []string{"HOME=/nonexistent", "LANG=C", "PATH=" + os.Getenv("PATH")}
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("git config core.hooksPath: %v: %s", err, strings.TrimSpace(string(out)))
@@ -862,29 +1121,23 @@ func setHooksPath(root, dir string) (string, error) {
 	return currentHooksPath(root)
 }
 
-// clearHooksPath removes the local core.hooksPath setting when it matches
-// the path we installed. We avoid clearing an unrelated value the user set
-// by themselves.
-func clearHooksPath(root, expected string) error {
-	actual, err := currentHooksPath(root)
-	if err != nil {
-		return nil // nothing to do; better a stale install removed than a stale config left
-	}
-	if !samePath(actual, expected) {
-		return nil
-	}
+// unsetLocalHooksPath removes the local core.hooksPath setting. Callers
+// verify beforehand that the live value is one this installer wrote.
+func unsetLocalHooksPath(root string) error {
 	cmd := exec.Command("git", "-C", root,
 		"-c", "core.hooksPath=/dev/null",
 		"-c", "core.fsmonitor=false",
 		"-c", "credential.helper=",
-		"config", "--local", "--unset", "core.hooksPath")
+		"config", "--local", "--unset-all", "core.hooksPath")
 	cmd.Env = []string{"HOME=/nonexistent", "LANG=C", "PATH=" + os.Getenv("PATH")}
-	_, _ = cmd.CombinedOutput() // best effort; the manifest removal is the source of truth
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git config --unset core.hooksPath: %v: %s", err, strings.TrimSpace(string(out)))
+	}
 	return nil
 }
 
 // currentHooksPath returns `git config --local core.hooksPath` for root.
-// Empty (no error) means unset.
+// Empty (no error) means unset in the local scope.
 func currentHooksPath(root string) (string, error) {
 	if !IsGitRepo(root) {
 		return "", nil
@@ -898,6 +1151,98 @@ func currentHooksPath(root string) (string, error) {
 		return "", nil // exit code 1 == unset, treat as empty
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// effectiveHooksPath returns core.hooksPath as git resolves it across the
+// system/global/local scopes. Read-only; unlike the sandboxed installer
+// commands it inherits the caller's HOME (and GIT_CONFIG_* overrides when
+// set) so inherited config is visible. Empty means unset everywhere.
+func effectiveHooksPath(root string) string {
+	if !IsGitRepo(root) {
+		return ""
+	}
+	cmd := exec.Command("git", "-C", root,
+		"-c", "core.fsmonitor=false",
+		"config", "--get", "core.hooksPath")
+	env := []string{
+		"HOME=" + os.Getenv("HOME"),
+		"LANG=C",
+		"PATH=" + os.Getenv("PATH"),
+		"GIT_TERMINAL_PROMPT=0",
+	}
+	for _, key := range []string{"GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM"} {
+		if v := os.Getenv(key); v != "" {
+			env = append(env, key+"="+v)
+		}
+	}
+	cmd.Env = env
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// resolvePriorHooksDir returns the directory git reads hooks from before the
+// installer flips core.hooksPath. An empty hooksPathValue means git's
+// default <git-common-dir>/hooks. Relative hooksPath values are resolved
+// against root, matching hook invocation from the working tree root.
+func resolvePriorHooksDir(root, hooksPathValue, gitCommon string) string {
+	if hooksPathValue == "" {
+		if gitCommon == "" {
+			return ""
+		}
+		return filepath.Join(gitCommon, HooksDirName)
+	}
+	if filepath.IsAbs(hooksPathValue) {
+		return filepath.Clean(hooksPathValue)
+	}
+	return filepath.Join(root, hooksPathValue)
+}
+
+// scanActiveHooks lists the hook files in dir that git would execute:
+// executable regular files (or symlinks) whose names are not *.sample,
+// dotfiles, or already sentinel-tagged sentra hooks. Sorted names. A
+// missing directory yields an empty list; an unreadable one fails closed.
+func scanActiveHooks(dir string) ([]string, error) {
+	if dir == "" {
+		return nil, nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var out []string
+	for _, ent := range entries {
+		name := ent.Name()
+		if strings.HasPrefix(name, ".") || strings.HasSuffix(name, ".sample") {
+			continue
+		}
+		info, err := ent.Info()
+		if err != nil {
+			return nil, err
+		}
+		mode := info.Mode()
+		if mode.IsDir() {
+			continue
+		}
+		if mode&os.ModeSymlink == 0 && (!mode.IsRegular() || mode.Perm()&0o111 == 0) {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			return nil, err
+		}
+		if bytesHaveSentinel(data) {
+			continue
+		}
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 func samePath(a, b string) bool {
