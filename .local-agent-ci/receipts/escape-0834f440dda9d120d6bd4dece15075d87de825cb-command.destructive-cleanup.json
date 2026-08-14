@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "0834f440dda9d120d6bd4dece15075d87de825cb",
+  "one_shot": true,
+  "rule": "command.destructive-cleanup",
+  "reason": "User explicitly authorized bypass cleanup. Create a no-op merge commit whose tree equals current main and whose parents include all audited redundant branch tips, then let pi-cadence perform ancestry-safe branch deletion. | user authorization: I am giving you permission to clean up so bypass",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "autonomous-session",
+  "approved_at": "2026-08-14T17:56:09.283Z"
+}
