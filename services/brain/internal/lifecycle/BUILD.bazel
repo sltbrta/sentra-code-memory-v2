@@ -9,6 +9,9 @@ go_library(
 
 go_test(
     name = "lifecycle_test",
-    srcs = ["lifecycle_test.go"],
+    srcs = [
+        "lifecycle_regression_test.go",
+        "lifecycle_test.go",
+    ],
     embed = [":lifecycle"],
 )

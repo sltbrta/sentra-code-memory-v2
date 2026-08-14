@@ -1,15 +1,18 @@
 # llmadapter — optional provider-neutral LLM seam
 
 Bounded, structured LLM operations for query expansion, semantic candidate
-scoring, and memory claim extraction (issues #55/#58/#60). Strictly opt-in and
-local-first: with no `GEMINI_API_KEY`, every operation returns a deterministic
-local fallback (token-based expansion, lexical scoring, claim abstention).
+scoring, and memory claim extraction (issues #55/#58/#60). This package is not
+wired into `product-brain`, codeserve, or another product path. Setting
+`GEMINI_API_KEY` alone therefore changes no product behavior; a caller must
+explicitly construct and invoke the adapter. When invoked without a configured
+generator, every operation returns a deterministic local fallback (token-based
+expansion, lexical scoring, claim abstention).
 
 ## Configuration
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| `GEMINI_API_KEY` | unset | Unset means deterministic local behavior only. Never logged or persisted. |
+| `GEMINI_API_KEY` | unset | Read only when a caller constructs the adapter. Never logged or persisted. |
 | `SENTRA_CODE_MEMORY_GEMINI_MODEL` | `gemini-3.6-flash` | Override for tests/operations. |
 
 ## Usage

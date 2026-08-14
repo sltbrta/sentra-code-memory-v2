@@ -162,21 +162,10 @@ func (c Config) redact(s string) string {
 
 // truncate bounds s to n bytes without splitting a UTF-8 rune.
 func truncate(s string, n int) string {
-	if n <= 0 || len(s) <= n {
-		return s
+	if n > 0 && len(s) > n {
+		s = s[:n]
 	}
-	s = s[:n]
-	for len(s) > 0 && !utf8ValidTail(s) {
-		s = s[:len(s)-1]
-	}
-	return s
-}
-
-func utf8ValidTail(s string) bool {
-	// A valid tail ends on a rune boundary: last byte is ASCII or the string
-	// still decodes; trimming continuation bytes from the end achieves that.
-	b := s[len(s)-1]
-	return b < 0x80 || (b&0xC0) != 0x80
+	return strings.ToValidUTF8(s, "")
 }
 
 // budget returns the per-operation timeout clamped to the caller's remaining

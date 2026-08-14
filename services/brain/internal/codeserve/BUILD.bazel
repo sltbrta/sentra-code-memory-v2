@@ -44,6 +44,7 @@ go_test(
         "read_watch_test.go",
         "handle_memory_session_test.go",
         "local_handlers_test.go",
+        "main_test_isolation_test.go",
         "scip_recall_test.go",
     ],
     embed = [":codeserve"],

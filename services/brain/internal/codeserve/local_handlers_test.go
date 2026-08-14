@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeserve"
@@ -225,8 +224,14 @@ func TestCodeserveDenseLocalSearchHappyPath(t *testing.T) {
 		t.Fatalf("unexpected route: %s", got["route"])
 	}
 	raw, _ := json.Marshal(got["hits"])
-	if !strings.Contains(string(raw), "billing.go") {
-		t.Fatalf("hits missing billing.go: %s", raw)
+	var hits []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &hits); err != nil {
+		t.Fatalf("decode hits: %v", err)
+	}
+	if len(hits) != 1 || hits[0].ID != "billing.go" {
+		t.Fatalf("hit IDs must be root-relative: %s", raw)
 	}
 }
 
@@ -270,6 +275,3 @@ func TestNewVerbsHaveSpecMetadata(t *testing.T) {
 		}
 	}
 }
-
-// silenceUnused keeps strings imported during transitional edits.
-var _ = strings.Contains

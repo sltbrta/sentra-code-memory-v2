@@ -51,11 +51,7 @@ const (
 	SCIPRoleGenerated         SCIPSymbolRole = "generated"
 	SCIPRoleTest              SCIPSymbolRole = "test"
 	SCIPRoleForwardDefinition SCIPSymbolRole = "forward_definition"
-	// SCIPRoleReference labels edges whose role bits classify the
-	// occurrence as a plain reference (write/read access, generated or
-	// test code, or unknown bits).
-	SCIPRoleReference   SCIPSymbolRole = "reference"
-	SCIPRoleUnspecified SCIPSymbolRole = "unspecified"
+	SCIPRoleUnspecified       SCIPSymbolRole = "unspecified"
 )
 
 // Official SCIP symbol-role bits, verbatim from the SymbolRole enum in

@@ -1,6 +1,7 @@
 package codeserve
 
 import (
+	"io"
 	"os"
 	"strconv"
 )
@@ -14,17 +15,9 @@ func readFileBounded(path string, maxBytes int) ([]byte, error) {
 	}
 	defer f.Close()
 	if maxBytes <= 0 {
-		stat, err := f.Stat()
-		if err != nil {
-			return nil, err
-		}
-		buf := make([]byte, stat.Size())
-		_, err = f.Read(buf)
-		return buf, err
+		return io.ReadAll(f)
 	}
-	buf := make([]byte, maxBytes)
-	n, err := f.Read(buf)
-	return buf[:n], err
+	return io.ReadAll(io.LimitReader(f, int64(maxBytes)))
 }
 
 // fmtParseInt parses a decimal int with bounds checking. Returns 0 if the

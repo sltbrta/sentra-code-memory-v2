@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // fakeGenerator is an injected provider used in place of any live SDK client.
@@ -202,6 +203,26 @@ func TestRedactionBeforeTransmission(t *testing.T) {
 		if !strings.Contains(gen.lastPrompt, marker) {
 			t.Fatalf("prompt missing redaction marker %q:\n%s", marker, gen.lastPrompt)
 		}
+	}
+}
+
+func TestTruncateReturnsValidUTF8(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   string
+		max  int
+		want string
+	}{
+		{name: "split multibyte rune", in: "é", max: 1, want: ""},
+		{name: "keep complete prefix", in: "aé", max: 2, want: "a"},
+		{name: "discard invalid input byte", in: "a\xffb", max: 0, want: "ab"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := truncate(tc.in, tc.max)
+			if !utf8.ValidString(got) || got != tc.want {
+				t.Fatalf("truncate(%q, %d) = %q, want valid UTF-8 %q", tc.in, tc.max, got, tc.want)
+			}
+		})
 	}
 }
 
