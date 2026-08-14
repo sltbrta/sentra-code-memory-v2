@@ -287,7 +287,10 @@ func TestMCPAdvertisedTypesMatchCodeserveFields(t *testing.T) {
 		"retry_initial_ms": true, "retry_max_ms": true, "max_cycles": true,
 		"timeout_ms": true, "l0_bytes": true, "l1_bytes": true, "l2_bytes": true, "l3_bytes": true}
 	boolean := map[string]bool{"force": true, "no_refresh": true, "preview": true, "fsnotify": true,
-		"allow_ignored": true, "allow_unindexed": true, "include_superseded": true}
+		"allow_ignored": true, "allow_unindexed": true, "include_superseded": true,
+		// _operator_trust is the explicit operator opt-in advertised by
+		// tools/list for verbs with VerbSpec.RequiresOperatorTrust (issue #63).
+		"_operator_trust": true}
 	number := map[string]bool{"min_confidence": true, "min_relevance": true}
 	for _, tool := range adapters.MCPTools() {
 		props, _ := tool.InputSchema["properties"].(map[string]any)

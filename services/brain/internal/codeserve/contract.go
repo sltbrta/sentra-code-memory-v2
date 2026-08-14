@@ -45,6 +45,13 @@ const (
 	ErrChangeSetRejected ErrorCode = "changeset_rejected"
 	// ErrDeferred: an explicitly deferred/non-goal capability.
 	ErrDeferred ErrorCode = "deferred"
+	// ErrOperatorTrust: a model-facing adapter refused a mutating action
+	// because the request did not carry the explicit operator opt-in
+	// required by VerbSpec.RequiresOperatorTrust. codeserve.Handle itself
+	// never returns this code; adapters translate their trust gate into
+	// it. Distinct from ErrUnauthorized (HTTP 401 / bearer-token) so
+	// callers can branch on the failure class without parsing prose.
+	ErrOperatorTrust ErrorCode = "operator_trust_required"
 )
 
 // ErrorResponse is the canonical failure envelope. OK is always false.
@@ -543,6 +550,16 @@ type VerbSpec struct {
 	Required []string   `json:"required,omitempty"`
 	Optional []string   `json:"optional,omitempty"`
 	Aliases  []string   `json:"aliases,omitempty"`
+	// RequiresOperatorTrust marks verbs whose mutating actions create
+	// out-of-band persistent state on a host (filesystem hooks, shell
+	// scripts, etc.). The flag is a contract-level signal for adapters:
+	// they MUST refuse install/uninstall/run-style actions over model-facing
+	// surfaces (HTTP /dispatch, MCP tools/call) unless the request carries
+	// an explicit operator opt-in, while still serving safe read-only
+	// actions such as status. Direct CLI invocations and explicit JSONL
+	// operator pipelines bypass the gate: codeserve.Handle itself never
+	// inspects this flag, so behavior under `serve`/CLI is unchanged.
+	RequiresOperatorTrust bool `json:"requires_operator_trust,omitempty"`
 }
 
 // CatalogMetadata is the typed companion to Catalog(): every live JSONL
@@ -660,7 +677,7 @@ func CatalogMetadata() []VerbSpec {
 		{Name: string(VerbCodeDenseRerank), Status: StatusDeferred, Surface: "jsonl", Summary: "deferred credentialed dense/rerank code lane", Aliases: []string{"code-dense-rerank"}},
 		{Name: string(VerbHostedTenancy), Status: StatusDeferred, Surface: "jsonl", Summary: "deferred hosted tenancy", Aliases: []string{"hosted-tenancy"}},
 		{Name: string(VerbQueryAdvanced), Status: StatusDeferred, Surface: "jsonl", Summary: "deferred advanced query product", Aliases: []string{"query-advanced"}},
-		{Name: string(VerbHooksLocal), Status: StatusStable, Surface: "jsonl", Summary: "opt-in local hook installer confined to repo/.sentra or .git/hooks (idempotent, atomic, rollback-safe)", Required: []string{"action"}, Optional: []string{"root", "strategy", "kinds", "allow_unsafe_git_common", "cli_path", "event"}, Aliases: []string{"hooks-local"}},
+		{Name: string(VerbHooksLocal), Status: StatusStable, Surface: "jsonl", Summary: "opt-in local hook installer confined to repo/.sentra or .git/hooks (idempotent, atomic, rollback-safe). install/uninstall/run require explicit operator trust on MCP/HTTP surfaces.", Required: []string{"action"}, Optional: []string{"root", "strategy", "kinds", "allow_unsafe_git_common", "cli_path", "event"}, Aliases: []string{"hooks-local"}, RequiresOperatorTrust: true},
 		{Name: string(VerbDenseLocal), Status: StatusStable, Surface: "jsonl", Summary: "opt-in local lexical code retrieval arm (bag-of-words cosine); deterministic, identity-labelled, bounded, network-free", Required: []string{"q", "root"}, Optional: []string{"top_k", "scope", "model", "max_corpus", "max_dim", "max_query_len"}, Aliases: []string{"dense-local", "dense-local-search"}},
 	}
 }

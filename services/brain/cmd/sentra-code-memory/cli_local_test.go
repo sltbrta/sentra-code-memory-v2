@@ -102,6 +102,85 @@ func TestHooksCLIRequiresAction(t *testing.T) {
 	}
 }
 
+// TestHooksCLIArbitraryCliPathAndRoot preserves the direct CLI trust
+// model (issue #63): the operator-driven CLI is the only surface that
+// may install lifecycle hooks with an arbitrary cli_path or root. The
+// HTTP and MCP adapters are required to refuse the same payload; this
+// test is the negative proof that the CLI continues to accept it.
+// Without this guard, a future regression that pushed the gate down to
+// codeserve.Handle itself would slip by undetected because the CLI
+// tests would still pass on read paths.
+func TestHooksCLIArbitraryCliPathAndRoot(t *testing.T) {
+	root := cliGitRepo(t)
+	// cli_path is the most security-relevant knob: the installed hook
+	// scripts shell out to whatever binary this names. Picking a path
+	// outside the repo would otherwise be the easiest escape hatch.
+	cliPath := filepath.Join(t.TempDir(), "fake-binary")
+	if err := os.WriteFile(cliPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	install := runCLI(t, "hooks", "install",
+		"--root", root,
+		"--cli-path", cliPath,
+		"--strategy", "repo-hooks")
+	if install["ok"] != true {
+		t.Fatalf("direct CLI install with arbitrary cli_path must succeed (no gate): %+v", install)
+	}
+
+	status := runCLI(t, "hooks", "status", "--root", root)
+	if status["ok"] != true {
+		t.Fatalf("status after install: %+v", status)
+	}
+	installed, _ := status["installed"].([]any)
+	if len(installed) == 0 {
+		t.Fatalf("status reports no installed hooks: %+v", status)
+	}
+
+	// The hook script body must reference the operator-supplied cli_path,
+	// proving the value flowed from the JSONL request map through
+	// codeserve.Handle into lifecycle.Options without being sanitized
+	// away. We read one of the four installed hooks.
+	body, err := os.ReadFile(filepath.Join(root, ".sentra", "hooks", "post-commit"))
+	if err != nil {
+		t.Fatalf("post-commit hook should exist: %v", err)
+	}
+	if !strings.Contains(string(body), cliPath) {
+		t.Fatalf("post-commit hook does not reference --cli-path (%q):\n%s",
+			cliPath, string(body))
+	}
+
+	uninstall := runCLI(t, "hooks", "uninstall", "--root", root)
+	if uninstall["ok"] != true {
+		t.Fatalf("uninstall: %+v", uninstall)
+	}
+}
+
+// TestHooksCLIArbitraryRootSameBoundary further pins the trust model
+// (issue #63): the CLI accepts an arbitrary root regardless of where it
+// points, as long as the operator chose it interactively. The MCP/HTTP
+// gate is a property of the surface, not a path allow-list; this test
+// makes that explicit so a future reviewer does not try to "fix" the
+// CLI by adding a root allow-list. The repo-hooks strategy does not
+// require a git repository (lifecycle.Install writes under
+// <root>/.sentra/hooks unconditionally), so this install must
+// succeed even though the directory is plain.
+func TestHooksCLIArbitraryRootSameBoundary(t *testing.T) {
+	root := t.TempDir() // a plain directory, NOT a git repo
+	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI(t, "hooks", "install", "--root", root,
+		"--strategy", "repo-hooks")
+	if got["ok"] != true {
+		t.Fatalf("CLI must accept an arbitrary non-git root (no path allow-list): %+v", got)
+	}
+	defer runCLI(t, "hooks", "uninstall", "--root", root) //nolint:errcheck
+	if _, err := os.Stat(filepath.Join(root, ".sentra", "hooks")); err != nil {
+		t.Fatalf("hooks dir should exist after install: %v", err)
+	}
+}
+
 // TestDenseLocalCLISearch runs the lexical arm through the CLI over a tiny
 // temp corpus.
 func TestDenseLocalCLISearch(t *testing.T) {

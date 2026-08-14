@@ -22,17 +22,49 @@ type HTTPConfig struct {
 	Token string
 }
 
+// Operator opt-in surface constants. When a verb carries
+// VerbSpec.RequiresOperatorTrust (issue #63), its mutating actions
+// (install/uninstall/run) are refused at the /dispatch boundary unless
+// the request carries the opt-in via header or query parameter. This
+// keeps host-state-mutating verbs inaccessible to model-controlled
+// callers by default while preserving status-like read-only actions
+// and the direct CLI path.
+const (
+	operatorTrustHeaderName = "X-Sentra-Operator-Trust"
+	operatorTrustQueryKey   = "operator_trust"
+	operatorTrustOptInValue = "1"
+)
+
 // NewHTTP returns an http.Handler that exposes health and dispatch endpoints
 // over codeserve.Handle. It is the canonical local HTTP surface (issue #35):
 // requests are bounded, errors are structured, and behavior matches JSONL/CLI.
 // The trust boundary is explicit (issue #41): callers are expected to bind
 // loopback (validated by ValidateListenAddr in the CLI) and may require a
-// bearer token via HTTPConfig.Token.
+// bearer token via HTTPConfig.Token. Mutating actions on
+// VerbSpec.RequiresOperatorTrust verbs are gated by
+// codeserve.IsOperatorTrustAction and require an explicit operator opt-in
+// (issue #63); see operatorTrustOptInValue.
 func NewHTTP(cfg HTTPConfig) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/dispatch", dispatchHandler(cfg.Timeout))
 	return bounded(TrustPolicy{Token: cfg.Token}.wrap(mux))
+}
+
+// requestHasOperatorTrustOptIn reports whether the HTTP request carries
+// the explicit operator opt-in via header (X-Sentra-Operator-Trust: 1)
+// or query parameter (?operator_trust=1). It returns true the moment it
+// finds either signal; both forms exist because some caller shells and
+// some MCP-to-HTTP bridges can only set one of them. The value must be
+// exactly "1" to keep the signal explicit and grep-friendly.
+func requestHasOperatorTrustOptIn(r *http.Request) bool {
+	if got := strings.TrimSpace(r.Header.Get(operatorTrustHeaderName)); got == operatorTrustOptInValue {
+		return true
+	}
+	if got := strings.TrimSpace(r.URL.Query().Get(operatorTrustQueryKey)); got == operatorTrustOptInValue {
+		return true
+	}
+	return false
 }
 
 // healthHandler reports liveness and the active contract id.
@@ -87,6 +119,18 @@ func dispatchHandler(timeout time.Duration) http.HandlerFunc {
 			})
 			return
 		}
+		// Operator-trust gate (issue #63): mutating actions on verbs marked
+		// VerbSpec.RequiresOperatorTrust are refused on /dispatch unless the
+		// caller explicitly opts in. Status and other read-only actions are
+		// passed through unchanged. codeserve owns the verb/action decision
+		// so the surface here stays one structured-error response.
+		if codeserve.IsOperatorTrustAction(stringField(req, "verb"), stringField(req, "action")) {
+			if !requestHasOperatorTrustOptIn(r) {
+				writeJSONStatus(w, http.StatusForbidden, codeserve.OperatorTrustError(
+					stringField(req, "verb"), stringField(req, "action"), "http"))
+				return
+			}
+		}
 		ctx := r.Context()
 		if timeout > 0 {
 			var cancel context.CancelFunc
@@ -121,4 +165,13 @@ func writeJSONStatus(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
+}
+
+// stringField reads a string field from a codeserve request map with the
+// same trimming rules as codeserve.str, so adapter-level and
+// handler-level reads agree on what an "empty" verb or action is. The
+// trust gate runs before Handle so the same normalization matters.
+func stringField(req codeserve.Request, key string) string {
+	v, _ := req[key].(string)
+	return strings.TrimSpace(v)
 }
