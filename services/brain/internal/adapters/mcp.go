@@ -26,6 +26,15 @@ const (
 	codeInternalError  = -32603
 )
 
+// MCP-level operator opt-in field name. When a verb carries
+// VerbSpec.RequiresOperatorTrust (issue #63), its mutating actions
+// (install/uninstall/run) are refused at tools/call dispatch unless the
+// JSON arguments carry "_operator_trust": true. codeserve will neither
+// recognize nor forward this field because codeserve.Handle only reads
+// the verb-defined keys; the adapter owns the gating decision so the
+// surface stays self-documenting for an MCP client.
+const operatorTrustOptInArgKey = "_operator_trust"
+
 // rpcRequest is a JSON-RPC 2.0 request/notification.
 type rpcRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
@@ -91,6 +100,10 @@ type mcpCallResult struct {
 
 // MCPTools builds the tool catalog from codeserve metadata. Each tool is one
 // verb with a permissive JSON Schema built from its required/optional fields.
+// Verbs whose catalog spec carries RequiresOperatorTrust are still
+// advertised (so tools/list accurately reflects capability), but their
+// description and schema explicitly document the explicit operator
+// opt-in needed to dispatch the mutating actions (issue #63).
 func MCPTools() []MCPTool {
 	specs := codeserve.CatalogMetadata()
 	tools := make([]MCPTool, 0, len(specs))
@@ -107,6 +120,12 @@ func MCPTools() []MCPTool {
 		for _, f := range s.Optional {
 			props[f] = mcpFieldSchema(f)
 		}
+		if s.RequiresOperatorTrust {
+			props[operatorTrustOptInArgKey] = map[string]any{
+				"type":        "boolean",
+				"description": "explicit operator opt-in (issue #63) required to dispatch mutating actions (install/uninstall/run); status is always admitted.",
+			}
+		}
 		schema := map[string]any{
 			"type":                 "object",
 			"properties":           props,
@@ -118,6 +137,9 @@ func MCPTools() []MCPTool {
 		desc := s.Summary
 		if len(s.Aliases) > 0 {
 			desc = desc + " (aliases: " + strings.Join(s.Aliases, ", ") + ")"
+		}
+		if s.RequiresOperatorTrust {
+			desc = desc + " Mutating actions (install/uninstall/run) over MCP require the explicit _operator_trust=true opt-in; status and read-only actions are always admitted. Use the direct CLI for one-off installs."
 		}
 		tools = append(tools, MCPTool{
 			Name: s.Name, Description: desc, InputSchema: schema,
@@ -312,6 +334,13 @@ type toolsCallParams struct {
 // wraps the response as MCP text content. codeserve-level errors (ok:false) are
 // returned as successful MCP results with isError:true so the agent sees the
 // structured error_code rather than a transport-level JSON-RPC failure.
+//
+// Operator-trust gate (issue #63): mutating actions on verbs whose catalog
+// spec carries RequiresOperatorTrust (currently hooks_local install /
+// uninstall / run) are refused unless the JSON arguments explicitly
+// include "_operator_trust": true. The check runs before codeserve
+// dispatch and the gate's structured codeserve envelope is forwarded
+// verbatim so an MCP client sees the same error_code as HTTP.
 func dispatchMCPToolCall(ctx context.Context, params json.RawMessage) (any, *rpcError) {
 	var p toolsCallParams
 	if len(params) > 0 {
@@ -323,8 +352,24 @@ func dispatchMCPToolCall(ctx context.Context, params json.RawMessage) (any, *rpc
 	if name == "" {
 		return nil, &rpcError{Code: codeInvalidParams, Message: "tool name required"}
 	}
+	verb := name
+	if v, ok := p.Arguments["verb"].(string); ok && strings.TrimSpace(v) != "" {
+		verb = strings.TrimSpace(v)
+	}
+	if codeserve.IsOperatorTrustAction(verb, mcpActionString(p.Arguments["action"])) {
+		if !mcpOperatorTrustOptedIn(p.Arguments) {
+			body, _ := json.Marshal(codeserve.OperatorTrustError(verb, mcpActionString(p.Arguments["action"]), "mcp"))
+			return mcpCallResult{
+				Content: []mcpTextContent{{Type: "text", Text: string(body)}},
+				IsError: true,
+			}, nil
+		}
+	}
 	req := codeserve.Request{}
 	for k, v := range p.Arguments {
+		if k == operatorTrustOptInArgKey {
+			continue // never forward the opt-in field to codeserve; codeserve would ignore it but staying symmetric with HTTP keeps the contract obvious.
+		}
 		req[k] = v
 	}
 	if _, ok := req["verb"]; !ok {
@@ -340,4 +385,25 @@ func dispatchMCPToolCall(ctx context.Context, params json.RawMessage) (any, *rpc
 		Content: []mcpTextContent{{Type: "text", Text: string(body)}},
 		IsError: isErr,
 	}, nil
+}
+
+// mcpActionString normalizes the action field the same way codeserve.str
+// would, so " install " and "install" map to the same trust decision.
+func mcpActionString(v any) string {
+	s, _ := v.(string)
+	return strings.TrimSpace(s)
+}
+
+// mcpOperatorTrustOptedIn reports whether the JSON arguments map carries
+// "_operator_trust": true. Accepting the bool form keeps it
+// self-documenting in tools/list descriptions; other shapes (string "1",
+// string "true") are intentionally not honored so the opt-in is explicit
+// and hard to inject accidentally through JSON schema coercion.
+func mcpOperatorTrustOptedIn(args map[string]any) bool {
+	v, ok := args[operatorTrustOptInArgKey]
+	if !ok {
+		return false
+	}
+	b, ok := v.(bool)
+	return ok && b
 }

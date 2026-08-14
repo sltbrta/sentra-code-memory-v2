@@ -12,7 +12,10 @@ import (
 // lifecycle (issue #59). It maps JSONL verb parameters to lifecycle.Options
 // and serializes the result back. This verb is opt-in and stable; existing
 // callers never invoke it unless they specifically opt into the new
-// workflow.
+// workflow. The mutating actions (install/uninstall/run) carry the
+// VerbSpec.RequiresOperatorTrust flag: adapters are responsible for gating
+// them, but codeserve itself never inspects the flag, so direct CLI and
+// explicit JSONL operator pipelines are unaffected (issue #59 + #63).
 //
 // Wire shape:
 //
@@ -129,4 +132,67 @@ func boolOf(v any) bool {
 		return t == "true" || t == "1"
 	}
 	return false
+}
+
+// OperatorTrustActions lists the mutating verbs+actions whose dispatch
+// from a model-facing adapter (HTTP /dispatch, MCP tools/call) requires
+// an explicit operator opt-in. Status and other read-only verbs on the
+// same surface are intentionally NOT included so the gates fail closed
+// only on actions that leave host state behind.
+var OperatorTrustActions = map[Verb]map[string]bool{
+	VerbHooksLocal: {
+		"install":   true,
+		"uninstall": true,
+		"run":       true,
+	},
+}
+
+// IsOperatorTrustAction reports whether the (verb, action) pair would
+// leave host state behind and therefore requires an explicit operator
+// opt-in to dispatch from a model-facing adapter. Adapters call this so
+// codeserve stays the single source of truth for the gate. The verb must
+// already be recognized by Handle; unknown actions on a recognized verb
+// are treated as non-trusting so a typo in `action=` is never silently
+// admitted as "trusted".
+func IsOperatorTrustAction(verb string, action string) bool {
+	trust, ok := OperatorTrustActions[Verb(verb)]
+	if !ok {
+		return false
+	}
+	return trust[strings.TrimSpace(action)]
+}
+
+// VerbRequiresOperatorTrust reports whether the verb's catalog metadata
+// marks any of its actions as requiring an explicit operator opt-in from
+// model-facing surfaces. It is metadata-driven so the surface contract
+// and the dispatch gate stay in sync.
+func VerbRequiresOperatorTrust(verb string) bool {
+	for _, s := range CatalogMetadata() {
+		if s.Name == verb {
+			return s.RequiresOperatorTrust
+		}
+	}
+	return false
+}
+
+// OperatorTrustError returns the canonical structured response produced
+// when an adapter refuses a gated dispatch without an explicit opt-in.
+// Keeping the envelope here lets codeserve own the contract; adapters
+// just forward the map.
+func OperatorTrustError(verb, action, surface string) Response {
+	return Response{
+		"ok": false, "verb": verb, "action": action,
+		"error": "operator trust required for " + verb + " action=" + action +
+			" on " + surface + "; set the explicit operator opt-in (HTTP " +
+			"X-Sentra-Operator-Trust header or ?operator_trust=1 query; " +
+			"MCP arguments._operator_trust=true) or run the direct CLI",
+		"error_code":    string(ErrOperatorTrust),
+		"product_owned": true,
+		"trust_required": map[string]any{
+			"verb":         verb,
+			"action":       action,
+			"surface":      surface,
+			"opt_in_field": "_operator_trust",
+		},
+	}
 }

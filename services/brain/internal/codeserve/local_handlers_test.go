@@ -271,5 +271,109 @@ func TestNewVerbsHaveSpecMetadata(t *testing.T) {
 	}
 }
 
+// TestHooksLocalRequiresOperatorTrust locks the issue #63 trust contract:
+// install/uninstall/run on `hooks_local` carry the operator-trust marker
+// because they leave host state behind (filesystem hook scripts under
+// <root>/.sentra/hooks or <git-common>/hooks). Status is intentionally
+// NOT in the gated set so a model-facing surface can still answer
+// "what's installed?" without an explicit opt-in. Catalog clients use
+// the RequiresOperatorTrust flag to render the gate in their own UIs.
+func TestHooksLocalRequiresOperatorTrust(t *testing.T) {
+	hooks := mustSpec(t, codeserve.CatalogMetadata(), "hooks_local")
+	if !hooks.RequiresOperatorTrust {
+		t.Fatalf("hooks_local must carry RequiresOperatorTrust, got %+v", hooks)
+	}
+	for _, action := range []string{"install", "uninstall", "run"} {
+		if !codeserve.IsOperatorTrustAction("hooks_local", action) {
+			t.Fatalf("IsOperatorTrustAction(hooks_local, %q) = false, want true", action)
+		}
+	}
+	if codeserve.IsOperatorTrustAction("hooks_local", "status") {
+		t.Fatalf("status must NOT be gated; status is read-only")
+	}
+	if codeserve.IsOperatorTrustAction("hooks_local", "") {
+		t.Fatalf("missing action must NOT be gated; codeserve rejects empty action before any side effect")
+	}
+}
+
+// TestDenseLocalDoesNotRequireOperatorTrust is the negative-control lock:
+// dense_local_search is read-only and remains directly callable from any
+// surface, including model-facing adapters, with no opt-in required.
+func TestDenseLocalDoesNotRequireOperatorTrust(t *testing.T) {
+	dense := mustSpec(t, codeserve.CatalogMetadata(), "dense_local_search")
+	if dense.RequiresOperatorTrust {
+		t.Fatalf("dense_local_search must not carry RequiresOperatorTrust, got %+v", dense)
+	}
+	if codeserve.IsOperatorTrustAction("dense_local_search", "search") {
+		t.Fatalf("dense_local_search is read-only; it must not be gated")
+	}
+}
+
+// TestReadVerbsStayOutsideOperatorTrustGate covers the catalog invariants:
+// every verb except hooks_local is un-gated so the read paths an agent
+// depends on (ping, code_search, code_read, session_recall, etc.) remain
+// reachable from model-facing surfaces exactly as before.
+func TestReadVerbsStayOutsideOperatorTrustGate(t *testing.T) {
+	gated := map[string]bool{}
+	for _, vs := range codeserve.CatalogMetadata() {
+		if vs.RequiresOperatorTrust {
+			gated[vs.Name] = true
+		}
+	}
+	if len(gated) != 1 || !gated["hooks_local"] {
+		t.Fatalf("only hooks_local should carry RequiresOperatorTrust, got %v", gated)
+	}
+	for _, verb := range []string{"ping", "code_search", "code_read",
+		"code_index", "session_recall", "memory_search", "dense_local_search"} {
+		if codeserve.IsOperatorTrustAction(verb, "anything") {
+			t.Fatalf("%q must remain outside the operator-trust gate", verb)
+		}
+	}
+}
+
+// TestOperatorTrustErrorEnvelopeShape guarantees adapter callers see the
+// same machine-readable envelope codeserve.Handle would emit: a
+// non-OK response with `error_code == "operator_trust_required"`, a
+// human-readable `error` line, and a structured `trust_required` block
+// that names the verb/action/surface so a UI can render an actionable
+// message. The codeserve producer is canonical so HTTP and MCP cannot
+// drift apart on the surface they refuse with.
+func TestOperatorTrustErrorEnvelopeShape(t *testing.T) {
+	got := codeserve.OperatorTrustError("hooks_local", "install", "http")
+	if got["ok"] != false {
+		t.Fatalf("operator-trust error must be ok:false, got %+v", got)
+	}
+	if code, _ := got["error_code"].(string); code != string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("error_code = %q, want %q", code, codeserve.ErrOperatorTrust)
+	}
+	if err, _ := got["error"].(string); !strings.Contains(err, "operator trust") {
+		t.Fatalf("error message must explain the gate, got %q", err)
+	}
+	tr, ok := got["trust_required"].(map[string]any)
+	if !ok {
+		t.Fatalf("trust_required block missing: %+v", got)
+	}
+	if tr["verb"] != "hooks_local" || tr["action"] != "install" ||
+		tr["surface"] != "http" {
+		t.Fatalf("trust_required metadata drift: %+v", tr)
+	}
+	if codeserve.ErrOperatorTrust == codeserve.ErrUnauthorized {
+		t.Fatal("ErrOperatorTrust must be distinct from ErrUnauthorized so callers can branch on the failure class")
+	}
+}
+
+// mustSpec returns the catalog spec for name or fails the test so the
+// trust helpers below can assume the verb is present.
+func mustSpec(t *testing.T, specs []codeserve.VerbSpec, name string) codeserve.VerbSpec {
+	t.Helper()
+	for _, s := range specs {
+		if s.Name == name {
+			return s
+		}
+	}
+	t.Fatalf("catalog missing %q", name)
+	return codeserve.VerbSpec{}
+}
+
 // silenceUnused keeps strings imported during transitional edits.
 var _ = strings.Contains

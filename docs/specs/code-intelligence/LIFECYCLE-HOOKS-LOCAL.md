@@ -2,6 +2,76 @@
 
 # Local Lifecycle Hooks (issue #59)
 
+## Trust boundary (issue #63)
+
+Installing, uninstalling, or running lifecycle hooks leaves persistent
+host state behind (filesystem hook scripts under `<root>/.sentra/hooks/`
+or `<git-common>/hooks/`, plus a local `core.hooksPath` flip for the
+default strategy). The wire shape accepts an arbitrary `root` and
+`cli_path`, which is necessary for the operator-driven direct CLI but
+becomes an arbitrary-executable-persistence primitive the moment a
+network/IPC surface is reachable by a model-controlled caller.
+
+The contract encodes this asymmetry in `VerbSpec.RequiresOperatorTrust`
+and keeps enforcement at the adapter layer so direct CLI and explicit
+operator JSONL pipelines are unchanged:
+
+| Surface                          | `install` / `uninstall` / `run` | `status` |
+| -------------------------------- | --------------------------------- | --------- |
+| Direct CLI (`hooks install ...`) | always allowed (operator trust)   | allowed   |
+| Direct JSONL (`serve` pipe)      | always allowed (operator trust)   | allowed   |
+| HTTP `/dispatch` (loopback)      | refused without opt-in            | allowed   |
+| MCP `tools/call` (stdio)         | refused without opt-in            | allowed   |
+| HTTP `/dispatch` (token-protected) | refused without opt-in          | allowed   |
+
+The opt-in is explicit and easy to grep for:
+
+- HTTP: set `X-Sentra-Operator-Trust: 1` header **or**
+  `?operator_trust=1` query parameter (both forms accepted because some
+  HTTP bridges can only set one).
+- MCP: include `"_operator_trust": true` in the JSON `arguments` object.
+
+A refusal produces the canonical structured envelope so callers can
+branch on `error_code == "operator_trust_required"` without parsing the
+human-readable message:
+
+```json
+{
+  "ok": false,
+  "verb": "hooks_local",
+  "action": "install",
+  "error": "operator trust required for hooks_local action=install on http; set the explicit operator opt-in (HTTP X-Sentra-Operator-Trust header or ?operator_trust=1 query; MCP arguments._operator_trust=true) or run the direct CLI",
+  "error_code": "operator_trust_required",
+  "product_owned": true,
+  "trust_required": {
+    "verb": "hooks_local",
+    "action": "install",
+    "surface": "http",
+    "opt_in_field": "_operator_trust"
+  }
+}
+```
+
+`codeserve.Handle` itself never inspects the trust flag, so:
+
+- The direct CLI (`sentra-code-memory hooks install ...`) and any
+  operator pipeline that pipes JSONL into `serve` keep their existing
+  semantics; both call `codeserve.Handle(ctx, req)` with no extra
+  field and the request flows straight through to `lifecycle.Install`.
+- The catalog metadata (`CatalogMetadata` / the `catalog` verb with
+  `detail=true`) now carries
+  `requires_operator_trust: true` on `hooks_local`, so any contract
+  consumer (MCP client UI, catalog linter, audit script) can render
+  the gate without consulting adapter-specific docs.
+- Only the HTTP and MCP adapters are affected; the SCIP and dense
+  paths are unrelated and untouched.
+
+The split is deliberate: it preserves the local-first opt-in the issue
+\#59 spec demanded while ensuring a model-controlled process can only
+invoke the read-only `status` action over the wire by default. An
+operator who really wants model-driven lifecycle work sets the opt-in
+explicitly and accepts the persistence implications in code review.
+
 ## Scope and non-goals
 
 This document captures the local-first hook lifecycle added in response to
