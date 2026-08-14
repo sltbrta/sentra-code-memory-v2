@@ -132,11 +132,19 @@ not expose absolute filesystem paths.
 ### Sample evidence from a darwin/arm64 workstation
 
 ```
-BenchmarkLocalLexicalThroughput/corpus_256-12        50      65 µs/op
-BenchmarkLocalLexicalThroughput/corpus_1024-12       50     274 µs/op
-BenchmarkLocalLexicalThroughput/corpus_4096-12       50    1116 µs/op
-BenchmarkLocalLexicalAllocationsPerQuery-12          50     125 µs/op   101 KB/op   929 allocs/op
+BenchmarkLocalLexicalThroughput/corpus_256-12        20647      58 µs/op
+BenchmarkLocalLexicalThroughput/corpus_1024-12        4766     244 µs/op
+BenchmarkLocalLexicalThroughput/corpus_4096-12        1126    1058 µs/op
+BenchmarkLocalLexicalAllocationsPerQuery-12           4676     241 µs/op   156 KB/op   486 allocs/op
+BenchmarkLocalLatencyP50P95-12                        2378     473 p50-us/op   867 p95-us/op
 ```
+
+The allocations and latency rows measure a steady-state query drawn from
+the corpus vocabulary (a hitting query), sampled after a priming call so
+one-time setup stays out of the numbers; both benchmarks fail loudly on a
+zero-hit query so a degenerate measurement cannot be published. Earlier
+sample rows measured the degenerate zero-hit fast path and are not
+comparable.
 
 ## What is not implemented
 

@@ -449,3 +449,172 @@ func TestManifestRoundTripKeepsPriorFields(t *testing.T) {
 		t.Fatalf("round trip lost prior fields: %+v", back)
 	}
 }
+
+// loadManifestForTest reads the on-disk manifest for assertions about what
+// an interrupted or failed install persisted.
+func loadManifestForTest(t *testing.T, stateDir string) Manifest {
+	t.Helper()
+	m, exists, err := loadManifest(stateDir)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+	if !exists {
+		t.Fatalf("manifest missing at %s", stateDir)
+	}
+	return *m
+}
+
+// TestPartialGitCommonInstallFailureIsRecoverable forces a mid-install
+// failure: the shared git-common hooks directory already contains a foreign
+// (non-sentra) post-merge hook, which installScript refuses to overwrite.
+// Sorted install order means post-checkout and post-commit are written
+// before the refusal. The checkpointed manifest must record exactly those
+// mutations so Uninstall rolls them back while preserving the foreign hook.
+func TestPartialGitCommonInstallFailureIsRecoverable(t *testing.T) {
+	dir := withTempRepo(t, true)
+	gitCommon := filepath.Join(dir, ".git")
+	sharedHooks := filepath.Join(gitCommon, HooksDirName)
+	foreign := writeExecHook(t, sharedHooks, "post-merge", "#!/bin/sh\necho foreign\n")
+
+	_, err := Install(Options{Root: dir, Strategy: StrategyGitCommon, AllowUnsafeGitCommon: true})
+	if err == nil {
+		t.Fatal("install must fail on the foreign post-merge hook")
+	}
+	if !strings.Contains(err.Error(), "post-merge") {
+		t.Fatalf("error should name the refusing hook, got %v", err)
+	}
+
+	// The partial install must have left a manifest covering what it wrote.
+	stateDir := filepath.Join(gitCommon, StateDirName)
+	m := loadManifestForTest(t, stateDir)
+	if len(m.Installed) != 2 {
+		t.Fatalf("manifest should record exactly the two written hooks, got %+v", m.Installed)
+	}
+	for _, e := range m.Installed {
+		if e.PriorExisted {
+			t.Fatalf("%s had no prior file; snapshot must say so: %+v", e.Kind, e)
+		}
+	}
+
+	// Uninstall restores the pre-install state: the two sentra hooks are
+	// removed, the foreign hook is preserved, and the manifest is gone.
+	res, err := Uninstall(Options{Root: dir, Strategy: StrategyGitCommon, AllowUnsafeGitCommon: true})
+	if err != nil {
+		t.Fatalf("uninstall of partial install: %v", err)
+	}
+	if !res.OK {
+		t.Fatalf("uninstall not ok: %+v", res)
+	}
+	for _, name := range []string{"post-checkout", "post-commit"} {
+		if _, statErr := os.Stat(filepath.Join(sharedHooks, name)); !os.IsNotExist(statErr) {
+			t.Fatalf("%s should be removed by uninstall, stat err=%v", name, statErr)
+		}
+	}
+	data, readErr := os.ReadFile(foreign)
+	if readErr != nil || !strings.Contains(string(data), "foreign") {
+		t.Fatalf("foreign post-merge hook must survive uninstall: %v %q", readErr, data)
+	}
+	if _, statErr := os.Stat(filepath.Join(stateDir, ManifestName)); !os.IsNotExist(statErr) {
+		t.Fatalf("manifest should be removed after uninstall, stat err=%v", statErr)
+	}
+}
+
+// TestInstallCheckpointsBeforeHooksPathFlip forces setLocalHooksPath to
+// fail (read-only .git directory) after the pre-flip checkpoint. The
+// checkpointed manifest must already record the pending HooksPath and the
+// prior-state fields, the live git config must be untouched, and Uninstall
+// must cleanly unwind to the pre-install state.
+func TestInstallCheckpointsBeforeHooksPathFlip(t *testing.T) {
+	dir := withTempRepo(t, true)
+	gitDir := filepath.Join(dir, ".git")
+	if err := os.Chmod(gitDir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(gitDir, 0o755) })
+
+	_, err := Install(Options{Root: dir, Strategy: StrategyRepoHooks})
+	if err == nil {
+		t.Fatal("install must fail when git cannot write .git/config")
+	}
+
+	stateDir := filepath.Join(dir, ".sentra", StateDirName)
+	m := loadManifestForTest(t, stateDir)
+	// Install resolves symlinks on root (ResolveRoot), so compare against
+	// the resolved hooks dir — /var vs /private/var on macOS.
+	realDir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hooksDir := filepath.Join(realDir, ".sentra", HooksDirName)
+	if m.HooksPath != hooksDir {
+		t.Fatalf("checkpoint must record the pending hooksPath %q, got %q", hooksDir, m.HooksPath)
+	}
+	if m.PriorHooksPathSet {
+		t.Fatalf("no prior local hooksPath existed; checkpoint claims otherwise: %+v", m)
+	}
+	// The config flip never happened, so the live value must still be unset.
+	if got, ok := localConfigRead(t, dir, "core.hooksPath"); ok {
+		t.Fatalf("live core.hooksPath=%q should be unset after failed flip", got)
+	}
+
+	if _, err := Uninstall(Options{Root: dir, Strategy: StrategyRepoHooks}); err != nil {
+		t.Fatalf("uninstall after failed flip: %v", err)
+	}
+	if got, ok := localConfigRead(t, dir, "core.hooksPath"); ok {
+		t.Fatalf("core.hooksPath=%q should remain unset after uninstall", got)
+	}
+	if _, statErr := os.Stat(filepath.Join(stateDir, ManifestName)); !os.IsNotExist(statErr) {
+		t.Fatalf("manifest should be removed after uninstall, stat err=%v", statErr)
+	}
+}
+
+// TestInstallScriptPreWriteCheckpointContract locks the ordering guarantee
+// behind crash safety: preWrite runs AFTER the prior-state snapshot is
+// captured but BEFORE the file is replaced, and a preWrite failure aborts
+// the write so no mutation ever happens without a persisted rollback
+// record.
+func TestInstallScriptPreWriteCheckpointContract(t *testing.T) {
+	hooksDir := t.TempDir()
+	target := filepath.Join(hooksDir, "post-commit")
+	if err := os.WriteFile(target, []byte("original"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	called := false
+	entry, wrote, err := installScript(hooksDir, "post-commit", []byte("replacement"),
+		InstalledHook{}, false, StrategyRepoHooks, func(e InstalledHook) error {
+			called = true
+			// At checkpoint time the prior file must still be on disk and the
+			// entry must already carry its bytes for rollback.
+			data, readErr := os.ReadFile(target)
+			if readErr != nil || string(data) != "original" {
+				t.Fatalf("preWrite ran after the write (or read failed): %v %q", readErr, data)
+			}
+			if !e.PriorExisted || e.PriorSnapshot != "original" {
+				t.Fatalf("checkpoint entry missing prior snapshot: %+v", e)
+			}
+			return nil
+		})
+	if err != nil || !wrote {
+		t.Fatalf("installScript: wrote=%v err=%v", wrote, err)
+	}
+	if !called {
+		t.Fatal("preWrite was not invoked before the write")
+	}
+	if data, _ := os.ReadFile(target); string(data) != "replacement" {
+		t.Fatalf("target not replaced: %q", data)
+	}
+	if entry.PriorSnapshot != "original" {
+		t.Fatalf("entry lost prior snapshot: %+v", entry)
+	}
+
+	// A failing preWrite fails the install closed: no write happens.
+	boom := errors.New("checkpoint unavailable")
+	if _, wrote, err := installScript(hooksDir, "pre-push", []byte("new"),
+		InstalledHook{}, false, StrategyRepoHooks, func(InstalledHook) error { return boom }); !errors.Is(err, boom) || wrote {
+		t.Fatalf("preWrite failure must abort the write: wrote=%v err=%v", wrote, err)
+	}
+	if _, statErr := os.Stat(filepath.Join(hooksDir, "pre-push")); !os.IsNotExist(statErr) {
+		t.Fatalf("pre-push must not exist after aborted write, stat err=%v", statErr)
+	}
+}

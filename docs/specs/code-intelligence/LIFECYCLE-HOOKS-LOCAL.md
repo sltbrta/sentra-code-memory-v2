@@ -66,6 +66,18 @@ human-readable message:
 - Only the HTTP and MCP adapters are affected; the SCIP and dense
   paths are unrelated and untouched.
 
+The same gate covers `code_apply_changeset`: the verb takes no `action`
+parameter and every dispatch promotes a ChangeSet onto the filesystem
+under `root`, so the whole verb requires the identical opt-in
+(`X-Sentra-Operator-Trust: 1` / `?operator_trust=1` /
+`"_operator_trust": true`) on HTTP `/dispatch` and MCP `tools/call`.
+Index-mutation verbs (`code_index`, `code_ingest_paths`,
+`code_ingest_scip`, `code_watch`) are deliberately **not** gated: their
+writes are bounded, regenerable derived-index artifacts confined to the
+repo's own index cache — the same writes the read paths perform
+implicitly — so gating them would gate the product's core read surface
+without adding a trust boundary. All read-only verbs stay un-gated.
+
 The split is deliberate: it preserves the local-first opt-in the issue
 \#59 spec demanded while ensuring a model-controlled process can only
 invoke the read-only `status` action over the wire by default. An
@@ -178,6 +190,15 @@ A scan error on the prior hooks directory fails the install closed.
 Each successful install writes a JSON manifest at
 `<root>/.sentra/state/sentra-manifest.json` (or
 `<git-common>/hooks/state/sentra-manifest.json` for the shared strategy).
+The manifest is also **checkpointed incrementally during install**: before
+the `core.hooksPath` flip and before every hook script write, the manifest
+on disk already records the mutation about to happen (including the prior
+file bytes and mode). A crash or partial failure mid-install therefore
+never leaves a mutation without a rollback record — running `uninstall`
+after a failed or interrupted install restores every prior state captured
+up to that point, and a checkpoint write failure fails the install closed
+before the mutation it would have covered.
+
 The manifest records:
 
 - the SHA-256 of every installed hook script;
