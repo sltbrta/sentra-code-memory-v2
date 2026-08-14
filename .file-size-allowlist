@@ -37,3 +37,9 @@ services/brain/internal/hosted/retrieve.go
 services/brain/internal/hosted/retrieve_interactive.go
 # mature interactive retrieval stack; split after standalone parity settles
 # expires: 2026-09-19
+services/brain/internal/codeserve/handle.go
+# mature codeserve dispatch surface; split by verb family after release consolidation
+# expires: 2026-09-19
+services/brain/internal/lifecycle/lifecycle.go
+# mature lifecycle transaction surface; split install/uninstall/report after release consolidation
+# expires: 2026-09-19
