@@ -28,6 +28,7 @@ var aliases = map[string]string{
 	"route":                "code_find_route",
 	"freshness":            "code_freshness",
 	"ingest":               "code_ingest_paths",
+	"ingest-scip":          "code_ingest_scip",
 	"exact":                "code_exact",
 	"defs":                 "code_defs",
 	"refs":                 "code_refs",
@@ -43,6 +44,7 @@ var aliases = map[string]string{
 	"memory-list":          "memory_list",
 	"memory-promote":       "memory_promote",
 	"session-continuation": "session_continuation",
+	"session-recall":       "session_recall",
 	"savings-summary":      "savings_summary",
 }
 
@@ -144,6 +146,8 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	to := fs.String("to", "", "route destination symbol")
 	paths := fs.String("paths", "", "comma-separated relative paths")
 	readPath := fs.String("path", "", "workspace-relative source path")
+	language := fs.String("language", "", "source language for SCIP ingest")
+	scipPath := fs.String("scip", "", "path to a SCIP JSON document")
 	startLine := fs.Int("start-line", 1, "first source line for code_read")
 	maxLines := fs.Int("max-lines", 200, "maximum source lines for code_read")
 	maxDepth := fs.Int("max-depth", 3, "impact traversal depth")
@@ -168,7 +172,9 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	repository := fs.String("repository", "", "continuation repository")
 	tree := fs.String("tree", "", "continuation tree")
 	now := fs.String("now", "", "continuation RFC3339 time")
-	includeSuperseded := fs.Bool("include-superseded", false, "include superseded continuation events")
+	includeSuperseded := fs.Bool("include-superseded", false, "include superseded continuation/recall events")
+	minConfidence := fs.Float64("min-confidence", 0.5, "minimum session recall provenance confidence")
+	minRelevance := fs.Float64("min-relevance", 0.35, "minimum session recall lexical relevance")
 	l0Bytes := fs.Int("l0-bytes", 0, "continuation L0 budget")
 	l1Bytes := fs.Int("l1-bytes", 0, "continuation L1 budget")
 	l2Bytes := fs.Int("l2-bytes", 0, "continuation L2 budget")
@@ -199,6 +205,7 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	put("to", *to)
 	put("paths", *paths)
 	put("path", *readPath)
+	put("language", *language)
 	put("dir", *dir)
 	put("session", *session)
 	put("principal", *principal)
@@ -228,6 +235,19 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 		req["l3_bytes"] = *l3Bytes
 	}
 	put("rule_id", *ruleID)
+	if *scipPath != "" {
+		raw, err := readBoundedFile(*scipPath, maxRequestBytes)
+		if err != nil {
+			fmt.Fprintf(errOut, "read SCIP document: %v\n", err)
+			return nil, 2
+		}
+		var document map[string]any
+		if err := json.Unmarshal(raw, &document); err != nil || document == nil {
+			fmt.Fprintf(errOut, "decode SCIP document: %v\n", err)
+			return nil, 2
+		}
+		req["document"] = document
+	}
 	if *changesetPath != "" {
 		raw, err := os.ReadFile(*changesetPath)
 		if err != nil {
@@ -254,6 +274,8 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 	req["allow_ignored"] = *allowIgnored
 	req["allow_unindexed"] = *allowUnindexed
 	req["limit"] = *limit
+	req["min_confidence"] = *minConfidence
+	req["min_relevance"] = *minRelevance
 	if *maxBytes > 0 {
 		req["max_bytes"] = *maxBytes
 	}
@@ -264,6 +286,22 @@ func parseRequest(verb string, args []string, errOut io.Writer) (codeserve.Reque
 		req["max_matches"] = *maxMatches
 	}
 	return req, 0
+}
+
+func readBoundedFile(path string, limit int64) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(raw)) > limit {
+		return nil, fmt.Errorf("file exceeds %d bytes", limit)
+	}
+	return raw, nil
 }
 
 func writeJSON(out io.Writer, value any) int {
@@ -284,10 +322,10 @@ Usage:
 
 Commands:
   index, search, relevant, exact, defs, refs, read, imports, watch
-  expand, impact, route, freshness, ingest, repo-map, structural, diagnostics
+  expand, impact, route, freshness, ingest, ingest-scip, repo-map, structural, diagnostics
   apply-changeset, memory-ask
   memory-put, memory-search, memory-list, memory-promote
-  session-continuation, savings-summary
+  session-continuation, session-recall, savings-summary
   catalog, ping, serve, mlx
   http, mcp  # local HTTP and MCP-stdio adapters (issue #35)
 

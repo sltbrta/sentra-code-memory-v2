@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// MaxRecallResults is the hard output cap for one local recall.
+const MaxRecallResults = 50
+
 // RecallOptions controls bounded local recall with abstention (issue #30).
 type RecallOptions struct {
 	// MinConfidence is the minimum provenance confidence to admit a memory.
@@ -66,6 +69,9 @@ func Recall(events []Event, query string, opts RecallOptions) RecallResult {
 	if opts.TopK <= 0 {
 		opts.TopK = DefaultRecallOptions().TopK
 	}
+	if opts.TopK > MaxRecallResults {
+		opts.TopK = MaxRecallResults
+	}
 
 	var scored []Memory
 	for _, ev := range events {
@@ -74,6 +80,9 @@ func Recall(events []Event, query string, opts RecallOptions) RecallResult {
 			fresh = FreshnessAsOf
 		}
 		if fresh == FreshnessSuperseded && !opts.IncludeSuperseded {
+			continue
+		}
+		if !recallableProvenance(ev.Provenance) {
 			continue
 		}
 		rel := relevance(ev, q)
@@ -119,6 +128,12 @@ func Recall(events []Event, query string, opts RecallOptions) RecallResult {
 // relevance is a deterministic normalized lexical score in [0,1]. It rewards
 // exact symbol hits and shared tokens across path/symbol/handle/free-text and
 // is independent of any model tokenizer.
+func recallableProvenance(p Provenance) bool {
+	hasSource := strings.TrimSpace(p.Repository) != "" || strings.TrimSpace(p.Tree) != ""
+	hasLocator := strings.TrimSpace(p.Path) != "" || strings.TrimSpace(p.Symbol) != "" || strings.TrimSpace(p.Handle) != ""
+	return hasSource && hasLocator
+}
+
 func relevance(ev Event, q string) float64 {
 	symbol := strings.ToLower(ev.Provenance.Symbol)
 	path := strings.ToLower(ev.Provenance.Path)

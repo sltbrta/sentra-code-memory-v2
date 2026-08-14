@@ -138,8 +138,10 @@ func mcpFieldSchema(field string) map[string]any {
 	case "force", "no_refresh", "preview", "fsnotify", "include_superseded",
 		"allow_ignored", "allow_unindexed":
 		return map[string]any{"type": "boolean"}
-	case "changeset":
+	case "changeset", "document":
 		return map[string]any{"type": "object"}
+	case "min_confidence", "min_relevance":
+		return map[string]any{"type": "number", "minimum": 0, "maximum": 1}
 	case "mode":
 		return map[string]any{"type": "string", "enum": []string{"fast", "quality", "deep"}}
 	case "paths":

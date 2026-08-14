@@ -172,6 +172,16 @@ type IngestPathsRequest struct {
 	Paths []string `json:"paths"`
 }
 
+// SCIPIngestRequest adds one explicit, bounded SCIP JSON document to the
+// durable index projection for a single indexed repo-relative source path.
+type SCIPIngestRequest struct {
+	Verb string `json:"verb"`
+	IndexSelector
+	Path     string          `json:"path"`
+	Language string          `json:"language"`
+	Document json.RawMessage `json:"document"`
+}
+
 // ExactKind selects the exact-match lane for code_exact.
 type ExactKind string
 
@@ -269,6 +279,19 @@ type SessionContinuationRequest struct {
 	L3Bytes           int    `json:"l3_bytes,omitempty"`
 }
 
+// SessionRecallRequest searches a repo-local session event log. Dir may be
+// absolute or root-relative but must resolve inside Root; omitted Dir uses Root.
+type SessionRecallRequest struct {
+	Verb              string  `json:"verb"`
+	Root              string  `json:"root"`
+	Dir               string  `json:"dir,omitempty"`
+	Q                 string  `json:"q"`
+	TopK              int     `json:"top_k,omitempty"`
+	MinConfidence     float64 `json:"min_confidence,omitempty"`
+	MinRelevance      float64 `json:"min_relevance,omitempty"`
+	IncludeSuperseded bool    `json:"include_superseded"`
+}
+
 // SavingsSummaryRequest reads the local token-savings ledger (savings_summary).
 type SavingsSummaryRequest struct {
 	Verb string `json:"verb"`
@@ -315,6 +338,14 @@ type SessionContinuationResponse struct {
 	ResponseMeta
 	Continuation sessionlog.Continuation `json:"continuation"`
 	SourceEvents int                     `json:"source_events"`
+}
+
+// SessionRecallResponse wraps provenance-first local recall with abstention.
+type SessionRecallResponse struct {
+	ResponseMeta
+	Recall       sessionlog.RecallResult `json:"recall"`
+	SourceEvents int                     `json:"source_events"`
+	Limit        int                     `json:"limit"`
 }
 
 // SavingsSummaryResponse wraps the local token-savings ledger (savings_summary).
@@ -446,6 +477,18 @@ type IngestPathsResponse struct {
 	GitHead string   `json:"git_head"`
 }
 
+// SCIPIngestResponse reports one persisted explicit SCIP projection. Authority
+// is present only on success and is always the deterministic tag "scip".
+type SCIPIngestResponse struct {
+	ResponseMeta
+	Root      string                    `json:"root"`
+	GobPath   string                    `json:"gob_path"`
+	Path      string                    `json:"path"`
+	Language  string                    `json:"language"`
+	Authority string                    `json:"authority"`
+	Stats     codecrawl.SCIPIngestStats `json:"stats"`
+}
+
 // ExactResponse wraps the precise codeindex result.
 type ExactResponse struct {
 	ResponseMeta
@@ -565,6 +608,11 @@ func CatalogMetadata() []VerbSpec {
 			Required: []string{"root", "paths"},
 			Optional: []string{"index_cache"},
 			Aliases:  []string{"ingest"}},
+		{Name: string(VerbIngestSCIP), Status: StatusStable, Surface: "jsonl",
+			Summary:  "ingest one bounded explicit SCIP JSON document with SCIP authority",
+			Required: []string{"root", "path", "language", "document"},
+			Optional: []string{"index_cache", "no_refresh", "workers"},
+			Aliases:  []string{"ingest-scip"}},
 		{Name: string(VerbCodeExact), Status: StatusStable, Surface: "jsonl",
 			Summary:  "precise exact-match lane over the code index",
 			Required: []string{"root", "q"},
@@ -607,6 +655,7 @@ func CatalogMetadata() []VerbSpec {
 		{Name: string(VerbMemoryList), Status: StatusStable, Surface: "jsonl", Summary: "list bounded local agent memory", Required: []string{"dir", "principal"}, Optional: []string{"limit"}, Aliases: []string{"memory-list"}},
 		{Name: string(VerbMemoryPromote), Status: StatusStable, Surface: "jsonl", Summary: "promote local agent memory tier", Required: []string{"dir", "id", "tier", "principal"}, Optional: nil, Aliases: []string{"memory-promote"}},
 		{Name: string(VerbSessionContinuation), Status: StatusStable, Surface: "jsonl", Summary: "build bounded local continuation packet", Required: []string{"dir"}, Optional: []string{"repository", "tree", "now", "include_superseded", "l0_bytes", "l1_bytes", "l2_bytes", "l3_bytes"}, Aliases: []string{"session-continuation"}},
+		{Name: string(VerbSessionRecall), Status: StatusStable, Surface: "jsonl", Summary: "provenance-first bounded recall from a repo-local session log with abstention", Required: []string{"root", "q"}, Optional: []string{"dir", "top_k", "min_confidence", "min_relevance", "include_superseded"}, Aliases: []string{"session-recall"}},
 		{Name: string(VerbSavingsSummary), Status: StatusStable, Surface: "jsonl", Summary: "read local token-savings summary", Required: []string{"dir"}, Aliases: []string{"savings-summary"}},
 		{Name: string(VerbLifecycleInstall), Status: StatusDeferred, Surface: "jsonl", Summary: "deferred lifecycle installer; use local scripts", Aliases: []string{"lifecycle-install"}},
 		{Name: string(VerbSessionProduct), Status: StatusDeferred, Surface: "jsonl", Summary: "deferred full session product", Aliases: []string{"session-product"}},
