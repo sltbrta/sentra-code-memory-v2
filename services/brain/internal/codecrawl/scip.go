@@ -22,9 +22,12 @@ type SCIPIngestStats struct {
 	Calls           int    `json:"calls"`
 	Implementations int    `json:"implementations"`
 	Inheritances    int    `json:"inheritances"`
-	Truncated       int    `json:"truncated,omitempty"`
-	AppliedFiles    int    `json:"applied_files"`
-	DroppedFiles    int    `json:"dropped_files,omitempty"`
+	// Calls/Implementations/Inheritances stay zero: SCIP occurrence roles
+	// do not encode those relationships (scip.proto SymbolRole); retained
+	// for wire compatibility with persisted stats.
+	Truncated    int `json:"truncated,omitempty"`
+	AppliedFiles int `json:"applied_files"`
+	DroppedFiles int `json:"dropped_files,omitempty"`
 }
 
 // IngestSCIP converts a parsed SCIP document into codecrawl edges and
@@ -107,9 +110,10 @@ func (idx *Index) IngestSCIP(doc codeindex.SCIPDocument, path string, language s
 }
 
 // convertSCIPEdge maps a codeindex.SCIPEdge into the codecrawl Edge type.
-// The mapping is deliberately lossy: SCIP roles that have no codecrawl
-// equivalent (TypeDefinition, Unspecified) fall back to EdgeReference so
-// the projection still carries the (path, line) tuple for the caller.
+// The mapping is deliberately lossy: SCIP roles with no dedicated codecrawl
+// kind (write/read access, generated, test, forward definition, unknown
+// bits) arrive as Kind=="reference" from the boundary and stay EdgeReference
+// so the projection still carries the (path, line) tuple for the caller.
 func convertSCIPEdge(in codeindex.SCIPEdge, fallbackPath string) Edge {
 	kind := EdgeKind(in.Kind)
 	switch kind {

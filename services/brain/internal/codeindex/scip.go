@@ -32,20 +32,47 @@ const (
 	MaxSCIPSymbols = 1_000_000
 )
 
-// SCIPSymbolRole is the subset of SCIP symbol roles that this package
-// understands. Unknown roles are preserved verbatim on the typed edge so
-// callers can introspect them without re-parsing.
+// SCIPSymbolRole labels the role a symbol plays at one occurrence, per
+// the official SCIP protocol definition (scip.proto enum SymbolRole in
+// github.com/scip-code/scip, formerly sourcegraph/scip): Definition,
+// Import, WriteAccess, ReadAccess, Generated, Test and ForwardDefinition.
+// SCIP occurrence roles do NOT encode call/implementation/inheritance
+// relationships — those live in SymbolInformation.relationships, which
+// this narrow decoder does not model — so no such roles or kinds are
+// fabricated here. Unknown role bits are preserved verbatim on the typed
+// edge ("unknown(0x…)") so callers can introspect them without re-parsing.
 type SCIPSymbolRole string
 
 const (
-	SCIPRoleDefinition      SCIPSymbolRole = "definition"
-	SCIPRoleImport          SCIPSymbolRole = "import"
-	SCIPRoleReference       SCIPSymbolRole = "reference"
-	SCIPRoleImplementation  SCIPSymbolRole = "implementation"
-	SCIPRoleInheritance     SCIPSymbolRole = "inheritance"
-	SCIPRoleCall            SCIPSymbolRole = "call"
-	SCIPRoleTypeDefinition  SCIPSymbolRole = "type_definition"
-	SCIPRoleUnspecifiedRole SCIPSymbolRole = "unspecified"
+	SCIPRoleDefinition        SCIPSymbolRole = "definition"
+	SCIPRoleImport            SCIPSymbolRole = "import"
+	SCIPRoleWriteAccess       SCIPSymbolRole = "write_access"
+	SCIPRoleReadAccess        SCIPSymbolRole = "read_access"
+	SCIPRoleGenerated         SCIPSymbolRole = "generated"
+	SCIPRoleTest              SCIPSymbolRole = "test"
+	SCIPRoleForwardDefinition SCIPSymbolRole = "forward_definition"
+	// SCIPRoleReference labels edges whose role bits classify the
+	// occurrence as a plain reference (write/read access, generated or
+	// test code, or unknown bits).
+	SCIPRoleReference   SCIPSymbolRole = "reference"
+	SCIPRoleUnspecified SCIPSymbolRole = "unspecified"
+)
+
+// Official SCIP symbol-role bits, verbatim from the SymbolRole enum in
+// scip.proto (github.com/scip-code/scip, formerly sourcegraph/scip):
+// Definition=0x1, Import=0x2, WriteAccess=0x4, ReadAccess=0x8,
+// Generated=0x10, Test=0x20, ForwardDefinition=0x40. There is no Call,
+// Implementation or Inheritance role in SCIP. Do not renumber.
+const (
+	scipRoleBitDefinition        int32 = 0x1
+	scipRoleBitImport            int32 = 0x2
+	scipRoleBitWriteAccess       int32 = 0x4
+	scipRoleBitReadAccess        int32 = 0x8
+	scipRoleBitGenerated         int32 = 0x10
+	scipRoleBitTest              int32 = 0x20
+	scipRoleBitForwardDefinition int32 = 0x40
+	// scipRoleKnownMask covers every role bit defined by scip.proto.
+	scipRoleKnownMask int32 = 0x7f
 )
 
 // SCIPDocument is a bounded slice of a SCIP/LSIF-shaped document. Only
@@ -89,9 +116,9 @@ type SCIPEdge struct {
 	Path       string
 	From       string // empty when the source is implicit (e.g. import)
 	To         string
-	Kind       string // call | reference | import | implementation | inheritance | definition
+	Kind       string // definition | import | reference (SCIP roles carry no call/implementation/inheritance)
 	Role       SCIPSymbolRole
-	Authority  string  // always "scip"
+	Authority  string  // always "scip" (provenance: scip.proto-backed bits above)
 	Confidence float64 // 0..1, derived from role strength
 	Language   string
 	StartLine  uint32
@@ -101,7 +128,11 @@ type SCIPEdge struct {
 	Snippet    string
 }
 
-// SCIPStats records coarse diagnostics about an ingest run.
+// SCIPStats records coarse diagnostics about an ingest run. Calls,
+// Implementations and Inheritances are always zero: SCIP occurrence roles
+// do not encode those relationships (see SymbolInformation.relationships
+// in scip.proto); the counters are retained for wire compatibility with
+// the persisted codecrawl stats shape.
 type SCIPStats struct {
 	Occurrences     int
 	Edges           int
@@ -170,33 +201,32 @@ func DecodeSCIP(payload []byte) (SCIPDocument, error) {
 	return doc, nil
 }
 
-// roleClassifier maps SCIP symbol roles to (Kind, Confidence). The classifier
-// is intentionally narrow: roles outside the supported subset are
-// preserved with a Kind=="" marker so callers can branch on the role label
-// without trusting the SCIP authority signal.
-func roleClassifier(roles int32) (kind string, confidence float64) {
-	// SCIP defines roles as bit flags. We honour the documented bits and
-	// bias toward the most specific role: definition > import > call >
-	// implementation > inheritance > read/write reference > generated.
+// roleClassifier maps a SCIP symbol_roles bitset to (Kind, Confidence,
+// Role) using the official SymbolRole bits from scip.proto. Priority is
+// most-specific first: definition > forward definition > import > write
+// access > read access > generated > test. Occurrences carrying no
+// recognised bit return kind=="" so the caller degrades them to a
+// low-confidence reference; the classifier never fabricates
+// call/implementation/inheritance kinds, because SCIP occurrence roles do
+// not represent those relationships.
+func roleClassifier(roles int32) (kind string, confidence float64, role SCIPSymbolRole) {
 	switch {
-	case roles&0x1 != 0: // SymbolRoleDefinition
-		return "definition", 0.99
-	case roles&0x2 != 0: // SymbolRoleImport
-		return "import", 0.85
-	case roles&0x100 != 0: // SymbolRoleCall
-		return "call", 0.85
-	case roles&0x40 != 0: // SymbolRoleImplementation
-		return "implementation", 0.9
-	case roles&0x80 != 0: // SymbolRoleInheritance
-		return "inheritance", 0.9
-	case roles&0x10 != 0: // SymbolRoleWriteAccess
-		return "reference", 0.75
-	case roles&0x4 != 0: // SymbolRoleReadAccess
-		return "reference", 0.7
-	case roles&0x8 != 0: // SymbolRoleGenerated
-		return "reference", 0.5
+	case roles&scipRoleBitDefinition != 0:
+		return "definition", 0.99, SCIPRoleDefinition
+	case roles&scipRoleBitForwardDefinition != 0:
+		return "definition", 0.95, SCIPRoleForwardDefinition
+	case roles&scipRoleBitImport != 0:
+		return "import", 0.85, SCIPRoleImport
+	case roles&scipRoleBitWriteAccess != 0:
+		return "reference", 0.75, SCIPRoleWriteAccess
+	case roles&scipRoleBitReadAccess != 0:
+		return "reference", 0.7, SCIPRoleReadAccess
+	case roles&scipRoleBitGenerated != 0:
+		return "reference", 0.5, SCIPRoleGenerated
+	case roles&scipRoleBitTest != 0:
+		return "reference", 0.5, SCIPRoleTest
 	}
-	return "", 0
+	return "", 0, ""
 }
 
 // derivePath picks the source path for one occurrence. SCIP emits a single
@@ -257,13 +287,19 @@ func IngestSCIP(doc SCIPDocument, language string, pathOverride string) ([]SCIPE
 
 	edges := make([]SCIPEdge, 0, len(doc.Occurrences))
 	for _, occ := range doc.Occurrences {
-		kind, confidence := roleClassifier(occ.SymbolRoles)
+		kind, confidence, role := roleClassifier(occ.SymbolRoles)
 		if kind == "" {
-			// Unknown role: degrade to reference with a low confidence so
-			// callers retain the (path, symbol) mapping for diagnostic
-			// purposes without promoting the edge into the projection.
+			// No recognised role bit (unspecified or unknown bits only):
+			// degrade to a reference with low confidence so callers retain
+			// the (path, symbol) mapping without promoting the edge into
+			// the projection. Unknown bits are preserved verbatim on Role.
 			kind = "reference"
 			confidence = 0.4
+			if unknown := occ.SymbolRoles &^ scipRoleKnownMask; unknown != 0 {
+				role = SCIPSymbolRole(fmt.Sprintf("unknown(0x%X)", unknown))
+			} else {
+				role = SCIPRoleUnspecified
+			}
 		}
 		path := pathOverride
 		if path == "" {
@@ -289,7 +325,7 @@ func IngestSCIP(doc SCIPDocument, language string, pathOverride string) ([]SCIPE
 			From:       from,
 			To:         display,
 			Kind:       kind,
-			Role:       SCIPSymbolRole(kind),
+			Role:       role,
 			Authority:  "scip",
 			Confidence: confidence,
 			Language:   language,
@@ -306,13 +342,9 @@ func IngestSCIP(doc SCIPDocument, language string, pathOverride string) ([]SCIPE
 			stats.References++
 		case "import":
 			stats.Imports++
-		case "call":
-			stats.Calls++
-		case "implementation":
-			stats.Implementations++
-		case "inheritance":
-			stats.Inheritances++
 		}
+		// No call/implementation/inheritance cases: the classifier can
+		// only produce definition/import/reference from scip.proto bits.
 	}
 	stats.Edges = len(edges)
 	sort.SliceStable(edges, func(i, j int) bool {
