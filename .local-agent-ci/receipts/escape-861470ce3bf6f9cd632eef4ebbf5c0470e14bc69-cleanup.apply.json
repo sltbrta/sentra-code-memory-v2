@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "861470ce3bf6f9cd632eef4ebbf5c0470e14bc69",
+  "one_shot": true,
+  "rule": "cleanup.apply",
+  "reason": "User explicitly authorized cleanup bypass after the audit established that all remaining local branches are redundant and their valuable content is already consolidated into main. Use the safety-checked cadence apply with live remote merged-PR revalidation; do not force-delete branches that fail correctness checks. | user authorization: I am giving you permission to clean up so bypass",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "autonomous-session",
+  "approved_at": "2026-08-14T17:54:39.267Z"
+}
