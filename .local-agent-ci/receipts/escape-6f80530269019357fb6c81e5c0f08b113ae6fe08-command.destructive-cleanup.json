@@ -1,0 +1,12 @@
+{
+  "schema": "pi-agent:policy-escape:v1",
+  "head": "6f80530269019357fb6c81e5c0f08b113ae6fe08",
+  "one_shot": true,
+  "rule": "command.destructive-cleanup",
+  "reason": "User explicitly authorized committing, consolidating main locally and remotely, and cleaning up. Remote parity/all-post-p6-issues is PR #52, already merged, with exact head SHA verified; deleting the remote branch is reversible by recreating the ref. | user authorization: Okay let's do all the remaining six right now, completely end-to-end. Go autonomously. Follow a proper merge and clean up cadence and also use sub-agents wherever possible",
+  "command": [
+    "structured-tool"
+  ],
+  "approved_by": "autonomous-session",
+  "approved_at": "2026-08-14T17:26:48.909Z"
+}
