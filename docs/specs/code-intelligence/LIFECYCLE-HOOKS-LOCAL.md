@@ -194,7 +194,7 @@ A scan error on the prior hooks directory fails the install closed.
 
 Each successful install writes a JSON manifest at
 `<root>/.sentra/state/sentra-manifest.json` (or
-`<git-common>/hooks/state/sentra-manifest.json` for the shared strategy).
+`<git-common>/state/sentra-manifest.json` for the shared strategy).
 The manifest is also **checkpointed incrementally during install**: before
 the `core.hooksPath` flip and before every hook script write, the manifest
 on disk already records the mutation about to happen (including the prior

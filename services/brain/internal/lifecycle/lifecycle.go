@@ -63,7 +63,7 @@ var AllHooks = []HookKind{
 // belonging to another tool is never overwritten or removed.
 const SentinelHeader = "# sentra-lifecycle:v1\n"
 
-// Sentinels directory layout: <root>/.sentra/hooks/<kind>  +  <root>/.sentra/hooks/sentra-manifest.json
+// Sentinels directory layout: <root>/.sentra/hooks/<kind>  +  <root>/.sentra/state/sentra-manifest.json
 const (
 	HooksDirName  = "hooks"
 	ManifestName  = "sentra-manifest.json"
@@ -471,7 +471,7 @@ func hashContent(v []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// loadManifest reads the manifest at hooksDir/../state/<SnapshotName>. A
+// loadManifest reads the manifest at the state directory using ManifestName. A
 // missing manifest is not an error: it returns (nil, false, nil). A corrupt
 // manifest returns ErrManifestCorrupt so callers fail closed.
 func loadManifest(stateDir string) (*Manifest, bool, error) {
