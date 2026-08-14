@@ -3,6 +3,7 @@ package codeindex
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -68,41 +69,109 @@ func TestDecodeSCIPRejectsInvalidPayloads(t *testing.T) {
 	}
 }
 
-// TestIngestSCIPRolesDeterministic verifies the role classifier maps
-// every documented role tag to a stable kind+confidence pair.
-func TestIngestSCIPRolesDeterministic(t *testing.T) {
-	// Each row produces one occurrence with one role and expects a
-	// specific kind; the order is {call, definition, import, reference,
-	// implementation, inheritance} for stable ordering checks.
-	doc := SCIPDocument{
-		ToolName: "scip-fixture",
-		Occurrences: []SCIPOccurence{
-			{Range: []uint32{2, 4, 2, 9}, Symbol: "scheme pkg m caller.", SymbolRoles: 0x100},
-			{Range: []uint32{3, 6, 3, 12}, Symbol: "scheme pkg m Anchor.", SymbolRoles: 0x1},
-			{Range: []uint32{4, 4, 4, 16}, Symbol: "scheme pkg m fmt.", SymbolRoles: 0x2},
-			{Range: []uint32{5, 2, 5, 6}, Symbol: "scheme pkg m Value.", SymbolRoles: 0x4},
-			{Range: []uint32{6, 6, 6, 16}, Symbol: "scheme pkg m Trait.", SymbolRoles: 0x40},
-			{Range: []uint32{7, 8, 7, 18}, Symbol: "scheme pkg m Base.", SymbolRoles: 0x80},
-		},
+// TestIngestSCIPRealSymbolRoleBits pins the classifier to the official
+// SymbolRole bits from scip.proto (Definition=0x1, Import=0x2,
+// WriteAccess=0x4, ReadAccess=0x8, Generated=0x10, Test=0x20,
+// ForwardDefinition=0x40) so fabricated roles cannot regress.
+func TestIngestSCIPRealSymbolRoleBits(t *testing.T) {
+	cases := []struct {
+		name     string
+		roles    int32
+		wantKind string
+		wantRole SCIPSymbolRole
+		wantConf float64
+	}{
+		{"definition", 0x1, "definition", SCIPRoleDefinition, 0.99},
+		{"import", 0x2, "import", SCIPRoleImport, 0.85},
+		{"write access", 0x4, "reference", SCIPRoleWriteAccess, 0.75},
+		{"read access", 0x8, "reference", SCIPRoleReadAccess, 0.7},
+		{"generated", 0x10, "reference", SCIPRoleGenerated, 0.5},
+		{"test", 0x20, "reference", SCIPRoleTest, 0.5},
+		{"forward definition", 0x40, "definition", SCIPRoleForwardDefinition, 0.95},
+		{"definition+write", 0x1 | 0x4, "definition", SCIPRoleDefinition, 0.99},
+		{"import+read", 0x2 | 0x8, "import", SCIPRoleImport, 0.85},
+		{"write+read", 0x4 | 0x8, "reference", SCIPRoleWriteAccess, 0.75},
 	}
-	edges, stats, err := IngestSCIP(doc, "go", "/work/file.go")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := SCIPDocument{Occurrences: []SCIPOccurence{
+				{Range: []uint32{1, 1, 1, 5}, Symbol: "scheme pkg m Value.", SymbolRoles: tc.roles},
+			}}
+			edges, stats, err := IngestSCIP(doc, "go", "file.go")
+			if err != nil {
+				t.Fatalf("ingest: %v", err)
+			}
+			if stats.Edges != 1 {
+				t.Fatalf("edges = %d, want 1", stats.Edges)
+			}
+			edge := edges[0]
+			if edge.Kind != tc.wantKind {
+				t.Fatalf("kind = %s, want %s", edge.Kind, tc.wantKind)
+			}
+			if edge.Role != tc.wantRole {
+				t.Fatalf("role = %s, want %s", edge.Role, tc.wantRole)
+			}
+			if edge.Confidence != tc.wantConf {
+				t.Fatalf("confidence = %v, want %v", edge.Confidence, tc.wantConf)
+			}
+			if edge.Authority != "scip" {
+				t.Fatalf("authority = %s, want scip", edge.Authority)
+			}
+		})
+	}
+}
+
+// TestIngestSCIPUnknownBitsAreNotFabricated is the regression guard for
+// the SCIP correctness review: scip.proto defines no Call,
+// Implementation or Inheritance role, so bits outside the official enum
+// (and the unspecified zero value) must degrade to a low-confidence
+// reference with the unknown bits preserved verbatim - never a
+// fabricated relationship kind.
+func TestIngestSCIPUnknownBitsAreNotFabricated(t *testing.T) {
+	for _, roles := range []int32{0, 0x80, 0x100, 0x200, 0x8000, 0x8000 | 0x100, -1 &^ 0x7f} {
+		doc := SCIPDocument{Occurrences: []SCIPOccurence{
+			{Range: []uint32{1, 1, 1, 5}, Symbol: "scheme pkg m Value.", SymbolRoles: roles},
+		}}
+		edges, _, err := IngestSCIP(doc, "go", "file.go")
+		if err != nil {
+			t.Fatalf("roles %#x: %v", roles, err)
+		}
+		edge := edges[0]
+		switch edge.Kind {
+		case "call", "implementation", "inheritance":
+			t.Fatalf("roles %#x fabricated kind %q", roles, edge.Kind)
+		case "reference":
+			// expected
+		default:
+			t.Fatalf("roles %#x: kind = %q, want reference", roles, edge.Kind)
+		}
+		if edge.Confidence != 0.4 {
+			t.Fatalf("roles %#x: confidence = %v, want 0.4", roles, edge.Confidence)
+		}
+		if unknown := roles &^ scipRoleKnownMask; unknown != 0 {
+			if want := SCIPSymbolRole(fmt.Sprintf("unknown(0x%X)", unknown)); edge.Role != want {
+				t.Fatalf("roles %#x: role = %s, want %s", roles, edge.Role, want)
+			}
+		} else if edge.Role != SCIPRoleUnspecified {
+			t.Fatalf("roles %#x: role = %s, want %s", roles, edge.Role, SCIPRoleUnspecified)
+		}
+	}
+}
+
+// TestIngestSCIPKnownBitsWinOverUnknownBits verifies that an occurrence
+// carrying both an official role bit and stray unknown bits classifies
+// by the official bit; unknown bits alone never upgrade the kind.
+func TestIngestSCIPKnownBitsWinOverUnknownBits(t *testing.T) {
+	doc := SCIPDocument{Occurrences: []SCIPOccurence{
+		{Range: []uint32{1, 1, 1, 5}, Symbol: "scheme pkg m Value.", SymbolRoles: 0x1 | 0x100},
+	}}
+	edges, _, err := IngestSCIP(doc, "go", "file.go")
 	if err != nil {
 		t.Fatalf("ingest: %v", err)
 	}
-	if stats.Edges != 6 {
-		t.Fatalf("edges = %d, want 6", stats.Edges)
-	}
-	want := []string{"call", "definition", "implementation", "import", "inheritance", "reference"}
-	for i, edge := range edges {
-		if edge.Kind != want[i] {
-			t.Fatalf("edge %d kind = %s, want %s", i, edge.Kind, want[i])
-		}
-		if edge.Authority != "scip" {
-			t.Fatalf("edge %d authority = %s", i, edge.Authority)
-		}
-		if edge.Path != "/work/file.go" {
-			t.Fatalf("edge %d path = %s", i, edge.Path)
-		}
+	edge := edges[0]
+	if edge.Kind != "definition" || edge.Role != SCIPRoleDefinition || edge.Confidence != 0.99 {
+		t.Fatalf("edge = %+v, want definition/SCIPRoleDefinition/0.99", edge)
 	}
 }
 
@@ -197,7 +266,7 @@ func TestIngestSCIPFixtureRoundtrip(t *testing.T) {
 		{Path: "incremental/clean.go", To: "Anchor", Kind: "definition", Role: SCIPRoleDefinition, Authority: "scip", Confidence: 0.99, Language: "go", StartLine: 1, StartCol: 4, EndLine: 1, EndCol: 12},
 		{Path: "incremental/clean.go", To: "Beta", Kind: "definition", Role: SCIPRoleDefinition, Authority: "scip", Confidence: 0.99, Language: "go", StartLine: 2, StartCol: 4, EndLine: 2, EndCol: 11},
 		{Path: "incremental/clean.go", To: "fmt", Kind: "import", Role: SCIPRoleImport, Authority: "scip", Confidence: 0.85, Language: "go", StartLine: 4, StartCol: 5, EndLine: 4, EndCol: 16},
-		{Path: "incremental/clean.go", To: "Anchor", Kind: "reference", Role: SCIPRoleReference, Authority: "scip", Confidence: 0.7, Language: "go", StartLine: 3, StartCol: 8, EndLine: 3, EndCol: 14},
+		{Path: "incremental/clean.go", To: "Anchor", Kind: "reference", Role: SCIPRoleWriteAccess, Authority: "scip", Confidence: 0.75, Language: "go", StartLine: 3, StartCol: 8, EndLine: 3, EndCol: 14},
 	}
 	// Normalize the From field for the import: codecrawl/SCIP ingest
 	// leaves From empty for all kinds because the enclosing scope is
