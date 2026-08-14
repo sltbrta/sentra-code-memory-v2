@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "lifecycle",
+    srcs = ["lifecycle.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/lifecycle",
+    visibility = ["//services/brain:__subpackages__"],
+)
+
+go_test(
+    name = "lifecycle_test",
+    srcs = ["lifecycle_test.go"],
+    embed = [":lifecycle"],
+)

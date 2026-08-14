@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "denselocal",
+    srcs = ["denselocal.go"],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/denselocal",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = ["//services/brain/internal/dense"],
+)
+
+go_test(
+    name = "denselocal_test",
+    srcs = [
+        "denselocal_bench_test.go",
+        "denselocal_test.go",
+    ],
+    embed = [":denselocal"],
+)

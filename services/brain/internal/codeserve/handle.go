@@ -104,6 +104,10 @@ func Handle(ctx context.Context, req Request) Response {
 		return handleSavingsSummary(req)
 	case VerbLifecycleInstall, VerbSessionProduct, VerbCodeDenseRerank, VerbHostedTenancy, VerbQueryAdvanced:
 		return deferredResp(Verb(verb))
+	case VerbHooksLocal:
+		return handleHooksLocal(req)
+	case VerbDenseLocal:
+		return handleDenseLocal(req)
 	// Back-compat alias used by earlier serve path.
 	case "find_route":
 		req["verb"] = string(VerbFindRoute)
