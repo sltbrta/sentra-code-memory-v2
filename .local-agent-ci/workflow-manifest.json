@@ -1,10 +1,10 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-remaining-six-finalize",
-  "head": "14b6cad51ebce0938ba82f795157fe20fece4a6c",
+  "run_id": "run-remaining-six-release",
+  "head": "979418d23daade64986219fa9dbf134390cbad77",
   "implementer_session": "01a00039-dc60-7581-a1fd-05f6ce69ef11",
-  "workflow": "complete-remaining-six-local-first-finalize",
-  "scope": "Finalize the six-area local-first implementation already merged into the current working head: bounded SCIP ingestion and session recall; optional official Gemini SDK adapter with deterministic fallback; reversible local hooks and optional dense retrieval; contract/docs hygiene; explicit authority disclosures; and expanded benchmark evidence. Preserve hosted/cloud/full-session non-goals and deterministic defaults.",
+  "workflow": "complete-remaining-six-release",
+  "scope": "Release review and cleanup for the six-area local-first implementation: bounded SCIP ingestion and session recall; optional official Gemini SDK adapter with deterministic fallback; reversible local hooks and optional dense retrieval; contract/docs hygiene; explicit authority disclosures; and expanded benchmark evidence. Preserve hosted/cloud/full-session non-goals and deterministic defaults.",
   "non_goals": [
     "Hosted tenancy, billing, cloud synchronization, remote overlays, public distribution, enterprise isolation",
     "Full SCM session product and latent development-state runtime",
@@ -47,9 +47,9 @@
     "59",
     "60"
   ],
-  "created_at": "2026-08-14T13:21:14.154Z",
+  "created_at": "2026-08-14T13:21:45.988Z",
   "tier": "T2",
-  "stage": "spec-lock",
+  "stage": "paired-review",
   "phases": [
     {
       "id": "spec",
