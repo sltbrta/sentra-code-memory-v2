@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "llmadapter",
+    srcs = [
+        "adapter.go",
+        "doc.go",
+        "gemini.go",
+    ],
+    importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/llmadapter",
+    visibility = ["//services/brain:__subpackages__"],
+    deps = [
+        "@org_golang_google_genai//:genai",
+    ],
+)
+
+go_test(
+    name = "llmadapter_test",
+    srcs = [
+        "adapter_test.go",
+        "gemini_test.go",
+    ],
+    embed = [":llmadapter"],
+    deps = [
+        "@org_golang_google_genai//:genai",
+    ],
+)

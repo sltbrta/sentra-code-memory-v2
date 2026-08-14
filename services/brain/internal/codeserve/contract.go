@@ -661,6 +661,6 @@ func CatalogMetadata() []VerbSpec {
 		{Name: string(VerbHostedTenancy), Status: StatusDeferred, Surface: "jsonl", Summary: "deferred hosted tenancy", Aliases: []string{"hosted-tenancy"}},
 		{Name: string(VerbQueryAdvanced), Status: StatusDeferred, Surface: "jsonl", Summary: "deferred advanced query product", Aliases: []string{"query-advanced"}},
 		{Name: string(VerbHooksLocal), Status: StatusStable, Surface: "jsonl", Summary: "opt-in local hook installer confined to repo/.sentra or .git/hooks (idempotent, atomic, rollback-safe)", Required: []string{"action"}, Optional: []string{"root", "strategy", "kinds", "allow_unsafe_git_common", "cli_path", "event"}, Aliases: []string{"hooks-local"}},
-		{Name: string(VerbDenseLocal), Status: StatusStable, Surface: "jsonl", Summary: "opt-in local dense code retrieval arm over bag-of-words + HNSW with deterministic lexical fallback; model-identity-bound, network-free", Required: []string{"q", "root"}, Optional: []string{"top_k", "scope", "model", "index", "max_corpus", "max_dim", "max_query_len"}, Aliases: []string{"dense-local", "dense-local-search"}},
+		{Name: string(VerbDenseLocal), Status: StatusStable, Surface: "jsonl", Summary: "opt-in local lexical code retrieval arm (bag-of-words cosine); deterministic, identity-labelled, bounded, network-free", Required: []string{"q", "root"}, Optional: []string{"top_k", "scope", "model", "max_corpus", "max_dim", "max_query_len"}, Aliases: []string{"dense-local", "dense-local-search"}},
 	}
 }

@@ -5,7 +5,6 @@ go_library(
     srcs = ["denselocal.go"],
     importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/denselocal",
     visibility = ["//services/brain:__subpackages__"],
-    deps = ["//services/brain/internal/dense"],
 )
 
 go_test(

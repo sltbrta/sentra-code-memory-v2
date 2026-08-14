@@ -57,11 +57,15 @@ func execute(args []string, in io.Reader, out, errOut io.Writer) int {
 		writeHelp(out)
 		return 0
 	}
+	// Single caller context for the process lifetime; subcommands thread it
+	// through to codeserve so cancellation propagates instead of each verb
+	// starting from context.Background().
+	ctx := context.Background()
 	switch args[0] {
 	case "catalog":
-		return writeJSON(out, codeserve.Handle(context.Background(), codeserve.Request{"verb": "catalog"}))
+		return writeJSON(out, codeserve.Handle(ctx, codeserve.Request{"verb": "catalog"}))
 	case "ping":
-		return writeJSON(out, codeserve.Handle(context.Background(), codeserve.Request{"verb": "ping"}))
+		return writeJSON(out, codeserve.Handle(ctx, codeserve.Request{"verb": "ping"}))
 	case "serve":
 		return serve(args[1:], in, out, errOut)
 	case "watch":
@@ -73,9 +77,9 @@ func execute(args []string, in io.Reader, out, errOut io.Writer) int {
 	case "mcp":
 		return runMCP(args[1:], in, out, errOut)
 	case "hooks":
-		return runHooks(args[1:], out, errOut)
+		return runHooks(ctx, args[1:], out, errOut)
 	case "dense-local":
-		return runDenseLocal(args[1:], out, errOut)
+		return runDenseLocal(ctx, args[1:], out, errOut)
 	default:
 		verb, ok := aliases[args[0]]
 		if !ok {
@@ -86,7 +90,7 @@ func execute(args []string, in io.Reader, out, errOut io.Writer) int {
 		if code != 0 {
 			return code
 		}
-		return writeJSON(out, codeserve.Handle(context.Background(), req))
+		return writeJSON(out, codeserve.Handle(ctx, req))
 	}
 }
 
@@ -332,10 +336,22 @@ Commands:
   session-continuation, session-recall, savings-summary
   catalog, ping, serve, mlx
   http, mcp  # local HTTP and MCP-stdio adapters (issue #35)
+  hooks (install|status|uninstall|run)  # repo-confined git hook lifecycle (opt-in)
+  dense-local                           # local lexical code retrieval (opt-in)
 
 Common flags:
   --root PATH --index-cache DIR --q QUERY --top-k N --workers N
   --no-refresh --force
+
+Hooks flags:
+  --root PATH --strategy repo-hooks|git-common-hooks --kinds a,b
+  --cli-path PATH --event NAME --allow-unsafe-git-common
+  The action may appear before or after flags.
+
+Dense-local flags (hard ceilings: top-k <= 50, corpus <= 8192 files,
+dimension <= 1024, query <= 512 chars; flags may only tighten them):
+  --root PATH --q TEXT --top-k N --scope NAME --model NAME
+  --max-corpus N --max-dim N --max-query-len N
 
 The JSONL protocol is discoverable with catalog and returns one JSON response
 per request. Use watch for debounced multi-worker freshness with retries, and

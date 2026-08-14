@@ -162,7 +162,7 @@ func TestCodeserveDenseLocalSearchHappyPath(t *testing.T) {
 	if got["ok"] != true {
 		t.Fatalf("expected ok, got %+v", got)
 	}
-	if got["route"] != "lexical_fallback" {
+	if got["route"] != "lexical" {
 		t.Fatalf("unexpected route: %s", got["route"])
 	}
 	raw, _ := json.Marshal(got["hits"])

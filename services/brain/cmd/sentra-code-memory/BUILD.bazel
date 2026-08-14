@@ -3,23 +3,18 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 go_library(
     name = "command",
     srcs = [
+        "adapters.go",
+        "local.go",
         "main.go",
         "mlx.go",
         "watch.go",
-        "adapters.go",
-        "hooks.go",
-        "dense_local.go",
-        "cli_local_helpers.go",
     ],
     importpath = "github.com/sltbrta/sentra-code-memory-v2/services/brain/cmd/sentra-code-memory",
     visibility = ["//visibility:private"],
     deps = [
         "//services/brain/internal/adapters",
-        "//services/brain/internal/codeserve",
         "//services/brain/internal/codecrawl",
-        "//services/brain/internal/dense",
-        "//services/brain/internal/denselocal",
-        "//services/brain/internal/lifecycle",
+        "//services/brain/internal/codeserve",
     ],
 )
 
@@ -31,7 +26,13 @@ go_binary(
 
 go_test(
     name = "command_test",
-    srcs = ["main_test.go", "adapters_test.go", "main_memory_test.go", "scip_recall_test.go"],
+    srcs = [
+        "adapters_test.go",
+        "cli_local_test.go",
+        "main_memory_test.go",
+        "main_test.go",
+        "scip_recall_test.go",
+    ],
     embed = [":command"],
     deps = [
         "//services/brain/internal/adapters",

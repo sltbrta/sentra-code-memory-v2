@@ -33,12 +33,13 @@ overwrite a non-sentra hook in the shared directory.
 
 ```
 sentra-code-memory hooks [--root PATH] [--strategy NAME] [--kinds KINDS] \
-                          [--cli-path PATH] [--json=true|false] \
+                          [--cli-path PATH] [--event NAME] \
+                          [--allow-unsafe-git-common] \
                           (install|status|uninstall|run)
 ```
 
-Flags must precede the action because Go's flag package does not parse
-flags after the first positional argument.
+The action may appear before or after the flags; both forms are accepted.
+`--event` is only meaningful for the `run` action.
 
 ### JSONL
 

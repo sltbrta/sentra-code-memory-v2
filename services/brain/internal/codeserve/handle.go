@@ -107,7 +107,7 @@ func Handle(ctx context.Context, req Request) Response {
 	case VerbHooksLocal:
 		return handleHooksLocal(req)
 	case VerbDenseLocal:
-		return handleDenseLocal(req)
+		return handleDenseLocal(ctx, req)
 	// Back-compat alias used by earlier serve path.
 	case "find_route":
 		req["verb"] = string(VerbFindRoute)
