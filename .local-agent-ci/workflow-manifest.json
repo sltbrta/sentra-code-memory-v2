@@ -1,83 +1,94 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-1786619214540",
-  "head": "53ad0d3882ac7256bfabd8e960e6b1296dc57c9f",
-  "implementer_session": "019ff79c-0fe8-77a6-bf18-0119b5abe291",
-  "workflow": "local-first-ranked-retrieval-slice-closeout",
-  "scope": "Close out the already reviewed deterministic ranked retrieval slice and its capability audit; runtime code is complete at current HEAD, with no further implementation in this closeout.",
+  "run_id": "run-1786710819651",
+  "head": "857cfa9a581ead849d86e0c4ac3bf1d2ec0dbffb",
+  "implementer_session": "01a00039-dc60-7581-a1fd-05f6ce69ef11",
+  "workflow": "complete-remaining-six-local-first",
+  "scope": "End-to-end completion of the six remaining local-first work areas: expose bounded SCIP ingestion and session recall; implement optional official Google Gemini SDK adapter with deterministic fallback; evaluate and implement reversible local hooks and optional dense retrieval only where evidence supports it; complete documentation and contract hygiene; advance compiler/authority integration without overstating heuristics; and broaden benchmark evidence. Preserve hosted/cloud/full-session non-goals and local deterministic defaults.",
   "non_goals": [
-    "Do not add Gemini or other network providers.",
-    "Do not implement additional deferred capabilities in this closeout.",
-    "Do not change the ranked retrieval runtime behavior."
+    "Hosted tenancy, billing, cloud synchronization, remote overlays, public distribution, enterprise isolation",
+    "Full SCM session product and latent development-state runtime",
+    "Direct model-driven filesystem writes or ChangeSet bypasses",
+    "Changing deterministic local defaults without benchmark evidence",
+    "Claiming Tree-sitter/LSP/compiler authority where only lexical or explicit SCIP evidence exists"
   ],
   "affected_files": [
-    "services/brain/internal/codeserve/handle.go",
-    "services/brain/internal/codeserve/relevant.go",
-    "services/brain/internal/codeserve/contract.go",
-    "services/brain/internal/codeserve/contract_test.go",
-    "services/brain/internal/codeserve/README.md",
-    "docs/research/2026-08-13-local-first-deferred-capability-audit.md"
+    "services/brain/internal/codeserve/**",
+    "services/brain/internal/codecrawl/**",
+    "services/brain/internal/codeindex/**",
+    "services/brain/internal/sessionlog/**",
+    "services/brain/internal/rerank/**",
+    "services/brain/internal/workflow/**",
+    "services/brain/internal/adapters/**",
+    "services/brain/cmd/sentra-code-memory/**",
+    "services/brain/internal/scmbench/**",
+    "services/brain/internal/memory/**",
+    "docs/roadmap/**",
+    "docs/research/**",
+    "docs/specs/code-intelligence/**",
+    "README.md",
+    "justfile",
+    "go.work",
+    "services/go.mod",
+    "services/go.sum"
   ],
   "acceptance_commands": [
-    "go test ./services/brain/internal/codecrawl ./services/brain/internal/codeserve",
-    "go test ./services/...",
-    "git diff --check",
-    "markdownlint-cli2 docs/research/2026-08-13-local-first-deferred-capability-audit.md services/brain/internal/codeserve/README.md"
+    "just check-all",
+    "just bench-code",
+    "go vet ./...",
+    "go test ./services/... ./packages/contracts/...",
+    "cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml"
   ],
   "risks": [
-    "Receipt-only commits must not be mistaken for runtime changes; all acceptance commands must remain green on the final head."
+    "Official Gemini SDK dependency and API evolution",
+    "Filesystem hook mutation and rollback safety",
+    "Dense retrieval quality regressions or model identity drift",
+    "SCIP ingestion path/root safety and malformed-input handling",
+    "Benchmark expansion may reveal quality regressions",
+    "Large cross-module change can drift from the declared local-first scope"
   ],
   "issue_ids": [
-    "56",
-    "55"
+    "54",
+    "55",
+    "57",
+    "59",
+    "60"
   ],
-  "created_at": "2026-08-13T11:06:54.540Z",
-  "tier": "T1",
-  "stage": "land",
+  "created_at": "2026-08-14T12:33:39.651Z",
+  "tier": "T2",
+  "stage": "implementation",
   "phases": [
     {
-      "id": "spec-lock",
-      "title": "Spec lock"
+      "id": "research",
+      "title": "Audit active gaps and current contracts"
     },
     {
-      "id": "issue",
-      "title": "Issue tracking"
+      "id": "scip-session",
+      "title": "Expose SCIP and session recall"
     },
     {
-      "id": "context",
-      "title": "Context"
+      "id": "gemini",
+      "title": "Implement optional official Gemini SDK adapter"
     },
     {
-      "id": "red-proof",
-      "title": "Red proof"
+      "id": "hooks-dense",
+      "title": "Evaluate reversible hooks and dense retrieval"
     },
     {
-      "id": "implementation",
-      "title": "Implementation"
+      "id": "authority",
+      "title": "Advance authority and compiler evidence"
     },
     {
-      "id": "paired-review",
-      "title": "Paired review"
+      "id": "bench-docs",
+      "title": "Expand benchmarks and repair documentation"
     },
     {
-      "id": "preflight",
-      "title": "Preflight"
-    },
-    {
-      "id": "fresh-eyes",
-      "title": "Fresh-eyes review"
-    },
-    {
-      "id": "finalize",
-      "title": "Finalize"
+      "id": "review",
+      "title": "Preflight and fresh-eyes review"
     },
     {
       "id": "land",
-      "title": "Land"
-    },
-    {
-      "id": "cleanup",
-      "title": "Cleanup"
+      "title": "Land and cleanup"
     }
   ],
   "required_receipts": [
