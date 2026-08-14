@@ -566,6 +566,18 @@ func selectedKinds(opts Options) ([]HookKind, error) {
 // file (which we snapshotted into the manifest) intact.
 // The operation is rollback-safe: uninstall consults the manifest to restore
 // prior byte-for-byte state including file mode and existence.
+//
+// Crash/partial-failure safety: the manifest is checkpointed BEFORE every
+// mutation it describes — each hook script write (via installScript's
+// preWrite hook) and the core.hooksPath flip — so an interrupted or
+// failed install never leaves a mutation without a rollback record. After
+// a failed or crashed install, Uninstall uses the checkpointed manifest to
+// restore every prior state captured up to that point (a checkpointed
+// entry whose script was never written is skipped or treated as absent by
+// uninstall's sentinel and existence checks, so both interleavings are
+// safe). Checkpoint write failures fail the install closed before the
+// mutation they would have covered. The observable ordering is unchanged:
+// hook files land before core.hooksPath is flipped.
 func Install(opts Options) (Result, error) {
 	root, err := ResolveRoot(opts)
 	if err != nil {
@@ -669,13 +681,30 @@ func Install(opts Options) (Result, error) {
 	}
 
 	changed := false
+	// checkpoint persists the in-progress manifest so every mutation below
+	// is preceded by a rollback record. See the Install doc comment.
+	checkpoint := func() error {
+		return writeManifest(stateDir, manifest)
+	}
+
+	// preWrite checkpoints the manifest with the pending entry appended
+	// BEFORE installScript writes the hook file, so a crash between the
+	// write and the final manifest write still leaves a complete rollback
+	// record (the entry carries the prior file's bytes and mode).
+	preWrite := func(entry InstalledHook) error {
+		manifest.Installed = append(manifest.Installed, entry)
+		return checkpoint()
+	}
+
 	for _, k := range kinds {
-		entry, wrote, err := installOne(hooksDir, k, opts, strategy, prevByKind, delegate[k])
+		entry, wrote, err := installOne(hooksDir, k, opts, strategy, prevByKind, delegate[k], preWrite)
 		if err != nil {
 			return Result{}, fmt.Errorf("%s: %w", k, err)
 		}
 		changed = changed || wrote
-		manifest.Installed = append(manifest.Installed, entry)
+		if !wrote {
+			manifest.Installed = append(manifest.Installed, entry)
+		}
 		if entry.PriorExisted {
 			notes = append(notes, fmt.Sprintf("%s: replaced prior file (%d bytes); snapshot preserved", k, len(entry.PriorSnapshot)))
 		} else {
@@ -688,12 +717,14 @@ func Install(opts Options) (Result, error) {
 	for _, name := range shimNames {
 		content := renderPassthroughScript(filepath.Join(manifest.PriorHooksDir, name))
 		prevEntry, hasPrev := prevByKind[HookKind(name)]
-		entry, wrote, err := installScript(hooksDir, name, content, prevEntry, hasPrev, strategy)
+		entry, wrote, err := installScript(hooksDir, name, content, prevEntry, hasPrev, strategy, preWrite)
 		if err != nil {
 			return Result{}, fmt.Errorf("%s: %w", name, err)
 		}
 		changed = changed || wrote
-		manifest.Installed = append(manifest.Installed, entry)
+		if !wrote {
+			manifest.Installed = append(manifest.Installed, entry)
+		}
 		notes = append(notes, fmt.Sprintf(
 			"%s: passthrough hook preserves existing hook at %s", name, filepath.Join(manifest.PriorHooksDir, name)))
 	}
@@ -715,14 +746,24 @@ func Install(opts Options) (Result, error) {
 	}
 	sortInstalled(manifest.Installed)
 
-	// For repo-hooks strategy, point core.hooksPath at the local .sentra/hooks
-	// directory so subsequent git operations on this checkout run our hooks.
+	// For repo-hooks strategy, point core.hooksPath at the local
+	// .sentra/hooks directory so subsequent git operations on this checkout
+	// run our hooks. The manifest is checkpointed BEFORE the flip — with
+	// the pending HooksPath value and the prior-state fields — so a crash
+	// at any point after the flip leaves a rollback record uninstall can
+	// use to restore the pre-install git state. When the live config
+	// already points at the hooks dir (re-install) nothing changes and no
+	// checkpoint is needed.
 	if trackConfig {
 		actual, err := currentHooksPath(root)
 		if err != nil {
 			return Result{}, err
 		}
 		if actual == "" || !samePath(actual, hooksDir) {
+			manifest.HooksPath = hooksDir
+			if err := checkpoint(); err != nil {
+				return Result{}, err
+			}
 			hooksPath, err := setLocalHooksPath(root, hooksDir)
 			if err != nil {
 				return Result{}, err
@@ -751,11 +792,12 @@ func Install(opts Options) (Result, error) {
 
 // installOne renders and writes the script for one managed hook kind. The
 // delegatePath (possibly empty) points at a pre-existing hook script that
-// the installed script must keep running after the sentra event.
-func installOne(hooksDir string, k HookKind, opts Options, strategy Strategy, prev map[HookKind]InstalledHook, delegatePath string) (InstalledHook, bool, error) {
+// the installed script must keep running after the sentra event. preWrite
+// is forwarded to installScript.
+func installOne(hooksDir string, k HookKind, opts Options, strategy Strategy, prev map[HookKind]InstalledHook, delegatePath string, preWrite func(InstalledHook) error) (InstalledHook, bool, error) {
 	content := renderScript(string(k), opts.CLIExecutable, delegatePath)
 	prevEntry, hasPrev := prev[k]
-	return installScript(hooksDir, string(k), content, prevEntry, hasPrev, strategy)
+	return installScript(hooksDir, string(k), content, prevEntry, hasPrev, strategy, preWrite)
 }
 
 // installScript atomically writes one hook script (managed or passthrough)
@@ -764,7 +806,12 @@ func installOne(hooksDir string, k HookKind, opts Options, strategy Strategy, pr
 // sentinel-tagged script, and skips the write entirely when the live file
 // already matches (so repeated installs never bump mtimes). The boolean
 // return reports whether a write occurred.
-func installScript(hooksDir, name string, content []byte, prevEntry InstalledHook, hasPrev bool, strategy Strategy) (InstalledHook, bool, error) {
+//
+// preWrite (when non-nil) is invoked with the completed entry immediately
+// before the file write — and only when a write will actually happen — so
+// the caller can checkpoint the rollback manifest ahead of the mutation.
+// A preWrite error aborts the write (fail closed).
+func installScript(hooksDir, name string, content []byte, prevEntry InstalledHook, hasPrev bool, strategy Strategy, preWrite func(InstalledHook) error) (InstalledHook, bool, error) {
 	target := filepath.Join(hooksDir, name)
 	entry := InstalledHook{
 		Kind:       HookKind(name),
@@ -822,6 +869,11 @@ func installScript(hooksDir, name string, content []byte, prevEntry InstalledHoo
 	}
 	if err := ensureConfined(target, filepath.Dir(hooksDir)); err != nil {
 		return entry, false, err
+	}
+	if preWrite != nil {
+		if err := preWrite(entry); err != nil {
+			return entry, false, err
+		}
 	}
 	if err := writeHookFile(target, content, 0o755); err != nil {
 		return entry, false, err

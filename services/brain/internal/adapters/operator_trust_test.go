@@ -1,9 +1,10 @@
 package adapters_test
 
 // Operator-trust gate tests (issue #63). They prove the model-facing HTTP
-// /dispatch and MCP tools/call adapters refuse install/uninstall/run on
-// verbs whose catalog spec carries RequiresOperatorTrust when the request
-// does not carry an explicit operator opt-in. Direct CLI (which calls
+// /dispatch and MCP tools/call adapters refuse the mutating surface —
+// hooks_local install/uninstall/run and code_apply_changeset — on verbs
+// whose catalog spec carries RequiresOperatorTrust when the request does
+// not carry an explicit operator opt-in. Direct CLI (which calls
 // codeserve.Handle itself, bypassing this gate) is untouched and is
 // covered separately by services/brain/cmd/sentra-code-memory/cli_local_test.go.
 //
@@ -311,7 +312,7 @@ func TestMCPToolsListAdvertisesHooksLocalWithTrustNote(t *testing.T) {
 func TestMCPToolsListDensityAndReadVerbsAreUnchanged(t *testing.T) {
 	t.Parallel()
 	for _, tool := range adapters.MCPTools() {
-		if tool.Name == "hooks_local" {
+		if tool.Name == "hooks_local" || tool.Name == "code_apply_changeset" {
 			continue
 		}
 		props, _ := tool.InputSchema["properties"].(map[string]any)
@@ -521,6 +522,129 @@ func TestCLIRemainsUnaffected(t *testing.T) {
 		codeserve.Request{"verb": "hooks_local", "action": "uninstall", "root": root}); resp["ok"] != true {
 		t.Fatalf("direct codeserve uninstall must succeed (no gate): %+v", resp)
 	}
+}
+
+// changeSetRefusalBody is a well-formed but fail-closed ChangeSet request
+// (empty edits are rejected by validation). It lets the operator-trust
+// tests distinguish "the gate refused" (operator_trust_required) from
+// "the gate leaked the request into codeserve" (changeset_rejected) —
+// codeserve's own validation never touches the filesystem for this body.
+func changeSetRefusalBody(root string) string {
+	return `{"verb":"code_apply_changeset","root":"` + root +
+		`","changeset":{"base":"deadbeef","edits":[]}}`
+}
+
+// TestHTTPApplyChangeSetRefusedWithoutOperatorTrust locks the F3 trust
+// gap: code_apply_changeset promotes a ChangeSet onto the filesystem
+// under root, so over the model-facing /dispatch surface it must require
+// the same explicit operator opt-in as hooks_local install. The verb
+// takes no `action` parameter; the whole verb is gated.
+func TestHTTPApplyChangeSetRefusedWithoutOperatorTrust(t *testing.T) {
+	t.Parallel()
+	h := adapters.NewHTTP(adapters.HTTPConfig{})
+	root := t.TempDir()
+	resp, code := dispatchJSON(t, h, changeSetRefusalBody(root), "", "")
+	if code != http.StatusForbidden {
+		t.Fatalf("want 403, got %d (%+v)", code, resp)
+	}
+	if resp["ok"] != false {
+		t.Fatalf("expected ok:false, got %+v", resp)
+	}
+	if got, _ := resp["error_code"].(string); got != string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("want error_code=%q, got %q (resp=%+v)",
+			codeserve.ErrOperatorTrust, got, resp)
+	}
+	tr := findTrustRequired(t, resp)
+	if tr == nil {
+		t.Fatalf("trust_required metadata missing: %+v", resp)
+	}
+	if tr["verb"] != "code_apply_changeset" || tr["surface"] != "http" {
+		t.Fatalf("trust_required metadata wrong: %+v", tr)
+	}
+}
+
+// TestHTTPApplyChangeSetAdmittedWithOperatorTrust proves the opt-in
+// forwards the request to codeserve: with X-Sentra-Operator-Trust: 1 the
+// gate steps aside and codeserve's own fail-closed validation answers
+// (changeset_rejected for the empty-edits fixture). Any
+// operator_trust_required response here means the gate ignored the
+// opt-in.
+func TestHTTPApplyChangeSetAdmittedWithOperatorTrust(t *testing.T) {
+	t.Parallel()
+	h := adapters.NewHTTP(adapters.HTTPConfig{})
+	root := t.TempDir()
+	resp, _ := dispatchJSON(t, h, changeSetRefusalBody(root), "X-Sentra-Operator-Trust", "")
+	if got, _ := resp["error_code"].(string); got == string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("opt-in request must not be trust-refused: %+v", resp)
+	}
+	if got, _ := resp["error_code"].(string); got != string(codeserve.ErrChangeSetRejected) {
+		t.Fatalf("want codeserve's own changeset_rejected after the gate, got %q (%+v)", got, resp)
+	}
+}
+
+// TestMCPApplyChangeSetRefusedWithoutOperatorTrust is the MCP parallel:
+// tools/call on code_apply_changeset without "_operator_trust": true
+// must be refused with the same structured envelope as HTTP.
+func TestMCPApplyChangeSetRefusedWithoutOperatorTrust(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	inner := callMCPTool(t, "code_apply_changeset", map[string]any{
+		"root":      root,
+		"changeset": map[string]any{"base": "deadbeef", "edits": []any{}},
+	})
+	if inner["ok"] != false {
+		t.Fatalf("want ok:false, got %+v", inner)
+	}
+	if got, _ := inner["error_code"].(string); got != string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("want error_code=%q, got %q (resp=%+v)",
+			codeserve.ErrOperatorTrust, got, inner)
+	}
+	tr, _ := inner["trust_required"].(map[string]any)
+	if tr == nil || tr["verb"] != "code_apply_changeset" || tr["surface"] != "mcp" {
+		t.Fatalf("trust_required metadata wrong: %+v", inner)
+	}
+}
+
+// TestMCPApplyChangeSetAdmittedWithOperatorTrustOptIn proves the MCP
+// opt-in forwards to codeserve (its fail-closed validation answers with
+// changeset_rejected, never operator_trust_required).
+func TestMCPApplyChangeSetAdmittedWithOperatorTrustOptIn(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	inner := callMCPTool(t, "code_apply_changeset", map[string]any{
+		"root":            root,
+		"changeset":       map[string]any{"base": "deadbeef", "edits": []any{}},
+		"_operator_trust": true,
+	})
+	if got, _ := inner["error_code"].(string); got == string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("opt-in request must not be trust-refused: %+v", inner)
+	}
+	if got, _ := inner["error_code"].(string); got != string(codeserve.ErrChangeSetRejected) {
+		t.Fatalf("want codeserve's own changeset_rejected after the gate, got %q (%+v)", got, inner)
+	}
+}
+
+// TestMCPToolsListAdvertisesApplyChangeSetWithTrustNote mirrors the
+// hooks_local catalog test: the gated verb must advertise the
+// _operator_trust property so MCP clients learn the gate by
+// introspection.
+func TestMCPToolsListAdvertisesApplyChangeSetWithTrustNote(t *testing.T) {
+	t.Parallel()
+	for _, tool := range adapters.MCPTools() {
+		if tool.Name != "code_apply_changeset" {
+			continue
+		}
+		if !strings.Contains(tool.Description, "_operator_trust") {
+			t.Fatalf("code_apply_changeset description must mention the gate: %q", tool.Description)
+		}
+		props, _ := tool.InputSchema["properties"].(map[string]any)
+		field, _ := props["_operator_trust"].(map[string]any)
+		if field == nil || field["type"] != "boolean" {
+			t.Fatalf("code_apply_changeset schema missing boolean _operator_trust: %+v", props)
+		}
+		return
+	}
+	t.Fatalf("code_apply_changeset missing from MCPTools()")
 }
 
 // dispatch wraps codeserve.Handle for the CLI-equivalence test so the

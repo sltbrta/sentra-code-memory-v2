@@ -24,7 +24,8 @@ type HTTPConfig struct {
 
 // Operator opt-in surface constants. When a verb carries
 // VerbSpec.RequiresOperatorTrust (issue #63), its mutating actions
-// (install/uninstall/run) are refused at the /dispatch boundary unless
+// (hooks install/uninstall/run, changeset apply) are refused at the
+// /dispatch boundary unless
 // the request carries the opt-in via header or query parameter. This
 // keeps host-state-mutating verbs inaccessible to model-controlled
 // callers by default while preserving status-like read-only actions

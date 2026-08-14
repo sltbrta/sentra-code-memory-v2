@@ -139,11 +139,25 @@ func boolOf(v any) bool {
 // an explicit operator opt-in. Status and other read-only verbs on the
 // same surface are intentionally NOT included so the gates fail closed
 // only on actions that leave host state behind.
+//
+// code_apply_changeset carries the empty action key: the verb takes no
+// `action` parameter and every dispatch promotes a ChangeSet onto the
+// filesystem under root, so the whole verb is mutating.
+//
+// Index-mutation verbs (code_index, code_ingest_paths, code_ingest_scip,
+// code_watch) are deliberately NOT gated: their writes are bounded,
+// regenerable derived-index artifacts confined to the repo's own index
+// cache, and the read paths (code_search/code_exact/...) refresh that
+// same cache implicitly, so gating them would gate the product's core
+// read surface without adding a meaningful trust boundary.
 var OperatorTrustActions = map[Verb]map[string]bool{
 	VerbHooksLocal: {
 		"install":   true,
 		"uninstall": true,
 		"run":       true,
+	},
+	VerbApplyChangeSet: {
+		"": true,
 	},
 }
 

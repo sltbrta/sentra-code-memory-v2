@@ -28,7 +28,8 @@ const (
 
 // MCP-level operator opt-in field name. When a verb carries
 // VerbSpec.RequiresOperatorTrust (issue #63), its mutating actions
-// (install/uninstall/run) are refused at tools/call dispatch unless the
+// (hooks install/uninstall/run, changeset apply) are refused at
+// tools/call dispatch unless the
 // JSON arguments carry "_operator_trust": true. codeserve will neither
 // recognize nor forward this field because codeserve.Handle only reads
 // the verb-defined keys; the adapter owns the gating decision so the
@@ -123,7 +124,7 @@ func MCPTools() []MCPTool {
 		if s.RequiresOperatorTrust {
 			props[operatorTrustOptInArgKey] = map[string]any{
 				"type":        "boolean",
-				"description": "explicit operator opt-in (issue #63) required to dispatch mutating actions (install/uninstall/run); status is always admitted.",
+				"description": "explicit operator opt-in (issue #63) required to dispatch this verb's mutating actions; read-only actions are always admitted.",
 			}
 		}
 		schema := map[string]any{
@@ -139,7 +140,7 @@ func MCPTools() []MCPTool {
 			desc = desc + " (aliases: " + strings.Join(s.Aliases, ", ") + ")"
 		}
 		if s.RequiresOperatorTrust {
-			desc = desc + " Mutating actions (install/uninstall/run) over MCP require the explicit _operator_trust=true opt-in; status and read-only actions are always admitted. Use the direct CLI for one-off installs."
+			desc = desc + " Mutating actions of this verb over MCP require the explicit _operator_trust=true opt-in; read-only actions are always admitted. Use the direct CLI for one-off operations."
 		}
 		tools = append(tools, MCPTool{
 			Name: s.Name, Description: desc, InputSchema: schema,
@@ -336,8 +337,8 @@ type toolsCallParams struct {
 // structured error_code rather than a transport-level JSON-RPC failure.
 //
 // Operator-trust gate (issue #63): mutating actions on verbs whose catalog
-// spec carries RequiresOperatorTrust (currently hooks_local install /
-// uninstall / run) are refused unless the JSON arguments explicitly
+// spec carries RequiresOperatorTrust (hooks_local install /
+// uninstall / run, code_apply_changeset) are refused unless the JSON arguments explicitly
 // include "_operator_trust": true. The check runs before codeserve
 // dispatch and the gate's structured codeserve envelope is forwarded
 // verbatim so an MCP client sees the same error_code as HTTP.

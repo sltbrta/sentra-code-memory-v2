@@ -296,6 +296,22 @@ func TestHooksLocalRequiresOperatorTrust(t *testing.T) {
 	}
 }
 
+// TestApplyChangeSetRequiresOperatorTrust locks the trust contract for
+// code_apply_changeset: the verb takes no `action` parameter and every
+// dispatch promotes a ChangeSet onto the filesystem under root, so the
+// whole verb is gated via the empty-action key. Direct CLI / JSONL
+// operator pipelines are unaffected because codeserve.Handle never
+// inspects the gate.
+func TestApplyChangeSetRequiresOperatorTrust(t *testing.T) {
+	apply := mustSpec(t, codeserve.CatalogMetadata(), "code_apply_changeset")
+	if !apply.RequiresOperatorTrust {
+		t.Fatalf("code_apply_changeset must carry RequiresOperatorTrust, got %+v", apply)
+	}
+	if !codeserve.IsOperatorTrustAction("code_apply_changeset", "") {
+		t.Fatalf("code_apply_changeset (no action param) must be gated via the empty-action key")
+	}
+}
+
 // TestDenseLocalDoesNotRequireOperatorTrust is the negative-control lock:
 // dense_local_search is read-only and remains directly callable from any
 // surface, including model-facing adapters, with no opt-in required.
@@ -310,9 +326,15 @@ func TestDenseLocalDoesNotRequireOperatorTrust(t *testing.T) {
 }
 
 // TestReadVerbsStayOutsideOperatorTrustGate covers the catalog invariants:
-// every verb except hooks_local is un-gated so the read paths an agent
-// depends on (ping, code_search, code_read, session_recall, etc.) remain
-// reachable from model-facing surfaces exactly as before.
+// read verbs and the derived-index mutation verbs stay un-gated so the
+// paths an agent depends on (ping, code_search, code_read,
+// session_recall, implicit index refresh, etc.) remain reachable from
+// model-facing surfaces exactly as before. Index-mutation verbs
+// (code_index, code_ingest_paths, code_ingest_scip, code_watch) write
+// only bounded, regenerable derived-index artifacts inside the repo's
+// own index cache — the same writes the read paths perform implicitly —
+// so gating them would add no trust boundary; they stay un-gated by
+// deliberate decision, locked here.
 func TestReadVerbsStayOutsideOperatorTrustGate(t *testing.T) {
 	gated := map[string]bool{}
 	for _, vs := range codeserve.CatalogMetadata() {
@@ -320,11 +342,12 @@ func TestReadVerbsStayOutsideOperatorTrustGate(t *testing.T) {
 			gated[vs.Name] = true
 		}
 	}
-	if len(gated) != 1 || !gated["hooks_local"] {
-		t.Fatalf("only hooks_local should carry RequiresOperatorTrust, got %v", gated)
+	if len(gated) != 2 || !gated["hooks_local"] || !gated["code_apply_changeset"] {
+		t.Fatalf("only hooks_local and code_apply_changeset should carry RequiresOperatorTrust, got %v", gated)
 	}
 	for _, verb := range []string{"ping", "code_search", "code_read",
-		"code_index", "session_recall", "memory_search", "dense_local_search"} {
+		"code_index", "code_ingest_paths", "code_ingest_scip", "code_watch",
+		"session_recall", "memory_search", "dense_local_search"} {
 		if codeserve.IsOperatorTrustAction(verb, "anything") {
 			t.Fatalf("%q must remain outside the operator-trust gate", verb)
 		}

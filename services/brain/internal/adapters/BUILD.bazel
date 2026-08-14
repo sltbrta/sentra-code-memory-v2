@@ -20,6 +20,7 @@ go_test(
     srcs = [
         "adapters_memory_test.go",
         "adapters_test.go",
+        "operator_trust_test.go",
         "scip_recall_test.go",
         "trust_test.go"
     ],

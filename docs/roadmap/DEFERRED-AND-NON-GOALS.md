@@ -38,12 +38,12 @@ matching codeserve verb returns a structured `deferred` disclosure.
   graph/source context, and greenfield/native-first context are not part of the
   standalone operator surface.
 - **Compiler/SCIP/LSP authority.** Exact projections are deterministic Go
-  lexical/AST; Tree-sitter/SCIP/LSP lanes are deferred (see the code-intelligence
-  spec). SCIP ingestion exists as a tested package seam
-  (`codecrawl.Index.IngestSCIP` / `codeindex.IngestSCIP`) but is **not wired to
-  a codeserve verb**; the default graph stays honest about heuristic authority
-  outside Go. See the local-first deferred audit for the planned
-  `code_ingest_scip` boundary.
+  lexical/AST; Tree-sitter/LSP lanes and compiler-authority ranking are
+  deferred (see the code-intelligence spec). SCIP **ingestion** is shipped as
+  the opt-in stable `code_ingest_scip` verb (bounded, deterministic, tested
+  via `codecrawl.Index.IngestSCIP` / `codeindex.IngestSCIP`); what remains
+  deferred is treating SCIP/LSP output as the ranking authority, so the
+  default graph stays honest about heuristic authority outside Go.
 
 ## Local-first deferred capabilities (issue #55)
 
@@ -61,9 +61,13 @@ boundaries in force today:
   scoring off the critical path. It is planned against the official Google
   Gemini SDK, not raw HTTP or the OpenAI-compatible endpoint (see #60). It is
   **not** on the code index/read/ChangeSet path.
-- **SCIP ingestion, session recall, and lifecycle hooks remain unwired.** The
-  package seams exist (`IngestSCIP`, `sessionlog.Recall`) but have no codeserve
-  verb; they are deferred until measured behind deterministic tests.
+- **SCIP ingestion, session recall, and lifecycle hooks are wired and
+  shipped.** The once-deferred package seams now have stable, opt-in
+  codeserve verbs measured behind deterministic tests: `code_ingest_scip`
+  (bounded SCIP ingestion), `session_recall` (provenance-first recall over a
+  repo-local session log with abstention), and `hooks_local` (repo-confined
+  git hook installer with rollback manifest; mutating actions are
+  operator-trust-gated on HTTP/MCP per issue #63).
 - **Dense code retrieval stays deferred.** Pure-Go dense/HNSW exists for the
   memory path only; the code lane is lexical/heuristic.
 
