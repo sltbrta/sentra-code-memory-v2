@@ -33,6 +33,20 @@ printf '%s\n' \
   | ./sentra-code-memory serve
 ```
 
+Local-only hooks lifecycle and dense code retrieval (issue #59) are
+opt-in only; the existing code-operator surface above is unchanged. See
+[Local Lifecycle Hooks](docs/specs/code-intelligence/LIFECYCLE-HOOKS-LOCAL.md)
+and [Local Dense Retrieval Arm](docs/specs/code-intelligence/DENSE-LOCAL-ARM.md)
+for the bounded contracts:
+
+```sh
+cd /path/to/repo && \
+  ../sentra-code-memory hooks install --strategy repo-hooks && \
+  ../sentra-code-memory hooks status && \
+  ../sentra-code-memory hooks uninstall
+../sentra-code-memory dense-local --root /path/to/repo --q "authentication" --top-k 20
+```
+
 The same contract is also exposed over local HTTP and MCP stdio (issue #35):
 
 ```sh

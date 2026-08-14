@@ -70,6 +70,10 @@ func execute(args []string, in io.Reader, out, errOut io.Writer) int {
 		return runHTTP(args[1:], out, errOut)
 	case "mcp":
 		return runMCP(args[1:], in, out, errOut)
+	case "hooks":
+		return runHooks(args[1:], out, errOut)
+	case "dense-local":
+		return runDenseLocal(args[1:], out, errOut)
 	default:
 		verb, ok := aliases[args[0]]
 		if !ok {

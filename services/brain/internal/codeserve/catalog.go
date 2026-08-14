@@ -37,6 +37,12 @@ const (
 	VerbCodeDenseRerank     Verb = "code_dense_rerank"
 	VerbHostedTenancy       Verb = "hosted_tenancy"
 	VerbQueryAdvanced       Verb = "query_advanced"
+	// Local-first additions (issue #59) — opt-in verbs exposing the bounded
+	// local hooks lifecycle and the optional local-only dense retrieval arm.
+	// These are kept distinct from the deferred SCM-runtime verbs above so
+	// existing parity-disclosure contracts remain unchanged.
+	VerbHooksLocal Verb = "hooks_local"
+	VerbDenseLocal Verb = "dense_local_search"
 )
 
 // Catalog lists protocol verbs for discovery (POL integration).
@@ -74,5 +80,7 @@ func Catalog() []string {
 		string(VerbCodeDenseRerank),
 		string(VerbHostedTenancy),
 		string(VerbQueryAdvanced),
+		string(VerbHooksLocal),
+		string(VerbDenseLocal),
 	}
 }

@@ -37,7 +37,9 @@ opaque unknown-verb error, and are not advertised as callable MCP tools.
 | Token savings | savings ledger | **Expose** | `savings_summary` |
 | Full session product | latent dev-state memory, agent runtime | **Defer** | `session_product` → deferred disclosure |
 | Lifecycle/install | server/index/login/hook/uninstall | **Defer** | `lifecycle_install` → deferred disclosure |
+| Local hooks lifecycle (issue #59) | confined, atomic, idempotent, rollback-safe local installer | **Expose** | `hooks_local` (opt-in; `repo-hooks` default; `git-common-hooks` requires explicit consent) |
 | Dense/reranked retrieval | dense vectors + rerank | **Defer** | `code_dense_rerank` → deferred disclosure |
+| Local dense code retrieval arm (issue #59) | bag-of-words + HNSW with deterministic lexical fallback | **Expose** | `dense_local_search` (opt-in; never changes existing defaults) |
 | Prior query modes | patch plans, test hints, greenfield | **Defer** | `query_advanced` → deferred disclosure |
 | Hosted/cloud/tenancy/billing | hosted roadmap | **Non-goal** | `hosted_tenancy` → non-goal disclosure |
 
