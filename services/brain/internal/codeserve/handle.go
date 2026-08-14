@@ -3,7 +3,9 @@ package codeserve
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeindex"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/contextpack"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/hosted"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/memory"
@@ -65,6 +68,8 @@ func Handle(ctx context.Context, req Request) Response {
 		return handleFreshness(req)
 	case VerbIngestPaths:
 		return handleIngestPaths(req)
+	case VerbIngestSCIP:
+		return handleIngestSCIP(ctx, req)
 	case VerbCodeExact, VerbCodeDefs, VerbCodeRefs:
 		return handleCodeExact(ctx, req, Verb(verb))
 	case VerbCodeRead:
@@ -93,6 +98,8 @@ func Handle(ctx context.Context, req Request) Response {
 		return handleMemoryPromote(req)
 	case VerbSessionContinuation:
 		return handleSessionContinuation(req)
+	case VerbSessionRecall:
+		return handleSessionRecall(req)
 	case VerbSavingsSummary:
 		return handleSavingsSummary(req)
 	case VerbLifecycleInstall, VerbSessionProduct, VerbCodeDenseRerank, VerbHostedTenancy, VerbQueryAdvanced:
@@ -156,6 +163,21 @@ func boolField(req Request, key string, def bool) bool {
 	switch v := req[key].(type) {
 	case bool:
 		return v
+	default:
+		return def
+	}
+}
+
+func floatField(req Request, key string, def float64) float64 {
+	switch v := req[key].(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
 	default:
 		return def
 	}
@@ -491,6 +513,114 @@ func handleIngestPaths(req Request) Response {
 	})
 }
 
+func handleIngestSCIP(ctx context.Context, req Request) Response {
+	verb := string(VerbIngestSCIP)
+	root := str(req, "root")
+	path := str(req, "path")
+	language := str(req, "language")
+	if root == "" || path == "" || language == "" {
+		return errResp(verb, "root, path, language, and document required")
+	}
+	if !supportedSCIPLanguage(language) {
+		return errResp(verb, "language must be go, typescript, python, rust, or java")
+	}
+	raw, err := scipDocumentBytes(req)
+	if err != nil {
+		return errResp(verb, err.Error())
+	}
+	doc, err := codeindex.DecodeSCIP(raw)
+	if err != nil {
+		return errResp(verb, err.Error())
+	}
+	if err := ctx.Err(); err != nil {
+		return codeErrResp(verb, ErrInternal, err.Error())
+	}
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return errResp(verb, err.Error())
+	}
+	safe, ok := codecrawl.SafeRootPath(rootAbs, path)
+	if !ok {
+		return codeErrResp(verb, ErrPathDenied, "path must resolve to a regular file inside root")
+	}
+	info, err := os.Stat(safe)
+	if err != nil || !info.Mode().IsRegular() {
+		return codeErrResp(verb, ErrPathDenied, "path must resolve to a regular file inside root")
+	}
+	rootReal, err := filepath.EvalSymlinks(rootAbs)
+	if err != nil {
+		return codeErrResp(verb, ErrPathDenied, "cannot resolve root: "+err.Error())
+	}
+	rel, err := filepath.Rel(rootReal, safe)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return codeErrResp(verb, ErrPathDenied, "path escapes root")
+	}
+	rel = filepath.ToSlash(rel)
+
+	idx, loadedRoot, gobPath, err := loadIndex(req)
+	if err != nil {
+		return idxErrResp(verb, err)
+	}
+	if loadedRoot != rootAbs {
+		return idxErrResp(verb, fmt.Errorf("index root mismatch"))
+	}
+	if !idx.HasFile(rel) {
+		return codeErrResp(verb, ErrPathDenied, "path is not a member of the durable code index")
+	}
+	stats, err := idx.IngestSCIP(doc, rel, language)
+	if err != nil {
+		return errResp(verb, err.Error())
+	}
+	if err := idx.Save(gobPath, rootAbs); err != nil {
+		return codeErrResp(verb, ErrInternal, err.Error())
+	}
+	return okResp(verb, map[string]any{
+		"root": rootAbs, "gob_path": gobPath, "path": rel,
+		"language": language, "authority": "scip", "stats": stats,
+	})
+}
+
+func scipDocumentBytes(req Request) ([]byte, error) {
+	value, ok := req["document"]
+	if !ok || value == nil {
+		return nil, fmt.Errorf("document required")
+	}
+	var raw []byte
+	switch value := value.(type) {
+	case json.RawMessage:
+		raw = value
+	case []byte:
+		raw = value
+	case string:
+		if len(value) > codeindex.MaxSCIPDocumentBytes {
+			return nil, fmt.Errorf("document exceeds %d bytes", codeindex.MaxSCIPDocumentBytes)
+		}
+		raw = []byte(value)
+	default:
+		var err error
+		raw, err = json.Marshal(value)
+		if err != nil {
+			return nil, fmt.Errorf("encode document: %w", err)
+		}
+	}
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("document required")
+	}
+	if len(raw) > codeindex.MaxSCIPDocumentBytes {
+		return nil, fmt.Errorf("document exceeds %d bytes", codeindex.MaxSCIPDocumentBytes)
+	}
+	return raw, nil
+}
+
+func supportedSCIPLanguage(language string) bool {
+	switch language {
+	case "go", "typescript", "python", "rust", "java":
+		return true
+	default:
+		return false
+	}
+}
+
 func handleCodeExact(ctx context.Context, req Request, verb Verb) Response {
 	root := str(req, "root")
 	q := str(req, "q")
@@ -671,6 +801,84 @@ func handleSessionContinuation(req Request) Response {
 	return okResp(string(VerbSessionContinuation), map[string]any{
 		"continuation": cont, "source_events": len(events),
 	})
+}
+
+// --- Provenance-first repo-local session recall (issue #57) ---------------
+
+func handleSessionRecall(req Request) Response {
+	verb := string(VerbSessionRecall)
+	root := str(req, "root")
+	q := str(req, "q")
+	if root == "" || q == "" {
+		return errResp(verb, "root and q required")
+	}
+	dir, err := repoLocalDir(root, str(req, "dir"))
+	if err != nil {
+		return codeErrResp(verb, ErrPathDenied, err.Error())
+	}
+	opts := sessionlog.DefaultRecallOptions()
+	opts.TopK = intField(req, "top_k", opts.TopK)
+	if opts.TopK <= 0 {
+		opts.TopK = sessionlog.DefaultRecallOptions().TopK
+	}
+	if opts.TopK > sessionlog.MaxRecallResults {
+		opts.TopK = sessionlog.MaxRecallResults
+	}
+	opts.MinConfidence = floatField(req, "min_confidence", opts.MinConfidence)
+	opts.MinRelevance = floatField(req, "min_relevance", opts.MinRelevance)
+	if math.IsNaN(opts.MinConfidence) || math.IsInf(opts.MinConfidence, 0) ||
+		math.IsNaN(opts.MinRelevance) || math.IsInf(opts.MinRelevance, 0) ||
+		opts.MinConfidence < 0 || opts.MinConfidence > 1 || opts.MinRelevance < 0 || opts.MinRelevance > 1 {
+		return errResp(verb, "min_confidence and min_relevance must be finite values in [0,1]")
+	}
+	opts.IncludeSuperseded = boolField(req, "include_superseded", false)
+	w, err := sessionlog.Open(dir)
+	if err != nil {
+		return errResp(verb, err.Error())
+	}
+	events := w.Events()
+	return okResp(verb, map[string]any{
+		"recall":        sessionlog.Recall(events, q, opts),
+		"source_events": len(events), "limit": opts.TopK,
+	})
+}
+
+func repoLocalDir(root, dir string) (string, error) {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	rootReal, err := filepath.EvalSymlinks(rootAbs)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve root: %w", err)
+	}
+	info, err := os.Stat(rootReal)
+	if err != nil || !info.IsDir() {
+		return "", fmt.Errorf("root must be an existing directory")
+	}
+	candidate := dir
+	if candidate == "" {
+		candidate = rootReal
+	} else if !filepath.IsAbs(candidate) {
+		candidate = filepath.Join(rootReal, filepath.FromSlash(candidate))
+	}
+	candidateAbs, err := filepath.Abs(candidate)
+	if err != nil {
+		return "", err
+	}
+	candidateReal, err := filepath.EvalSymlinks(candidateAbs)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve dir: %w", err)
+	}
+	rel, err := filepath.Rel(rootReal, candidateReal)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("dir must resolve inside root")
+	}
+	info, err = os.Stat(candidateReal)
+	if err != nil || !info.IsDir() {
+		return "", fmt.Errorf("dir must be an existing directory")
+	}
+	return candidateReal, nil
 }
 
 // --- Local token-savings read (issue #47) ---------------------------------

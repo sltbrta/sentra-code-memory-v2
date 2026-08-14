@@ -22,6 +22,9 @@ const (
 	DefaultMaxEvents = 2048
 	// DefaultMaxEventBytes bounds a single persisted event line.
 	DefaultMaxEventBytes = 64 << 10
+	// MaxLogBytes bounds strict replay even when the file was not produced by
+	// Writer (for example, a malformed repo-local input).
+	MaxLogBytes = DefaultMaxEvents * (DefaultMaxEventBytes + 1)
 	// Filename is the active JSONL log stored beneath the caller's dir.
 	Filename = "session-events.jsonl"
 )
@@ -72,16 +75,30 @@ func Open(dir string, opts ...Option) (*Writer, error) {
 	for _, opt := range opts {
 		opt(w)
 	}
-	raw, err := os.ReadFile(w.path)
+	file, err := os.Open(w.path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		return w, nil
 	case err != nil:
 		return nil, fmt.Errorf("sessionlog: read log: %w", err)
 	}
+	raw, readErr := io.ReadAll(io.LimitReader(file, MaxLogBytes+1))
+	closeErr := file.Close()
+	if readErr != nil {
+		return nil, fmt.Errorf("sessionlog: read log: %w", readErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("sessionlog: close log: %w", closeErr)
+	}
+	if len(raw) > MaxLogBytes {
+		return nil, fmt.Errorf("sessionlog: log exceeds %d bytes", MaxLogBytes)
+	}
 	loaded, err := parseStrict(raw)
 	if err != nil {
 		return nil, fmt.Errorf("sessionlog: parse %s: %w", w.path, err)
+	}
+	if len(loaded) > w.maxEvents {
+		return nil, fmt.Errorf("sessionlog: log exceeds %d events", w.maxEvents)
 	}
 	w.events = loaded
 	return w, nil

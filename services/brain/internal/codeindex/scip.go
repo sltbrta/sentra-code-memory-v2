@@ -23,6 +23,8 @@ import (
 // caller can fall back to the lexical lane.
 
 const (
+	// MaxSCIPDocumentBytes bounds one JSON document before decoding.
+	MaxSCIPDocumentBytes = 8 << 20
 	// MaxSCIPOccurrences is the per-document cap. Exceeding the cap returns
 	// ErrLimitExceeded so callers can branch on bounded intake failure.
 	MaxSCIPOccurrences = 250_000
@@ -132,21 +134,33 @@ func DecodeSCIP(payload []byte) (SCIPDocument, error) {
 	if len(payload) == 0 {
 		return SCIPDocument{}, fmt.Errorf("%w: empty payload", ErrSCIPInvalid)
 	}
+	if len(payload) > MaxSCIPDocumentBytes {
+		return SCIPDocument{}, fmt.Errorf("%w: payload exceeds %d bytes", ErrSCIPInvalid, MaxSCIPDocumentBytes)
+	}
 	var probe map[string]json.RawMessage
 	if err := json.Unmarshal(payload, &probe); err != nil {
 		return SCIPDocument{}, fmt.Errorf("%w: %v", ErrSCIPInvalid, err)
 	}
+	if probe == nil {
+		return SCIPDocument{}, fmt.Errorf("%w: object required", ErrSCIPInvalid)
+	}
 	if raw, ok := probe["documents"]; ok {
-		var wrapped []SCIPDocument
+		var wrapped []json.RawMessage
 		if err := json.Unmarshal(raw, &wrapped); err != nil {
 			return SCIPDocument{}, fmt.Errorf("%w: documents array: %v", ErrSCIPInvalid, err)
 		}
 		if len(wrapped) == 0 {
 			return SCIPDocument{}, fmt.Errorf("%w: empty documents array", ErrSCIPInvalid)
 		}
-		first := wrapped[0]
+		first, err := DecodeSCIP(wrapped[0])
+		if err != nil {
+			return SCIPDocument{}, err
+		}
 		first.Raw = json.RawMessage(payload)
 		return first, nil
+	}
+	if _, ok := probe["occurrences"]; !ok {
+		return SCIPDocument{}, fmt.Errorf("%w: occurrences required", ErrSCIPInvalid)
 	}
 	var doc SCIPDocument
 	if err := json.Unmarshal(payload, &doc); err != nil {

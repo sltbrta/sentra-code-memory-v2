@@ -50,10 +50,13 @@ func TestDecodeSCIPCanonicalAndWrapper(t *testing.T) {
 // malformed inputs out of the ingest path.
 func TestDecodeSCIPRejectsInvalidPayloads(t *testing.T) {
 	cases := map[string][]byte{
-		"empty":       []byte{},
-		"notjson":     []byte(`{notjson`),
-		"empty-array": []byte(`{"documents": []}`),
-		"bad-shape":   []byte(`{"occurrences": "not-an-array"}`),
+		"empty":        {},
+		"notjson":      []byte(`{notjson`),
+		"null":         []byte(`null`),
+		"missing rows": []byte(`{}`),
+		"empty-array":  []byte(`{"documents": []}`),
+		"bad-shape":    []byte(`{"occurrences": "not-an-array"}`),
+		"bad-document": []byte(`{"documents": [{}]}`),
 	}
 	for name, payload := range cases {
 		t.Run(name, func(t *testing.T) {

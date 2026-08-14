@@ -15,6 +15,7 @@ const (
 	VerbFindRoute           Verb = "code_find_route"
 	VerbFreshness           Verb = "code_freshness"
 	VerbIngestPaths         Verb = "code_ingest_paths"
+	VerbIngestSCIP          Verb = "code_ingest_scip"
 	VerbCodeExact           Verb = "code_exact"
 	VerbCodeDefs            Verb = "code_defs"
 	VerbCodeRefs            Verb = "code_refs"
@@ -31,6 +32,7 @@ const (
 	VerbMemoryList          Verb = "memory_list"
 	VerbMemoryPromote       Verb = "memory_promote"
 	VerbSessionContinuation Verb = "session_continuation"
+	VerbSessionRecall       Verb = "session_recall"
 	VerbSavingsSummary      Verb = "savings_summary"
 	VerbLifecycleInstall    Verb = "lifecycle_install"
 	VerbSessionProduct      Verb = "session_product"
@@ -52,6 +54,7 @@ func Catalog() []string {
 		string(VerbFindRoute),
 		string(VerbFreshness),
 		string(VerbIngestPaths),
+		string(VerbIngestSCIP),
 		string(VerbCodeExact),
 		string(VerbCodeDefs),
 		string(VerbCodeRefs),
@@ -68,6 +71,7 @@ func Catalog() []string {
 		string(VerbMemoryList),
 		string(VerbMemoryPromote),
 		string(VerbSessionContinuation),
+		string(VerbSessionRecall),
 		string(VerbSavingsSummary),
 		string(VerbLifecycleInstall),
 		string(VerbSessionProduct),

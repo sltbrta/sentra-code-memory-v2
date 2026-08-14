@@ -288,6 +288,7 @@ func TestMCPAdvertisedTypesMatchCodeserveFields(t *testing.T) {
 		"timeout_ms": true, "l0_bytes": true, "l1_bytes": true, "l2_bytes": true, "l3_bytes": true}
 	boolean := map[string]bool{"force": true, "no_refresh": true, "preview": true, "fsnotify": true,
 		"allow_ignored": true, "allow_unindexed": true, "include_superseded": true}
+	number := map[string]bool{"min_confidence": true, "min_relevance": true}
 	for _, tool := range adapters.MCPTools() {
 		props, _ := tool.InputSchema["properties"].(map[string]any)
 		for field, value := range props {
@@ -298,9 +299,9 @@ func TestMCPAdvertisedTypesMatchCodeserveFields(t *testing.T) {
 				}
 				continue
 			}
-			if field == "changeset" {
+			if field == "changeset" || field == "document" {
 				if schema["type"] != "object" {
-					t.Fatalf("changeset schema must be object: %s", tool.Name)
+					t.Fatalf("%s schema must be object: %s", field, tool.Name)
 				}
 				continue
 			}
@@ -309,6 +310,8 @@ func TestMCPAdvertisedTypesMatchCodeserveFields(t *testing.T) {
 				want = "integer"
 			} else if boolean[field] {
 				want = "boolean"
+			} else if number[field] {
+				want = "number"
 			}
 			if schema["type"] != want {
 				t.Fatalf("%s.%s schema type=%v want %s", tool.Name, field, schema["type"], want)
