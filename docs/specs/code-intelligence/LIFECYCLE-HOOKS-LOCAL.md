@@ -71,6 +71,11 @@ parameter and every dispatch promotes a ChangeSet onto the filesystem
 under `root`, so the whole verb requires the identical opt-in
 (`X-Sentra-Operator-Trust: 1` / `?operator_trust=1` /
 `"_operator_trust": true`) on HTTP `/dispatch` and MCP `tools/call`.
+The gate is whole-verb: it applies regardless of any `action` field the
+caller attaches, because the verb ignores that field and the gate's job
+is to refuse the mutating surface regardless of irrelevant request
+metadata. Attaching `,"action":"ignored"` (or any other value) to the
+request body does not bypass the gate.
 Index-mutation verbs (`code_index`, `code_ingest_paths`,
 `code_ingest_scip`, `code_watch`) are deliberately **not** gated: their
 writes are bounded, regenerable derived-index artifacts confined to the
@@ -193,10 +198,13 @@ Each successful install writes a JSON manifest at
 The manifest is also **checkpointed incrementally during install**: before
 the `core.hooksPath` flip and before every hook script write, the manifest
 on disk already records the mutation about to happen (including the prior
-file bytes and mode). A crash or partial failure mid-install therefore
-never leaves a mutation without a rollback record — running `uninstall`
-after a failed or interrupted install restores every prior state captured
-up to that point, and a checkpoint write failure fails the install closed
+file bytes and mode). Every checkpoint also carries forward every
+prev-install entry that this run does not rewrite, so the manifest on disk
+at any point in the install already describes every hook the uninstall
+would need to roll back — a crash or partial failure mid-install never
+leaves a mutation without a rollback record. Running `uninstall` after a
+failed or interrupted install restores every prior state captured up to
+that point, and a checkpoint write failure fails the install closed
 before the mutation it would have covered.
 
 The manifest records:

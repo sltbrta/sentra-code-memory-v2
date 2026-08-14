@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -645,6 +646,232 @@ func TestMCPToolsListAdvertisesApplyChangeSetWithTrustNote(t *testing.T) {
 		return
 	}
 	t.Fatalf("code_apply_changeset missing from MCPTools()")
+}
+
+// TestHTTPApplyChangeSetRefusedWithIgnoredActionField locks the F3
+// bypass regression: code_apply_changeset is a whole-verb gate, so
+// including an `action` field in the dispatch body must not bypass the
+// trust gate. The verb takes no action parameter; any action value the
+// caller attaches is irrelevant to the verb's behavior and irrelevant
+// to the gate's decision. Without this guard, an attacker could slip
+// past the gate by appending `,"action":"ignored"` to a request body
+// and reaching codeserve, which would then execute the ChangeSet.
+func TestHTTPApplyChangeSetRefusedWithIgnoredActionField(t *testing.T) {
+	t.Parallel()
+	h := adapters.NewHTTP(adapters.HTTPConfig{})
+	root := t.TempDir()
+	// action="ignored" was the documented bypass. We also sweep a few
+	// plausible hostile values so the regression test would catch any
+	// future refactor that accidentally re-keys the gate on the action
+	// string.
+	for _, action := range []string{
+		`"ignored"`,
+		`"run"`,
+		`"install"`,
+		`"status"`,
+		`"apply"`,
+	} {
+		action := action
+		t.Run("action="+action, func(t *testing.T) {
+			t.Parallel()
+			body := `{"verb":"code_apply_changeset","action":` + action +
+				`,"root":"` + root +
+				`","changeset":{"base":"deadbeef","edits":[]}}`
+			resp, code := dispatchJSON(t, h, body, "", "")
+			if code != http.StatusForbidden {
+				t.Fatalf("want 403 for action=%s, got %d (%+v)", action, code, resp)
+			}
+			if got, _ := resp["error_code"].(string); got != string(codeserve.ErrOperatorTrust) {
+				t.Fatalf("want error_code=%q, got %q (resp=%+v)",
+					codeserve.ErrOperatorTrust, got, resp)
+			}
+			// The trust_required envelope must echo back the action the
+			// caller tried, so a UI can render an actionable diagnostic.
+			tr := findTrustRequired(t, resp)
+			if tr == nil || tr["verb"] != "code_apply_changeset" || tr["surface"] != "http" {
+				t.Fatalf("trust_required metadata wrong: %+v", resp)
+			}
+			// Critical: the gate must fire BEFORE codeserve, so no host
+			// state mutation could have happened.
+			if got, _ := resp["error_code"].(string); got == string(codeserve.ErrChangeSetRejected) {
+				t.Fatalf("request leaked into codeserve despite refusal (resp=%+v)", resp)
+			}
+		})
+	}
+}
+
+// TestHTTPApplyChangeSetGateAppliesToEmptyAndMissingAction locks the
+// positive path for the whole-verb gate: the documented empty action
+// (verb has no action parameter) and the no-action-field case are both
+// refused by the gate, matching the gate's contract. This is the
+// regression test for the previous empty-action lookup, which already
+// refused these — the new OperatorTrustGate.AllActions flag must keep
+// that behavior while extending refusal to any non-empty action.
+func TestHTTPApplyChangeSetGateAppliesToEmptyAndMissingAction(t *testing.T) {
+	t.Parallel()
+	h := adapters.NewHTTP(adapters.HTTPConfig{})
+	root := t.TempDir()
+	// Empty action value.
+	body := `{"verb":"code_apply_changeset","action":"","root":"` + root +
+		`","changeset":{"base":"deadbeef","edits":[]}}`
+	resp, code := dispatchJSON(t, h, body, "", "")
+	if code != http.StatusForbidden || resp["ok"] != false {
+		t.Fatalf("empty action must be gated, got %d %+v", code, resp)
+	}
+	if got, _ := resp["error_code"].(string); got != string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("want error_code=%q, got %q", codeserve.ErrOperatorTrust, got)
+	}
+	// No action field at all.
+	body = `{"verb":"code_apply_changeset","root":"` + root +
+		`","changeset":{"base":"deadbeef","edits":[]}}`
+	resp, code = dispatchJSON(t, h, body, "", "")
+	if code != http.StatusForbidden || resp["ok"] != false {
+		t.Fatalf("missing action must be gated, got %d %+v", code, resp)
+	}
+	if got, _ := resp["error_code"].(string); got != string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("want error_code=%q, got %q", codeserve.ErrOperatorTrust, got)
+	}
+}
+
+// TestMCPApplyChangeSetRefusedWithIgnoredActionField is the MCP parallel
+// of TestHTTPApplyChangeSetRefusedWithIgnoredActionField. The action
+// argument is irrelevant to the verb but must not bypass the gate.
+func TestMCPApplyChangeSetRefusedWithIgnoredActionField(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	for _, action := range []any{"ignored", "run", "install", "status", "apply", ""} {
+		action := action
+		t.Run(fmt.Sprintf("action=%v", action), func(t *testing.T) {
+			t.Parallel()
+			inner := callMCPTool(t, "code_apply_changeset", map[string]any{
+				"root":      root,
+				"action":    action,
+				"changeset": map[string]any{"base": "deadbeef", "edits": []any{}},
+			})
+			if inner["ok"] != false {
+				t.Fatalf("want ok:false, got %+v", inner)
+			}
+			if got, _ := inner["error_code"].(string); got != string(codeserve.ErrOperatorTrust) {
+				t.Fatalf("want error_code=%q, got %q (resp=%+v)",
+					codeserve.ErrOperatorTrust, got, inner)
+			}
+			tr, _ := inner["trust_required"].(map[string]any)
+			if tr == nil || tr["verb"] != "code_apply_changeset" || tr["surface"] != "mcp" {
+				t.Fatalf("trust_required metadata wrong: %+v", inner)
+			}
+			// Gate must fire BEFORE codeserve — no changeset_rejected
+			// envelope means we slipped through.
+			if got, _ := inner["error_code"].(string); got == string(codeserve.ErrChangeSetRejected) {
+				t.Fatalf("request leaked into codeserve despite refusal (resp=%+v)", inner)
+			}
+		})
+	}
+}
+
+// TestMCPApplyChangeSetGateAppliesWhenActionFieldAbsent locks the MCP
+// variant of the positive path: the gate must apply when the action
+// argument is omitted entirely from the JSON arguments map, not just
+// when it carries an empty string.
+func TestMCPApplyChangeSetGateAppliesWhenActionFieldAbsent(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	inner := callMCPTool(t, "code_apply_changeset", map[string]any{
+		"root":      root,
+		"changeset": map[string]any{"base": "deadbeef", "edits": []any{}},
+	})
+	if got, _ := inner["error_code"].(string); got != string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("want error_code=%q, got %q (resp=%+v)",
+			codeserve.ErrOperatorTrust, got, inner)
+	}
+}
+
+// TestHTTPApplyChangeSetIgnoredActionStillAdmitsWithOptIn is the
+// regression test for the opt-in path: when the caller attaches an
+// irrelevant action field AND presents the explicit operator opt-in,
+// the gate forwards to codeserve and codeserve's own validation
+// rejects the empty-edits fixture with changeset_rejected (never
+// operator_trust_required). This proves the gate is action-blind for
+// whole-verb gates only when no opt-in is present; with the opt-in
+// present, the gate forwards regardless of the action field.
+func TestHTTPApplyChangeSetIgnoredActionStillAdmitsWithOptIn(t *testing.T) {
+	t.Parallel()
+	h := adapters.NewHTTP(adapters.HTTPConfig{})
+	root := t.TempDir()
+	body := `{"verb":"code_apply_changeset","action":"ignored","root":"` + root +
+		`","changeset":{"base":"deadbeef","edits":[]}}`
+	resp, _ := dispatchJSON(t, h, body, "X-Sentra-Operator-Trust", "")
+	if got, _ := resp["error_code"].(string); got == string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("opt-in request must not be trust-refused: %+v", resp)
+	}
+	if got, _ := resp["error_code"].(string); got != string(codeserve.ErrChangeSetRejected) {
+		t.Fatalf("want codeserve's own changeset_rejected after the gate, got %q (%+v)", got, resp)
+	}
+}
+
+// TestMCPApplyChangeSetIgnoredActionStillAdmitsWithOptIn is the MCP
+// parallel of the opt-in path.
+func TestMCPApplyChangeSetIgnoredActionStillAdmitsWithOptIn(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	inner := callMCPTool(t, "code_apply_changeset", map[string]any{
+		"root":            root,
+		"action":          "ignored",
+		"changeset":       map[string]any{"base": "deadbeef", "edits": []any{}},
+		"_operator_trust": true,
+	})
+	if got, _ := inner["error_code"].(string); got == string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("opt-in request must not be trust-refused: %+v", inner)
+	}
+	if got, _ := inner["error_code"].(string); got != string(codeserve.ErrChangeSetRejected) {
+		t.Fatalf("want codeserve's own changeset_rejected after the gate, got %q (%+v)", got, inner)
+	}
+}
+
+// TestHTTPHooksLocalUnknownActionReachesHandlerNotGate locks the
+// per-action half of the F3 fix on the HTTP path: a per-action gated
+// verb (hooks_local) must NOT refuse an unknown action like
+// `install_typo` at the trust gate. The gate's responsibility is to
+// refuse mutating actions; the handler's responsibility is to validate
+// the action. Mixing the two would either gate read-only actions or
+// pretend an unknown action is trusted; the new per-action gate keeps
+// them separate.
+func TestHTTPHooksLocalUnknownActionReachesHandlerNotGate(t *testing.T) {
+	t.Parallel()
+	h := adapters.NewHTTP(adapters.HTTPConfig{})
+	root := operatorTrustGitRepo(t)
+	body := `{"verb":"hooks_local","action":"install_typo","root":"` + root + `"}`
+	resp, code := dispatchJSON(t, h, body, "", "")
+	if code != http.StatusOK {
+		t.Fatalf("unknown action must reach the handler, got %d (%+v)", code, resp)
+	}
+	if resp["ok"] != false {
+		t.Fatalf("handler must reject unknown action, got %+v", resp)
+	}
+	if got, _ := resp["error_code"].(string); got == string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("gate must not refuse unknown action on a per-action verb (resp=%+v)", resp)
+	}
+	if errStr, _ := resp["error"].(string); !strings.Contains(errStr, "install_typo") {
+		t.Fatalf("handler should name the unknown action in the error: %q", errStr)
+	}
+}
+
+// TestMCPHooksLocalUnknownActionReachesHandlerNotGate is the MCP
+// parallel of TestHTTPHooksLocalUnknownActionReachesHandlerNotGate.
+func TestMCPHooksLocalUnknownActionReachesHandlerNotGate(t *testing.T) {
+	t.Parallel()
+	root := operatorTrustGitRepo(t)
+	inner := callMCPTool(t, "hooks_local", map[string]any{
+		"verb": "hooks_local", "action": "install_typo", "root": root,
+	})
+	if got, _ := inner["error_code"].(string); got == string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("gate must not refuse unknown action on a per-action verb (resp=%+v)", inner)
+	}
+	if inner["ok"] != false {
+		t.Fatalf("handler must reject unknown action, got %+v", inner)
+	}
+	if errStr, _ := inner["error"].(string); !strings.Contains(errStr, "install_typo") {
+		t.Fatalf("handler should name the unknown action in the error: %q", errStr)
+	}
 }
 
 // dispatch wraps codeserve.Handle for the CLI-equivalence test so the

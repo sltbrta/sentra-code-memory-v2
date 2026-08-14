@@ -681,16 +681,67 @@ func Install(opts Options) (Result, error) {
 	}
 
 	changed := false
+	// carryForward ensures every prevManifest entry appears in the
+	// in-progress manifest before any checkpoint is written, and
+	// deduplicates by Kind so a reinstall that rewrites a hook whose
+	// prev entry was carried forward in an earlier checkpoint does not
+	// persist a manifest with two entries for the same Kind. Without
+	// the carry-forward, a reinstall that checkpoints mid-loop would
+	// drop entries the loop has not yet touched; without the dedup, a
+	// checkpoint after the loop has rewritten the same Kind twice. The
+	// loop keeps the most recently appended entry per Kind, which is
+	// always the new entry the loop just produced (the carried-forward
+	// prev entry preserves the original pre-first-install snapshot that
+	// the new entry already inherits).
+	carryForward := func() {
+		if prevManifest == nil {
+			return
+		}
+		owned := map[HookKind]bool{}
+		for _, entry := range manifest.Installed {
+			owned[entry.Kind] = true
+		}
+		for _, entry := range prevManifest.Installed {
+			if owned[entry.Kind] {
+				continue
+			}
+			manifest.Installed = append(manifest.Installed, entry)
+			owned[entry.Kind] = true
+		}
+		// Deduplicate by Kind, keeping the last occurrence. A
+		// reinstall that rewrites a hook whose prev entry was carried
+		// forward in an earlier checkpoint leaves the prev entry ahead
+		// of the new entry; keeping the last occurrence preserves the
+		// new entry (which carries the inherited prior snapshot) and
+		// drops the carried-forward prev entry, which is now stale.
+		if len(manifest.Installed) > 1 {
+			lastSeen := map[HookKind]int{}
+			for i, entry := range manifest.Installed {
+				lastSeen[entry.Kind] = i
+			}
+			deduped := make([]InstalledHook, 0, len(lastSeen))
+			for i, entry := range manifest.Installed {
+				if lastSeen[entry.Kind] == i {
+					deduped = append(deduped, entry)
+				}
+			}
+			manifest.Installed = deduped
+		}
+		sortInstalled(manifest.Installed)
+	}
+
 	// checkpoint persists the in-progress manifest so every mutation below
 	// is preceded by a rollback record. See the Install doc comment.
 	checkpoint := func() error {
+		carryForward()
 		return writeManifest(stateDir, manifest)
 	}
 
 	// preWrite checkpoints the manifest with the pending entry appended
 	// BEFORE installScript writes the hook file, so a crash between the
 	// write and the final manifest write still leaves a complete rollback
-	// record (the entry carries the prior file's bytes and mode).
+	// record (the entry carries the prior file's bytes and mode, and the
+	// carried-forward entries preserve every other hook's prior snapshot).
 	preWrite := func(entry InstalledHook) error {
 		manifest.Installed = append(manifest.Installed, entry)
 		return checkpoint()
@@ -729,23 +780,6 @@ func Install(opts Options) (Result, error) {
 			"%s: passthrough hook preserves existing hook at %s", name, filepath.Join(manifest.PriorHooksDir, name)))
 	}
 
-	// Carry forward manifest entries this run did not rewrite so sequential
-	// subset installs never lose a hook or its prior snapshot.
-	owned := map[HookKind]bool{}
-	for _, entry := range manifest.Installed {
-		owned[entry.Kind] = true
-	}
-	if prevManifest != nil {
-		for _, entry := range prevManifest.Installed {
-			if owned[entry.Kind] {
-				continue
-			}
-			manifest.Installed = append(manifest.Installed, entry)
-			owned[entry.Kind] = true
-		}
-	}
-	sortInstalled(manifest.Installed)
-
 	// For repo-hooks strategy, point core.hooksPath at the local
 	// .sentra/hooks directory so subsequent git operations on this checkout
 	// run our hooks. The manifest is checkpointed BEFORE the flip — with
@@ -777,6 +811,13 @@ func Install(opts Options) (Result, error) {
 	}
 
 	manifest.CLIExecutable = opts.CLIExecutable
+	// Carry forward one more time so the no-op-detection signature
+	// comparison below sees every prev entry even when no preWrite fired
+	// (a subset reinstall with no content change: preWrite never runs,
+	// and the hooksPath flip checkpoint does not fire on reinstall). The
+	// carried-forward entries must be present for the signature to match
+	// the prev manifest so the original timestamp survives.
+	carryForward()
 	manifest.InstalledAt = nowUTC()
 	if prevManifest != nil && !changed &&
 		manifestSignature(*prevManifest) == manifestSignature(manifest) {

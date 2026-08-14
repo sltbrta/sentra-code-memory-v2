@@ -618,3 +618,270 @@ func TestInstallScriptPreWriteCheckpointContract(t *testing.T) {
 		t.Fatalf("pre-push must not exist after aborted write, stat err=%v", statErr)
 	}
 }
+
+// TestReinstallPreservesPriorInstallStateEndToEnd is the F2 regression
+// test for the user-facing invariant: a successful install, a successful
+// reinstall (with different content so every hook is rewritten), and an
+// uninstall must restore the repository to its pre-first-install state
+// — the original core.hooksPath, the original hook files, and the
+// absence of any .sentra/ directory.
+//
+// The checkpoint changes that protected partial failures must not have
+// regressed this round-trip. The intermediate manifest must carry the
+// original pre-install state across every checkpoint, and the final
+// uninstall must read it back.
+func TestReinstallPreservesPriorInstallStateEndToEnd(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash unavailable")
+	}
+	dir := withTempRepo(t, true)
+	custom := filepath.Join(dir, ".git", "custom-hooks")
+	marker := filepath.Join(dir, "post-commit-ran")
+	customHook := writeExecHook(t, custom, "post-commit",
+		"#!/bin/sh\ntouch '"+marker+"'\n")
+	gitIn(t, dir, "config", "--local", "core.hooksPath", ".git/custom-hooks")
+
+	first, err := Install(Options{Root: dir, Strategy: StrategyRepoHooks, CLIExecutable: "/tmp/sentra-a"})
+	if err != nil {
+		t.Fatalf("first install: %v", err)
+	}
+	if first.Manifest.PriorHooksPath != ".git/custom-hooks" || !first.Manifest.PriorHooksPathSet {
+		t.Fatalf("first install did not record pre-install hooksPath: %+v", first.Manifest)
+	}
+
+	// Reinstall with a different CLI executable so every hook script is
+	// rewritten — this is the path the checkpoint changes are most likely
+	// to perturb because preWrite fires for every hook.
+	second, err := Install(Options{Root: dir, Strategy: StrategyRepoHooks, CLIExecutable: "/tmp/sentra-b"})
+	if err != nil {
+		t.Fatalf("reinstall: %v", err)
+	}
+	if second.Manifest.PriorHooksPath != ".git/custom-hooks" || !second.Manifest.PriorHooksPathSet {
+		t.Fatalf("reinstall lost the pre-install hooksPath: %+v", second.Manifest)
+	}
+	if !samePath(second.Manifest.PriorHooksDir, custom) {
+		t.Fatalf("reinstall prior hooks dir=%q want %q", second.Manifest.PriorHooksDir, custom)
+	}
+
+	// Uninstall must restore the original hooksPath value verbatim.
+	if _, err := Uninstall(Options{Root: dir, Strategy: StrategyRepoHooks}); err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+	got, ok := localConfigRead(t, dir, "core.hooksPath")
+	if !ok || got != ".git/custom-hooks" {
+		t.Fatalf("core.hooksPath=%q ok=%v want %q restored after uninstall", got, ok, ".git/custom-hooks")
+	}
+	// Every installed hook must be removed.
+	hooksDir := filepath.Join(dir, ".sentra", HooksDirName)
+	for _, k := range AllHooks {
+		if _, err := os.Stat(filepath.Join(hooksDir, string(k))); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("hook %s should be removed after uninstall: %v", k, err)
+		}
+	}
+	// The pre-install custom hook must still be byte-identical.
+	live, err := os.ReadFile(customHook)
+	if err != nil {
+		t.Fatalf("pre-install hook disappeared: %v", err)
+	}
+	if string(live) != "#!/bin/sh\ntouch '"+marker+"'\n" {
+		t.Fatalf("pre-install hook content changed: %q", string(live))
+	}
+	// The manifest file must be removed.
+	if _, err := os.Stat(filepath.Join(dir, ".sentra", StateDirName, ManifestName)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("manifest should be removed after uninstall: %v", err)
+	}
+}
+
+// TestReinstallCheckpointIncludesCarriedForwardEntries locks the core
+// invariant that the F2 regression fix protects: every checkpoint the
+// installer writes during a reinstall must contain the carried-forward
+// prev entries — not just the entries the loop appended. We exercise
+// this by doing a successful first install (4 hooks), then a reinstall
+// that fails partway because installScript refuses to overwrite a
+// foreign hook in the shared hooks directory. Without the carry-forward
+// in checkpoint, the manifest on disk after the failure would only
+// describe the hooks the loop successfully wrote; the carried-forward
+// prev entries would be lost and Uninstall would leave those hooks in
+// whatever state the failed install left them. With the fix, every
+// checkpoint includes the carried-forward entries so Uninstall can
+// restore every prior state even from a partial-failure manifest.
+func TestReinstallCheckpointIncludesCarriedForwardEntries(t *testing.T) {
+	dir := withTempRepo(t, true)
+	gitCommon := filepath.Join(dir, ".git")
+	sharedHooks := filepath.Join(gitCommon, HooksDirName)
+
+	// First install: all 4 hooks under the shared git-common dir.
+	first, err := Install(Options{Root: dir, Strategy: StrategyGitCommon,
+		AllowUnsafeGitCommon: true, CLIExecutable: "/tmp/sentra-a"})
+	if err != nil {
+		t.Fatalf("first install: %v", err)
+	}
+	if len(first.Manifest.Installed) != len(AllHooks) {
+		t.Fatalf("first install wrote %d hooks, want %d: %+v",
+			len(first.Manifest.Installed), len(AllHooks), first.Manifest.Installed)
+	}
+
+	// Replace the sentra-managed post-merge hook with a foreign hook
+	// so the second install fails partway when installScript refuses to
+	// overwrite a non-sentra hook in the shared hooks dir.
+	foreign := "#!/bin/sh\n# foreign tool's post-merge hook\necho foreign\n"
+	if err := os.WriteFile(filepath.Join(sharedHooks, "post-merge"), []byte(foreign), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Second install with a DIFFERENT CLI executable so every hook
+	// script is rewritten and preWrite fires for each. The sorted
+	// install order is post-commit, post-checkout, post-merge, pre-push
+	// (AllHooks). The first two succeed; post-merge refuses; pre-push
+	// is never attempted. The on-disk manifest must still describe
+	// every prev entry so a subsequent Uninstall can restore them.
+	_, err = Install(Options{Root: dir, Strategy: StrategyGitCommon,
+		AllowUnsafeGitCommon: true, CLIExecutable: "/tmp/sentra-b"})
+	if err == nil {
+		t.Fatal("reinstall must fail on the foreign post-merge hook")
+	}
+	if !strings.Contains(err.Error(), "post-merge") {
+		t.Fatalf("error should name the refusing hook, got %v", err)
+	}
+
+	// Read the on-disk manifest that the failing install left behind.
+	// Without the F2 fix, this manifest would have only post-commit and
+	// post-checkout (the hooks the loop successfully wrote). With the
+	// fix, the checkpoint before each write included the carried-forward
+	// prev entries, so the manifest also describes post-merge and
+	// pre-push and Uninstall can restore them.
+	stateDir := filepath.Join(gitCommon, StateDirName)
+	onDisk := loadManifestForTest(t, stateDir)
+	if len(onDisk.Installed) != len(AllHooks) {
+		t.Fatalf("post-failure manifest lost carried-forward entries: have %d, want %d (%+v)",
+			len(onDisk.Installed), len(AllHooks), onDisk.Installed)
+	}
+	for _, e := range first.Manifest.Installed {
+		found := false
+		for _, got := range onDisk.Installed {
+			if got.Kind == e.Kind {
+				found = true
+				if got.Kind == "post-merge" || got.Kind == "pre-push" {
+					// Carried-forward entries preserve the original
+					// prior snapshot so Uninstall can restore the
+					// pre-first-install state.
+					if got.PriorSnapshot != e.PriorSnapshot {
+						t.Fatalf("carried-forward entry %s lost prior snapshot:\n first=%q\n onDisk=%q",
+							got.Kind, e.PriorSnapshot, got.PriorSnapshot)
+					}
+				}
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("manifest on disk missing entry for %s after partial-failure reinstall: %+v",
+				e.Kind, onDisk.Installed)
+		}
+	}
+
+	// Uninstall must restore every prior state from the manifest,
+	// including the carried-forward entries — the foreign post-merge
+	// hook is preserved (installScript refused to touch it) and the
+	// manifest is removed so a fresh install starts clean.
+	if _, err := Uninstall(Options{Root: dir, Strategy: StrategyGitCommon,
+		AllowUnsafeGitCommon: true}); err != nil {
+		t.Fatalf("uninstall after partial-failure reinstall: %v", err)
+	}
+	// Foreign hook survives.
+	if live, err := os.ReadFile(filepath.Join(sharedHooks, "post-merge")); err != nil ||
+		!strings.Contains(string(live), "foreign") {
+		t.Fatalf("foreign post-merge hook must survive uninstall: %v %q", err, string(live))
+	}
+	// Sentra hooks the loop wrote are removed; the carried-forward
+	// entries that were never written never had a file to remove.
+	for _, name := range []string{"post-commit", "post-checkout", "pre-push"} {
+		if _, statErr := os.Stat(filepath.Join(sharedHooks, name)); !os.IsNotExist(statErr) {
+			t.Fatalf("%s should be removed after uninstall, stat err=%v", name, statErr)
+		}
+	}
+	// Manifest file is removed.
+	if _, statErr := os.Stat(filepath.Join(stateDir, ManifestName)); !os.IsNotExist(statErr) {
+		t.Fatalf("manifest should be removed after uninstall, stat err=%v", statErr)
+	}
+}
+
+// TestReinstallNoOpByteIdenticalManifest is the no-op reinstall lock:
+// reinstalling with identical content (same CLI executable, same
+// hooks set, same strategy) must produce a byte-identical manifest so
+// repeated CI runs do not drift mtimes or timestamps. The
+// carryForward inside checkpoint must not perturb the no-op signature.
+func TestReinstallNoOpByteIdenticalManifest(t *testing.T) {
+	dir := withTempRepo(t, true)
+	first, err := Install(Options{Root: dir, Strategy: StrategyRepoHooks, CLIExecutable: "/tmp/sentra-c"})
+	if err != nil {
+		t.Fatalf("first install: %v", err)
+	}
+	second, err := Install(Options{Root: dir, Strategy: StrategyRepoHooks, CLIExecutable: "/tmp/sentra-c"})
+	if err != nil {
+		t.Fatalf("second install: %v", err)
+	}
+	if first.Manifest.InstalledAt != second.Manifest.InstalledAt {
+		t.Fatalf("no-op reinstall must preserve InstalledAt timestamp: first=%s second=%s",
+			first.Manifest.InstalledAt, second.Manifest.InstalledAt)
+	}
+	// Compare the canonical manifest JSON. Notes intentionally differ
+	// between the first and second install (the first flips
+	// core.hooksPath and emits a "set git config ..." note; the second
+	// is a true no-op and emits no such note); the manifest itself is
+	// what the no-op-detection signature lock protects.
+	firstRaw, _ := json.Marshal(first.Manifest)
+	secondRaw, _ := json.Marshal(second.Manifest)
+	if string(firstRaw) != string(secondRaw) {
+		t.Fatalf("no-op reinstall produced manifest drift:\n first=%s\n second=%s", firstRaw, secondRaw)
+	}
+}
+
+// TestReinstallSubsetPreservesPriorState locks the subset-reinstall
+// invariant: when a subsequent install targets a strict subset of
+// kinds, the carried-forward entries for kinds the run does not touch
+// must still carry the original pre-install snapshot. The checkpoint
+// for the kind that IS rewritten must include the carried-forward
+// entries so uninstall can restore every prior state, not just the
+// touched kinds.
+func TestReinstallSubsetPreservesPriorState(t *testing.T) {
+	dir := withTempRepo(t, true)
+	inactive := filepath.Join(dir, ".git", "other-hooks")
+	if err := os.MkdirAll(inactive, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, dir, "config", "--local", "core.hooksPath", ".git/other-hooks")
+
+	first, err := Install(Options{Root: dir, Strategy: StrategyRepoHooks, CLIExecutable: "/tmp/sentra-d"})
+	if err != nil {
+		t.Fatalf("first install: %v", err)
+	}
+	if first.Manifest.PriorHooksPath != ".git/other-hooks" || !first.Manifest.PriorHooksPathSet {
+		t.Fatalf("first install lost pre-install hooksPath: %+v", first.Manifest)
+	}
+
+	// Subset reinstall that rewrites only one hook. The carried-forward
+	// entries for the OTHER three hooks must survive in the manifest on
+	// disk after the checkpoint for the rewritten hook fires. We verify
+	// by reading the manifest immediately after the reinstall completes.
+	second, err := Install(Options{Root: dir, Strategy: StrategyRepoHooks,
+		Hooks: []HookKind{HookPostCommit}, CLIExecutable: "/tmp/sentra-e"})
+	if err != nil {
+		t.Fatalf("subset reinstall: %v", err)
+	}
+	if second.Manifest.PriorHooksPath != ".git/other-hooks" || !second.Manifest.PriorHooksPathSet {
+		t.Fatalf("subset reinstall lost pre-install hooksPath: %+v", second.Manifest)
+	}
+	if len(second.Manifest.Installed) != len(AllHooks) {
+		t.Fatalf("subset reinstall manifest has %d entries, want %d: %+v",
+			len(second.Manifest.Installed), len(AllHooks), second.Manifest.Installed)
+	}
+
+	// Uninstall restores the original state.
+	if _, err := Uninstall(Options{Root: dir, Strategy: StrategyRepoHooks}); err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+	got, ok := localConfigRead(t, dir, "core.hooksPath")
+	if !ok || got != ".git/other-hooks" {
+		t.Fatalf("core.hooksPath=%q ok=%v want %q", got, ok, ".git/other-hooks")
+	}
+}

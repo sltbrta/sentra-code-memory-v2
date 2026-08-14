@@ -134,46 +134,89 @@ func boolOf(v any) bool {
 	return false
 }
 
-// OperatorTrustActions lists the mutating verbs+actions whose dispatch
-// from a model-facing adapter (HTTP /dispatch, MCP tools/call) requires
-// an explicit operator opt-in. Status and other read-only verbs on the
-// same surface are intentionally NOT included so the gates fail closed
-// only on actions that leave host state behind.
+// OperatorTrustGate describes the operator-trust gate that one verb places
+// on dispatch from a model-facing adapter (HTTP /dispatch, MCP
+// tools/call). A verb either has a whole-verb gate (AllActions=true: every
+// action value, including the empty action and unknown values, is
+// refused without the explicit operator opt-in) or a per-action gate
+// (Actions enumerates the explicit mutating actions; read-only actions
+// like hooks_local `status` are intentionally not listed so they reach
+// the codeserve handler, which validates them on its own terms).
 //
-// code_apply_changeset carries the empty action key: the verb takes no
-// `action` parameter and every dispatch promotes a ChangeSet onto the
-// filesystem under root, so the whole verb is mutating.
+// The AllActions flag is the post-fix contract: code_apply_changeset
+// takes no `action` parameter and every dispatch promotes a ChangeSet
+// onto the filesystem under root, so the gate must apply regardless of
+// any action field the caller attaches. A previous design keyed the
+// gate on the empty-action string, which silently bypassed when the
+// caller included any non-empty action value; AllActions removes that
+// surface.
+//
+// Per-action verbs (e.g. hooks_local) keep the per-action contract:
+// only the listed actions are gated. Unknown actions on a per-action
+// verb are admitted by the gate so the codeserve handler can reject
+// them as `unknown action`; this keeps the gate honest (it does not
+// pretend an unknown action is "trusted") while preserving the existing
+// read-only path for actions like status that the handler validates
+// itself.
 //
 // Index-mutation verbs (code_index, code_ingest_paths, code_ingest_scip,
-// code_watch) are deliberately NOT gated: their writes are bounded,
-// regenerable derived-index artifacts confined to the repo's own index
-// cache, and the read paths (code_search/code_exact/...) refresh that
-// same cache implicitly, so gating them would gate the product's core
-// read surface without adding a meaningful trust boundary.
-var OperatorTrustActions = map[Verb]map[string]bool{
+// code_watch) are deliberately NOT gated at all: their writes are
+// bounded, regenerable derived-index artifacts confined to the repo's
+// own index cache, and the read paths (code_search/code_exact/...)
+// refresh that same cache implicitly, so gating them would gate the
+// product's core read surface without adding a meaningful trust
+// boundary.
+type OperatorTrustGate struct {
+	Actions    map[string]bool // gated actions on per-action verbs
+	AllActions bool            // true → whole verb is gated regardless of action
+}
+
+// OperatorTrustGates lists the mutating verbs whose dispatch from a
+// model-facing adapter requires an explicit operator opt-in. Status
+// and other read-only verbs on the same surface are intentionally NOT
+// included so the gates fail closed only on actions that leave host
+// state behind.
+var OperatorTrustGates = map[Verb]OperatorTrustGate{
 	VerbHooksLocal: {
-		"install":   true,
-		"uninstall": true,
-		"run":       true,
+		Actions: map[string]bool{
+			"install":   true,
+			"uninstall": true,
+			"run":       true,
+		},
 	},
 	VerbApplyChangeSet: {
-		"": true,
+		AllActions: true,
 	},
 }
 
 // IsOperatorTrustAction reports whether the (verb, action) pair would
 // leave host state behind and therefore requires an explicit operator
 // opt-in to dispatch from a model-facing adapter. Adapters call this so
-// codeserve stays the single source of truth for the gate. The verb must
-// already be recognized by Handle; unknown actions on a recognized verb
-// are treated as non-trusting so a typo in `action=` is never silently
-// admitted as "trusted".
+// codeserve stays the single source of truth for the gate.
+//
+// Whole-verb gates (AllActions=true) apply regardless of the action
+// field's value: an empty action, the verb's documented empty action,
+// or any other action value all require the opt-in. This closes the
+// bypass where a caller attached an irrelevant action field to a
+// whole-verb gate to slip past the empty-action lookup.
+//
+// Per-action gates admit any action that is NOT in the gated set, so
+// the codeserve handler (which validates action values itself) is the
+// authority on what an unknown or read-only action means for that verb.
+// Hooks_local's read-only `status` action therefore reaches the
+// handler without the trust opt-in; an unknown action like `install_typo`
+// reaches the handler too, where it is rejected with an
+// invalid_request envelope. The gate's job is to refuse mutating
+// actions; the handler's job is to validate.
 func IsOperatorTrustAction(verb string, action string) bool {
-	trust, ok := OperatorTrustActions[Verb(verb)]
+	gate, ok := OperatorTrustGates[Verb(verb)]
 	if !ok {
 		return false
 	}
-	return trust[strings.TrimSpace(action)]
+	if gate.AllActions {
+		return true
+	}
+	return gate.Actions[strings.TrimSpace(action)]
 }
 
 // VerbRequiresOperatorTrust reports whether the verb's catalog metadata
