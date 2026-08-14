@@ -3,6 +3,7 @@ package codeserve
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"strings"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
@@ -149,7 +150,11 @@ func denseBoundError() Response {
 // reports as an empty corpus (the handler turns that into an explicit
 // error); context cancellation aborts the walk early.
 func loadLocalBagTexts(ctx context.Context, root string, maxFiles int) (map[string]string, error) {
-	files, err := codecrawl.SourceFiles(root)
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return nil, err
+	}
+	files, err := codecrawl.SourceFiles(rootAbs)
 	if err != nil {
 		return nil, nil
 	}
@@ -164,7 +169,11 @@ func loadLocalBagTexts(ctx context.Context, root string, maxFiles int) (map[stri
 			}
 		}
 		if data, err := readFileBounded(abs, 6<<10); err == nil && len(data) > 0 {
-			out[abs] = string(data)
+			rel, err := filepath.Rel(rootAbs, abs)
+			if err != nil {
+				return nil, err
+			}
+			out[filepath.ToSlash(rel)] = string(data)
 		}
 	}
 	return out, nil

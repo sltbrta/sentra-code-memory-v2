@@ -112,7 +112,8 @@ sentra-code-memory dense-local [--root PATH] [--scope NAME] [--model NAME] \
 `scope` defaults to the canonical root when omitted. `model` defaults to
 `bag-of-words:v1`, the only model this arm serves. `top_k` above 50 is
 clamped to 50; `max_*` values above the defaults are clamped to the
-defaults.
+defaults. Hit IDs are slash-separated paths relative to `root`; responses do
+not expose absolute filesystem paths.
 
 ## Evidence
 
