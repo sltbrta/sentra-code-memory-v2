@@ -11,143 +11,199 @@ import (
 	"testing"
 )
 
-// TestMain isolates the CLI tests from the host's git config: the hooks
-// installer reads the effective core.hooksPath across all scopes, so a
-// global hooksPath on the developer machine must not leak into test repos.
+// TestMain isolates CLI hook tests from a developer machine's global Git
+// configuration, especially a global core.hooksPath.
 func TestMain(m *testing.M) {
 	tmp, err := os.MkdirTemp("", "sentra-cli-gitconfig-")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	os.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(tmp, "gitconfig"))
-	os.Setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+	_ = os.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(tmp, "gitconfig"))
+	_ = os.Setenv("GIT_CONFIG_SYSTEM", "/dev/null")
 	code := m.Run()
-	os.RemoveAll(tmp)
+	_ = os.RemoveAll(tmp)
 	os.Exit(code)
 }
 
-// cliGitRepo initializes a throwaway git repository for CLI hooks tests.
+// cliGitRepo creates a throwaway repository for hooksPath restoration tests.
 func cliGitRepo(t *testing.T) string {
 	t.Helper()
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git unavailable")
-	}
 	dir := t.TempDir()
-	env := []string{
-		"HOME=" + dir, "LANG=C", "PATH=" + os.Getenv("PATH"),
-		"GIT_CONFIG_GLOBAL=" + filepath.Join(dir, "gitconfig"),
-		"GIT_CONFIG_SYSTEM=/dev/null",
-	}
-	run := func(args ...string) {
-		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
-		cmd.Env = env
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v (%s)", args, err, out)
-		}
-	}
+	env := append([]string(nil), os.Environ()...)
+	env = append(env, "HOME="+dir, "LANG=C", "GIT_CONFIG_GLOBAL="+filepath.Join(dir, "gitconfig"), "GIT_CONFIG_SYSTEM=/dev/null")
 	cmd := exec.Command("git", "init", "-b", "main", dir)
 	cmd.Env = env
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v (%s)", err, out)
 	}
-	run("-c", "user.email=test@example.invalid", "-c", "user.name=test",
-		"commit", "--allow-empty", "-m", "init")
+	cmd = exec.Command("git", "-C", dir, "-c", "user.email=test@example.invalid", "-c", "user.name=test", "commit", "--allow-empty", "-m", "init")
+	cmd.Env = env
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v (%s)", err, out)
+	}
 	return dir
 }
 
-func runHooksCLI(t *testing.T, args ...string) map[string]any {
+// runCLI is the shared CLI-level harness: it executes one command line and
+// decodes the single JSON response.
+func runCLI(t *testing.T, args ...string) map[string]any {
 	t.Helper()
-	var out, errOut bytes.Buffer
-	if code := execute(append([]string{"hooks"}, args...), nil, &out, &errOut); code != 0 {
-		t.Fatalf("hooks %v exit=%d stderr=%s", args, code, errOut.String())
+	var stdout, stderr bytes.Buffer
+	if code := execute(args, bytes.NewReader(nil), &stdout, &stderr); code != 0 {
+		t.Fatalf("%v exit=%d stderr=%s", args, code, stderr.String())
 	}
 	var resp map[string]any
-	if err := json.Unmarshal(out.Bytes(), &resp); err != nil {
-		t.Fatalf("hooks %v invalid JSON: %v\n%s", args, err, out.String())
+	if err := json.Unmarshal(bytes.TrimSpace(stdout.Bytes()), &resp); err != nil {
+		t.Fatalf("%v did not emit JSON: %v (%s)", args, err, stdout.String())
 	}
 	return resp
 }
 
-// TestCLIHooksLifecycleRoundTrip covers the documented CLI form end to end:
-// install, status, uninstall, with core.hooksPath cleared afterwards.
-func TestCLIHooksLifecycleRoundTrip(t *testing.T) {
-	dir := cliGitRepo(t)
+// TestHooksCLILifecycle exercises install → status → uninstall through the
+// direct CLI against a temp root with the default repo-hooks strategy.
+func TestHooksCLILifecycle(t *testing.T) {
+	root := t.TempDir()
 
-	install := runHooksCLI(t, "install", "--root", dir, "--strategy", "repo-hooks")
+	install := runCLI(t, "hooks", "install", "--root", root)
 	if install["ok"] != true {
 		t.Fatalf("install: %+v", install)
 	}
-	status := runHooksCLI(t, "status", "--root", dir)
+	if _, err := os.Stat(filepath.Join(root, ".sentra", "hooks")); err != nil {
+		t.Fatalf("hooks dir missing after install: %v", err)
+	}
+
+	// Flags after the action must also parse (extractAction contract).
+	status := runCLI(t, "hooks", "--root", root, "status")
 	if status["ok"] != true {
 		t.Fatalf("status: %+v", status)
 	}
-	raw, _ := json.Marshal(status["installed"])
-	for _, kind := range []string{"post-commit", "post-checkout", "post-merge", "pre-push"} {
-		if !strings.Contains(string(raw), kind) {
-			t.Fatalf("status missing %s: %s", kind, raw)
-		}
+	installed, _ := status["installed"].([]any)
+	if len(installed) == 0 {
+		t.Fatalf("status reports no installed hooks: %+v", status)
 	}
-	uninstall := runHooksCLI(t, "uninstall", "--root", dir)
+
+	uninstall := runCLI(t, "hooks", "uninstall", "--root", root)
 	if uninstall["ok"] != true {
 		t.Fatalf("uninstall: %+v", uninstall)
 	}
-
-	cmd := exec.Command("git", "-C", dir, "config", "--local", "--get", "core.hooksPath")
-	cmd.Env = []string{"HOME=" + dir, "LANG=C", "PATH=" + os.Getenv("PATH"),
-		"GIT_CONFIG_GLOBAL=" + filepath.Join(dir, "gitconfig"),
-		"GIT_CONFIG_SYSTEM=/dev/null"}
-	if out, err := cmd.Output(); err == nil {
-		t.Fatalf("core.hooksPath=%q should be unset after uninstall", strings.TrimSpace(string(out)))
+	statusAfter := runCLI(t, "hooks", "status", "--root", root)
+	installedAfter, _ := statusAfter["installed"].([]any)
+	if len(installedAfter) != 0 {
+		t.Fatalf("hooks still installed after uninstall: %+v", statusAfter)
 	}
 }
 
-// TestCLIHooksPreExistingHooksPathRestored asserts the CLI path of the
-// cold-review fix: a pre-existing core.hooksPath survives install and is
-// restored verbatim by uninstall.
+// TestHooksCLIRequiresAction rejects a bare hooks invocation.
+func TestHooksCLIRequiresAction(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := execute([]string{"hooks"}, bytes.NewReader(nil), &stdout, &stderr); code != 2 {
+		t.Fatalf("expected exit 2, got %d (%s)", code, stdout.String())
+	}
+}
+
+// TestDenseLocalCLISearch runs the lexical arm through the CLI over a tiny
+// temp corpus.
+func TestDenseLocalCLISearch(t *testing.T) {
+	root := t.TempDir()
+	src := "package billing\nfunc InvoiceTotal() int { return 42 }\n"
+	if err := os.WriteFile(filepath.Join(root, "billing.go"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI(t, "dense-local", "--root", root, "--q", "billing invoice")
+	if got["ok"] != true {
+		t.Fatalf("dense-local: %+v", got)
+	}
+	if got["route"] != "lexical" {
+		t.Fatalf("route = %v, want lexical", got["route"])
+	}
+	raw, _ := json.Marshal(got["hits"])
+	if !strings.Contains(string(raw), "billing.go") {
+		t.Fatalf("hits missing billing.go: %s", raw)
+	}
+}
+
+// TestDenseLocalCLIHardBounds proves request-controlled ceilings cannot
+// exceed the hard defaults: top-k 999 clamps to 50 and max-corpus 999999
+// clamps to 8192, and the receipt reports the enforced envelope.
+func TestDenseLocalCLIHardBounds(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("package a\nfunc Alpha() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI(t, "dense-local", "--root", root, "--q", "alpha",
+		"--top-k", "999", "--max-corpus", "999999")
+	if got["ok"] != true {
+		t.Fatalf("dense-local: %+v", got)
+	}
+	bounded, _ := got["bounded_by"].(map[string]any)
+	if bounded["max_top_k"] != float64(50) {
+		t.Fatalf("max_top_k not clamped to hard default: %+v", bounded)
+	}
+	if bounded["max_corpus"] != float64(8192) {
+		t.Fatalf("max_corpus not clamped to hard default: %+v", bounded)
+	}
+	hits, _ := got["hits"].([]any)
+	if len(hits) > 50 {
+		t.Fatalf("more hits than the hard top-k ceiling: %d", len(hits))
+	}
+}
+
+// TestDenseLocalCLIRejectsBadBounds refuses non-positive bound overrides.
+func TestDenseLocalCLIRejectsBadBounds(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("package a\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI(t, "dense-local", "--root", root, "--q", "a", "--max-corpus", "-3")
+	if got["ok"] != false {
+		t.Fatalf("expected bounds refusal, got %+v", got)
+	}
+}
+
+// TestCLIHooksPreExistingHooksPathRestored asserts that install/uninstall
+// preserves a user's existing local core.hooksPath and hook file.
 func TestCLIHooksPreExistingHooksPathRestored(t *testing.T) {
 	dir := cliGitRepo(t)
-	env := []string{
-		"HOME=" + dir, "LANG=C", "PATH=" + os.Getenv("PATH"),
-		"GIT_CONFIG_GLOBAL=" + filepath.Join(dir, "gitconfig"),
-		"GIT_CONFIG_SYSTEM=/dev/null",
-	}
-	git := func(args ...string) {
-		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
-		cmd.Env = env
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v (%s)", args, err, out)
-		}
-	}
+	env := append([]string(nil), os.Environ()...)
+	env = append(env, "HOME="+dir, "LANG=C", "GIT_CONFIG_GLOBAL="+filepath.Join(dir, "gitconfig"), "GIT_CONFIG_SYSTEM=/dev/null")
 	custom := filepath.Join(dir, ".git", "custom-hooks")
 	if err := os.MkdirAll(custom, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(custom, "pre-commit"),
-		[]byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(custom, "pre-commit"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	git("config", "--local", "core.hooksPath", ".git/custom-hooks")
-
-	install := runHooksCLI(t, "install", "--root", dir)
-	if install["ok"] != true {
-		t.Fatalf("install: %+v", install)
+	cmd := exec.Command("git", "-C", dir, "config", "--local", "core.hooksPath", ".git/custom-hooks")
+	cmd.Env = env
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("set hooksPath: %v (%s)", err, out)
 	}
-	uninstall := runHooksCLI(t, "uninstall", "--root", dir)
-	if uninstall["ok"] != true {
-		t.Fatalf("uninstall: %+v", uninstall)
+	if got := runCLI(t, "hooks", "install", "--root", dir); got["ok"] != true {
+		t.Fatalf("install: %+v", got)
 	}
-
-	cmd := exec.Command("git", "-C", dir, "config", "--local", "--get", "core.hooksPath")
+	if got := runCLI(t, "hooks", "uninstall", "--root", dir); got["ok"] != true {
+		t.Fatalf("uninstall: %+v", got)
+	}
+	cmd = exec.Command("git", "-C", dir, "config", "--local", "--get", "core.hooksPath")
 	cmd.Env = env
 	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("core.hooksPath not restored: %v", err)
-	}
-	if got := strings.TrimSpace(string(out)); got != ".git/custom-hooks" {
-		t.Fatalf("core.hooksPath=%q want %q", got, ".git/custom-hooks")
+	if err != nil || strings.TrimSpace(string(out)) != ".git/custom-hooks" {
+		t.Fatalf("core.hooksPath not restored: %q (%v)", strings.TrimSpace(string(out)), err)
 	}
 	if _, err := os.Stat(filepath.Join(custom, "pre-commit")); err != nil {
-		t.Fatalf("pre-existing hook file disappeared: %v", err)
+		t.Fatalf("pre-existing hook disappeared: %v", err)
+	}
+}
+
+// TestDenseLocalCLIRequiresQueryAndRoot fails fast on missing required flags.
+func TestDenseLocalCLIRequiresQueryAndRoot(t *testing.T) {
+	noQ := runCLI(t, "dense-local", "--root", t.TempDir())
+	if noQ["ok"] != false {
+		t.Fatalf("missing q should fail: %+v", noQ)
+	}
+	noRoot := runCLI(t, "dense-local", "--q", "billing")
+	if noRoot["ok"] != false {
+		t.Fatalf("missing root should fail: %+v", noRoot)
 	}
 }

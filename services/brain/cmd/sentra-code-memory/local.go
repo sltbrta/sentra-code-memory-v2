@@ -12,7 +12,7 @@ import (
 // runHooks exposes the repo-confined hook lifecycle through the direct CLI.
 // The action may appear before or after flags so both documented forms remain
 // usable with Go's flag package.
-func runHooks(args []string, out, errOut io.Writer) int {
+func runHooks(ctx context.Context, args []string, out, errOut io.Writer) int {
 	action, remaining := extractAction(args, map[string]bool{
 		"install": true, "status": true, "uninstall": true, "run": true,
 	})
@@ -45,22 +45,21 @@ func runHooks(args []string, out, errOut io.Writer) int {
 		"event":                   *event,
 		"allow_unsafe_git_common": *unsafeCommon,
 	}
-	return writeJSON(out, codeserve.Handle(context.Background(), req))
+	return writeJSON(out, codeserve.Handle(ctx, req))
 }
 
-// runDenseLocal exposes the optional local-only dense/fallback retrieval arm.
-func runDenseLocal(args []string, out, errOut io.Writer) int {
+// runDenseLocal exposes the optional local-only lexical retrieval arm.
+func runDenseLocal(ctx context.Context, args []string, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("dense-local", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	root := fs.String("root", "", "source root")
-	index := fs.String("index", "", "optional identity-bound HNSW index")
-	scope := fs.String("scope", "", "index identity scope")
-	model := fs.String("model", "bag-of-words:v1", "embedding model identity")
+	scope := fs.String("scope", "", "retrieval identity scope label")
+	model := fs.String("model", "bag-of-words:v1", "retrieval model identity label")
 	query := fs.String("q", "", "query")
-	topK := fs.Int("top-k", 10, "maximum hits")
-	maxCorpus := fs.Int("max-corpus", 8192, "maximum corpus size")
-	maxDim := fs.Int("max-dim", 1024, "maximum vector dimension")
-	maxQuery := fs.Int("max-query-len", 512, "maximum query length")
+	topK := fs.Int("top-k", 10, "maximum hits (hard ceiling 50)")
+	maxCorpus := fs.Int("max-corpus", 8192, "maximum corpus size (tighten only)")
+	maxDim := fs.Int("max-dim", 1024, "maximum vector dimension (tighten only)")
+	maxQuery := fs.Int("max-query-len", 512, "maximum query length (tighten only)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -69,12 +68,12 @@ func runDenseLocal(args []string, out, errOut io.Writer) int {
 		return 2
 	}
 	req := codeserve.Request{
-		"verb": "dense_local_search", "root": *root, "index": *index,
+		"verb": "dense_local_search", "root": *root,
 		"scope": *scope, "model": *model, "q": *query,
 		"top_k": *topK, "max_corpus": *maxCorpus, "max_dim": *maxDim,
 		"max_query_len": *maxQuery,
 	}
-	return writeJSON(out, codeserve.Handle(context.Background(), req))
+	return writeJSON(out, codeserve.Handle(ctx, req))
 }
 
 func extractAction(args []string, actions map[string]bool) (string, []string) {

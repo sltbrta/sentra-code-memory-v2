@@ -4,9 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"os"
-	"path/filepath"
-	"sort"
 	"testing"
 	"time"
 )
@@ -23,7 +20,7 @@ func buildCorpus(size, vocab int) map[string]string {
 	for i := 0; i < size; i++ {
 		n := 8 + rng.Intn(24)
 		fields := make([]string, n)
-		for j := range fields {
+		for j := 0; j < n; j++ {
 			fields[j] = tokens[rng.Intn(vocab)]
 		}
 		docs[fmt.Sprintf("doc-%06d.go", i)] = joinFields(fields)
@@ -60,11 +57,11 @@ func genQuery(rng *rand.Rand, tokens []string, overlap int) string {
 
 // BenchmarkLocalLexicalThroughput measures end-to-end search throughput at
 // three corpus sizes. The reported numbers are wall-time per query and
-// allocations per query, the same metrics the dense.HNSW bench produces.
+// allocations per query.
 //
 // Issue #59 acceptance criterion: "Benchmark evidence is required before
-// changing defaults." These numbers are the receipt for the lexical fallback
-// path that always backs the local dense arm.
+// changing defaults." These numbers are the receipt for the lexical path
+// that backs the local retrieval arm.
 func BenchmarkLocalLexicalThroughput(b *testing.B) {
 	tokens := make([]string, 512)
 	for i := range tokens {
@@ -74,7 +71,7 @@ func BenchmarkLocalLexicalThroughput(b *testing.B) {
 		size := size
 		b.Run(fmt.Sprintf("corpus_%d", size), func(b *testing.B) {
 			corpus := buildCorpus(size, len(tokens))
-			eng, err := NewEngine("bench-scope", ModelBag, 0, nil, corpus, Bounds{
+			eng, err := NewEngine("bench-scope", ModelBag, corpus, Bounds{
 				MaxCorpus: 8192, MaxDim: 4096, MaxTopK: 20, MaxQueryLen: 512,
 			})
 			if err != nil {
@@ -100,7 +97,7 @@ func BenchmarkLocalLexicalThroughput(b *testing.B) {
 // promote the local arm beyond opt-in.
 func BenchmarkLocalLexicalAllocationsPerQuery(b *testing.B) {
 	corpus := buildCorpus(1024, 512)
-	eng, err := NewEngine("bench-scope", ModelBag, 0, nil, corpus, Bounds{
+	eng, err := NewEngine("bench-scope", ModelBag, corpus, Bounds{
 		MaxCorpus: 8192, MaxDim: 4096, MaxTopK: 20, MaxQueryLen: 512,
 	})
 	if err != nil {
@@ -115,35 +112,12 @@ func BenchmarkLocalLexicalAllocationsPerQuery(b *testing.B) {
 	}
 }
 
-// BenchmarkPersistAndReload measures the cost of building, persisting and
-// reloading a bag-anchored HNSW index. It exercises the atomic-publish path
-// that callers hit when promoting an in-memory model into a durable one.
-func BenchmarkPersistAndReload(b *testing.B) {
-	corpus := buildCorpus(2048, 512)
-	dir := b.TempDir()
-	for i := 0; i < b.N; i++ {
-		path := filepath.Join(dir, fmt.Sprintf("bench-%d.ann", i))
-		if err := PersistIndex(path, "bench-scope", ModelBag, 0, corpus,
-			Bounds{MaxCorpus: 8192, MaxDim: 4096, MaxTopK: 20, MaxQueryLen: 512}); err != nil {
-			b.Fatal(err)
-		}
-		loaded, err := NewEngine("bench-scope", ModelBag, 0, nil, corpus,
-			Bounds{MaxCorpus: 8192, MaxDim: 4096, MaxTopK: 20, MaxQueryLen: 512})
-		if err != nil {
-			b.Fatal(err)
-		}
-		if err := loaded.LoadIndex(path, Options{Scope: "bench-scope", Model: ModelBag}); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 // BenchmarkLocalLatencyP50P95 collects latencies into a fixed array, sorts
 // them, and reports the p50/p95 numbers into the test log. Run via
 // `go test -run=NONE -bench BenchmarkLocalLatencyP50P95 -count=1 ./internal/denselocal`.
 func BenchmarkLocalLatencyP50P95(b *testing.B) {
 	corpus := buildCorpus(2048, 512)
-	eng, err := NewEngine("bench-scope", ModelBag, 0, nil, corpus, Bounds{
+	eng, err := NewEngine("bench-scope", ModelBag, corpus, Bounds{
 		MaxCorpus: 8192, MaxDim: 4096, MaxTopK: 20, MaxQueryLen: 512,
 	})
 	if err != nil {
@@ -161,14 +135,14 @@ func BenchmarkLocalLatencyP50P95(b *testing.B) {
 }
 
 // Example for documentation: a minimal call demonstrates the local lexical
-// fallback path and the deterministic ordering it produces.
+// path and the deterministic ordering it produces.
 func ExampleEngine_Search() {
 	docs := map[string]string{
 		"a.go": "alpha beta gamma",
 		"b.go": "beta gamma delta",
 		"c.go": "epsilon zeta eta",
 	}
-	eng, err := NewEngine("scope-x", ModelBag, 0, nil, docs, DefaultBounds())
+	eng, err := NewEngine("scope-x", ModelBag, docs, DefaultBounds())
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -180,32 +154,6 @@ func ExampleEngine_Search() {
 		fmt.Println(h.ID, h.Score)
 	}
 	// Output:
-	// a.go 0.8164965809277261
-	// b.go 0.4082482904638631
+	// a.go 0.8164965809277259
+	// b.go 0.40824829046386296
 }
-
-// ExamplePersistIndex demonstrates writing a bag-anchored dense index to a
-// temp file. The returned error indicates whether persistence succeeded.
-func ExamplePersistIndex() {
-	dir, err := os.MkdirTemp("", "denselocal-example-*")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer os.RemoveAll(dir)
-	docs := map[string]string{
-		"alpha.go": "alpha beta gamma",
-		"beta.go":  "beta gamma delta",
-	}
-	if err := PersistIndex(filepath.Join(dir, "dense.ann"), "scope-x", ModelBag, 0, docs, DefaultBounds()); err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println("ok")
-	// Output:
-	// ok
-}
-
-// sort.Float64s is needed for percentile reporting only; referenced here so
-// the import list stays stable across edits.
-var _ = sort.Float64s

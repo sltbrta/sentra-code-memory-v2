@@ -3,25 +3,23 @@ package denselocal
 import (
 	"context"
 	"errors"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 )
 
-// TestLexicalFallbackDeterministic asserts the bag-of-words lexical fallback
-// returns the same ranking across repeated calls (issue #59 acceptance:
-// deterministic lexical fallback).
-func TestLexicalFallbackDeterministic(t *testing.T) {
+// TestLexicalDeterministic asserts the bag-of-words lexical arm returns the
+// same ranking across repeated calls (issue #59 acceptance: deterministic
+// lexical retrieval).
+func TestLexicalDeterministic(t *testing.T) {
 	docs := map[string]string{
 		"billing.go":    "package billing\nfunc InvoiceTotal() int { return 42 }",
 		"auth.go":       "package auth\nfunc Login() error { return nil }",
 		"weather.go":    "the weather is sunny today",
 		"middleware.go": "package middleware\nfunc Auth() bool { return true }",
 	}
-	eng, err := NewEngine("scope-1", ModelBag, 0, nil, docs, DefaultBounds())
+	eng, err := NewEngine("scope-1", ModelBag, docs, DefaultBounds())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +29,7 @@ func TestLexicalFallbackDeterministic(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !got.OK || got.Route != "lexical_fallback" {
+		if !got.OK || got.Route != "lexical" {
 			t.Fatalf("iter %d not lexical: %+v", i, got)
 		}
 		if len(got.Hits) == 0 {
@@ -46,32 +44,29 @@ func TestLexicalFallbackDeterministic(t *testing.T) {
 // TestIdentityBindingPresent requires both scope and model identity; a missing
 // identity fails closed at engine construction.
 func TestIdentityBindingPresent(t *testing.T) {
-	if _, err := NewEngine("", ModelBag, 0, nil, map[string]string{"a": "x"}, DefaultBounds()); !errors.Is(err, ErrIdentityMissing) {
+	if _, err := NewEngine("", ModelBag, map[string]string{"a": "x"}, DefaultBounds()); !errors.Is(err, ErrIdentityMissing) {
 		t.Fatalf("empty scope: %v", err)
 	}
-	if _, err := NewEngine("scope", "", 0, nil, map[string]string{"a": "x"}, DefaultBounds()); !errors.Is(err, ErrIdentityMissing) {
+	if _, err := NewEngine("scope", "", map[string]string{"a": "x"}, DefaultBounds()); !errors.Is(err, ErrIdentityMissing) {
 		t.Fatalf("empty model: %v", err)
 	}
 }
 
-// TestBoundsEnforcedOnConstruction refuses corpora that exceed MaxCorpus or
-// dimensions exceeding MaxDim before any search is performed.
+// TestBoundsEnforcedOnConstruction refuses corpora that exceed MaxCorpus
+// before any search is performed.
 func TestBoundsEnforcedOnConstruction(t *testing.T) {
 	small := Bounds{MaxCorpus: 2, MaxDim: 8, MaxTopK: 4, MaxQueryLen: 32}
-	if _, err := NewEngine("s", ModelBag, 0, nil, map[string]string{
+	if _, err := NewEngine("s", ModelBag, map[string]string{
 		"a": "alpha", "b": "beta", "c": "gamma",
 	}, small); !errors.Is(err, ErrCorpusExceeded) {
 		t.Fatalf("expected ErrCorpusExceeded, got %v", err)
-	}
-	if _, err := NewEngine("s", ModelBag, 64, nil, nil, small); !errors.Is(err, ErrDimExceeded) {
-		t.Fatalf("expected ErrDimExceeded, got %v", err)
 	}
 }
 
 // TestTopKAndQueryBoundsEnforced applies at search time too.
 func TestTopKAndQueryBoundsEnforced(t *testing.T) {
 	docs := map[string]string{"a": "alpha beta gamma delta", "b": "beta gamma"}
-	eng, err := NewEngine("s", ModelBag, 0, nil, docs, Bounds{MaxCorpus: 8, MaxDim: 16, MaxTopK: 1, MaxQueryLen: 5})
+	eng, err := NewEngine("s", ModelBag, docs, Bounds{MaxCorpus: 8, MaxDim: 16, MaxTopK: 1, MaxQueryLen: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +85,7 @@ func TestTopKAndQueryBoundsEnforced(t *testing.T) {
 // TestEmptyAndWhitespaceQuery refuses empty/whitespace queries with the
 // typed ErrEmptyQuery.
 func TestEmptyAndWhitespaceQuery(t *testing.T) {
-	eng, err := NewEngine("s", ModelBag, 0, nil, map[string]string{"a": "alpha"}, DefaultBounds())
+	eng, err := NewEngine("s", ModelBag, map[string]string{"a": "alpha"}, DefaultBounds())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,17 +97,16 @@ func TestEmptyAndWhitespaceQuery(t *testing.T) {
 	}
 }
 
-// TestLexicalFallbackIsAlwaysAvailable validates the "always-on" contract:
-// the report is always OK when a query is valid, even with empty bags and
-// missing indexes.
-func TestLexicalFallbackIsAlwaysAvailable(t *testing.T) {
-	eng, err := NewEngine("s", ModelBag, 0, nil, nil, DefaultBounds())
+// TestLexicalSearchIsAlwaysAvailable validates the "always-on" contract:
+// the report is always OK when a query is valid, even with an empty corpus.
+func TestLexicalSearchIsAlwaysAvailable(t *testing.T) {
+	eng, err := NewEngine("s", ModelBag, nil, DefaultBounds())
 	if err != nil {
 		t.Fatal(err)
 	}
 	got, err := eng.Search(context.Background(), "query", Options{Scope: "s", Model: ModelBag})
-	if err != nil || !got.OK || got.Route != "lexical_fallback" {
-		t.Fatalf("expected lexical fallback success: %+v err=%v", got, err)
+	if err != nil || !got.OK || got.Route != "lexical" {
+		t.Fatalf("expected lexical success: %+v err=%v", got, err)
 	}
 }
 
@@ -121,7 +115,7 @@ func TestLexicalFallbackIsAlwaysAvailable(t *testing.T) {
 // contract: even a leaked Report cannot reveal the user's query.
 func TestQueryHashNeverLeaksPlaintext(t *testing.T) {
 	docs := map[string]string{"a": "alpha beta", "b": "gamma delta"}
-	eng, err := NewEngine("s", ModelBag, 0, nil, docs, DefaultBounds())
+	eng, err := NewEngine("s", ModelBag, docs, DefaultBounds())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,111 +138,15 @@ func TestQueryHashNeverLeaksPlaintext(t *testing.T) {
 	}
 }
 
-// TestPersistIndexRoundTrip writes an index to a temp dir and reloads it.
-// Atomicity is exercised by saving twice and verifying the new file replaces
-// the old one with no temp leftovers.
-func TestPersistIndexRoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "dense.ann")
-	docs := map[string]string{
-		"alpha.go": "alpha beta gamma delta epsilon",
-		"beta.go":  "alpha beta gamma zeta eta",
-		"gamma.go": "theta iota kappa lambda",
-	}
-	if err := PersistIndex(path, "scope-1", ModelBag, 0, docs, DefaultBounds()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(path); err != nil {
-		t.Fatal(err)
-	}
-	// Re-save to exercise the atomic publish path.
-	if err := PersistIndex(path, "scope-1", ModelBag, 0, docs, DefaultBounds()); err != nil {
-		t.Fatal(err)
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), ".sentra") || strings.Contains(e.Name(), ".tmp") {
-			t.Fatalf("temp leftover: %s", e.Name())
-		}
-	}
-}
-
-// TestSaveIsAtomicWhenInterruptedAtTempStage simulates a writer crash by
-// leaving a stale temp file in place, then re-running PersistIndex and
-// confirming the final file is clean (no double-output).
-func TestSaveIsAtomicWhenInterruptedAtTempStage(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "dense.ann")
-	stale := path + ".stale"
-	if err := os.WriteFile(stale, []byte("garbage"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := PersistIndex(path, "s", ModelBag, 0,
-		map[string]string{"a": "alpha", "b": "beta"}, DefaultBounds()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(stale); err != nil {
-		t.Fatalf("unrelated stale file removed: %v", err)
-	}
-}
-
-// TestLoadIndexIdentityMismatchFailsClosed refuses to load an index built
-// for a different scope or model.
-func TestLoadIndexIdentityMismatchFailsClosed(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "dense.ann")
-	if err := PersistIndex(path, "scope-A", ModelBag, 0,
-		map[string]string{"a": "alpha", "b": "beta"}, DefaultBounds()); err != nil {
-		t.Fatal(err)
-	}
-	eng, err := NewEngine("scope-B", ModelBag, 0, nil, nil, DefaultBounds())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := eng.LoadIndex(path, Options{
-		Scope: "scope-B", Model: ModelBag,
-	}); err == nil {
-		t.Fatal("expected identity mismatch error")
-	}
-}
-
-// TestBagVectorizeIsDeterministic ensures the projection produces stable
-// vectors across calls (required by the deterministic lexical fallback).
-func TestBagVectorizeIsDeterministic(t *testing.T) {
-	docs := map[string]string{
-		"a.go": "alpha beta gamma",
-		"b.go": "beta gamma delta",
-	}
-	v1, dim1 := BagVectorize(docs)
-	v2, dim2 := BagVectorize(docs)
-	if dim1 == 0 || dim1 != dim2 {
-		t.Fatalf("dim drift: %d vs %d", dim1, dim2)
-	}
-	for id, expected := range v1 {
-		got := v2[id]
-		if len(expected) != len(got) {
-			t.Fatalf("%s len drift: %d vs %d", id, len(expected), len(got))
-		}
-		for i := range expected {
-			if expected[i] != got[i] {
-				t.Fatalf("%s vec drift at %d: %v vs %v", id, i, expected, got)
-			}
-		}
-	}
-}
-
-// TestScoreFallbackTieBreakByIDAscending enforces the deterministic tie-break
+// TestScoreTieBreakByIDAscending enforces the deterministic tie-break
 // contract.
-func TestScoreFallbackTieBreakByIDAscending(t *testing.T) {
+func TestScoreTieBreakByIDAscending(t *testing.T) {
 	docs := map[string]string{
 		"z.go": "alpha only",
 		"a.go": "alpha only",
 		"m.go": "alpha only",
 	}
-	eng, err := NewEngine("s", ModelBag, 0, nil, docs, DefaultBounds())
+	eng, err := NewEngine("s", ModelBag, docs, DefaultBounds())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +166,7 @@ func TestScoreFallbackTieBreakByIDAscending(t *testing.T) {
 // Bounds that were active for the call, so an audit can verify what guard
 // rails protected this call.
 func TestReportIncludesBounds(t *testing.T) {
-	eng, err := NewEngine("s", ModelBag, 0, nil, map[string]string{"a": "x"}, DefaultBounds())
+	eng, err := NewEngine("s", ModelBag, map[string]string{"a": "x"}, DefaultBounds())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +183,7 @@ func TestReportIncludesBounds(t *testing.T) {
 // TestContextCancellationIsRespected asserts a cancelled ctx short-circuits
 // the search.
 func TestContextCancellationIsRespected(t *testing.T) {
-	eng, err := NewEngine("s", ModelBag, 0, nil, map[string]string{"a": "alpha"}, DefaultBounds())
+	eng, err := NewEngine("s", ModelBag, map[string]string{"a": "alpha"}, DefaultBounds())
 	if err != nil {
 		t.Fatal(err)
 	}
