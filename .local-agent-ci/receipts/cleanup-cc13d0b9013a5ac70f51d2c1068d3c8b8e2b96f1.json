@@ -1,0 +1,13 @@
+{
+  "schema": "pi-agent:cleanup:v1",
+  "head": "cc13d0b9013a5ac70f51d2c1068d3c8b8e2b96f1",
+  "status": "clean",
+  "cleaned_at": "2026-08-14T17:20:48.038Z",
+  "checks": [
+    {
+      "name": "worktree",
+      "status": "passed",
+      "detail": "clean"
+    }
+  ]
+}
