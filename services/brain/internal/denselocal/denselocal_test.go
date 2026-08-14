@@ -52,6 +52,12 @@ func TestIdentityBindingPresent(t *testing.T) {
 	}
 }
 
+func TestUnsupportedModelRejected(t *testing.T) {
+	if _, err := NewEngine("scope", Model("embedding:v2"), map[string]string{"a": "x"}, DefaultBounds()); !errors.Is(err, ErrModelUnsupported) {
+		t.Fatalf("unknown model: %v", err)
+	}
+}
+
 // TestBoundsEnforcedOnConstruction refuses corpora that exceed MaxCorpus
 // before any search is performed.
 func TestBoundsEnforcedOnConstruction(t *testing.T) {

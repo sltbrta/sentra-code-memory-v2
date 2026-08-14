@@ -33,8 +33,8 @@ printf '%s\n' \
   | ./sentra-code-memory serve
 ```
 
-Local-only hooks lifecycle and dense code retrieval (issue #59) are
-opt-in only; the existing code-operator surface above is unchanged. See
+Local-only hooks lifecycle and lexical bag-of-words code retrieval (issue #59)
+are opt-in only; the existing code-operator surface above is unchanged. See
 [Local Lifecycle Hooks](docs/specs/code-intelligence/LIFECYCLE-HOOKS-LOCAL.md)
 and [Local Dense Retrieval Arm](docs/specs/code-intelligence/DENSE-LOCAL-ARM.md)
 for the bounded contracts:
@@ -103,6 +103,9 @@ go test ./services/brain/cmd/sentra-code-memory \
   ./services/brain/internal/codeindex \
   ./services/brain/internal/codeserve \
   ./services/brain/internal/adapters \
+  ./services/brain/internal/denselocal \
+  ./services/brain/internal/lifecycle \
+  ./services/brain/internal/llmadapter \
   ./services/brain/internal/sessionlog \
   ./services/brain/internal/workflow \
   ./services/brain/internal/memory \
@@ -115,6 +118,9 @@ go vet ./services/brain/cmd/sentra-code-memory \
   ./services/brain/internal/codeindex \
   ./services/brain/internal/codeserve \
   ./services/brain/internal/adapters \
+  ./services/brain/internal/denselocal \
+  ./services/brain/internal/lifecycle \
+  ./services/brain/internal/llmadapter \
   ./services/brain/internal/sessionlog \
   ./services/brain/internal/workflow \
   ./services/brain/internal/memory \

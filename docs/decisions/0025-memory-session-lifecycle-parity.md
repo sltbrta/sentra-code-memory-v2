@@ -39,7 +39,7 @@ opaque unknown-verb error, and are not advertised as callable MCP tools.
 | Lifecycle/install | server/index/login/hook/uninstall | **Defer** | `lifecycle_install` → deferred disclosure |
 | Local hooks lifecycle (issue #59) | confined, atomic, idempotent, rollback-safe local installer | **Expose** | `hooks_local` (opt-in; `repo-hooks` default; `git-common-hooks` requires explicit consent) |
 | Dense/reranked retrieval | dense vectors + rerank | **Defer** | `code_dense_rerank` → deferred disclosure |
-| Local dense code retrieval arm (issue #59) | bag-of-words + HNSW with deterministic lexical fallback | **Expose** | `dense_local_search` (opt-in; never changes existing defaults) |
+| Local dense code retrieval arm (issue #59) | deterministic lexical bag-of-words cosine only | **Expose bounded lexical arm** | `dense_local_search` (opt-in; never changes existing defaults); dense vectors and ANN/HNSW serving remain deferred |
 | Prior query modes | patch plans, test hints, greenfield | **Defer** | `query_advanced` → deferred disclosure |
 | Hosted/cloud/tenancy/billing | hosted roadmap | **Non-goal** | `hosted_tenancy` → non-goal disclosure |
 

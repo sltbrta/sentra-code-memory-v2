@@ -3,6 +3,7 @@ package codeserve
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 
@@ -65,17 +66,22 @@ func handleDenseLocal(ctx context.Context, req Request) Response {
 	if strings.TrimSpace(scope) == "" {
 		scope = root
 	}
-	modelName, _ := req["model"].(string)
-	if modelName == "" {
-		modelName = string(denselocal.ModelBag)
+	model := denselocal.ModelBag
+	if rawModel, exists := req["model"]; exists {
+		modelName, ok := rawModel.(string)
+		if !ok || modelName != string(denselocal.ModelBag) {
+			return codeErrResp(string(VerbDenseLocal), ErrInvalidRequest,
+				"model must be bag-of-words:v1")
+		}
+		model = denselocal.Model(modelName)
 	}
 	bagTexts, err := loadLocalBagTexts(ctx, root, bounds.MaxCorpus)
 	if err != nil {
-		return Response{
-			"ok": false, "verb": string(VerbDenseLocal),
-			"error":      err.Error(),
-			"error_code": string(ErrInternal),
+		code := ErrPathDenied
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			code = ErrInternal
 		}
+		return codeErrResp(string(VerbDenseLocal), code, err.Error())
 	}
 	if len(bagTexts) == 0 {
 		// Empty corpus is explicit, never a silent zero-hit success.
@@ -85,7 +91,7 @@ func handleDenseLocal(ctx context.Context, req Request) Response {
 			"error_code": string(ErrInvalidRequest),
 		}
 	}
-	eng, err := denselocal.NewEngine(scope, denselocal.Model(modelName), bagTexts, bounds)
+	eng, err := denselocal.NewEngine(scope, model, bagTexts, bounds)
 	if err != nil {
 		return Response{
 			"ok": false, "verb": string(VerbDenseLocal),
@@ -94,7 +100,7 @@ func handleDenseLocal(ctx context.Context, req Request) Response {
 		}
 	}
 	report, err := eng.Search(ctx, q, denselocal.Options{
-		Scope: scope, Model: denselocal.Model(modelName),
+		Scope: scope, Model: model,
 		TopK: topK, Bounds: bounds,
 	})
 	if err != nil {
@@ -146,9 +152,8 @@ func denseBoundError() Response {
 
 // loadLocalBagTexts reads up to maxFiles eligible source files under root,
 // each capped by readFileBounded, so corpus loading is bounded in both file
-// count and per-file bytes before any search work begins. An unreadable root
-// reports as an empty corpus (the handler turns that into an explicit
-// error); context cancellation aborts the walk early.
+// count and per-file bytes before any search work begins. Walk and read
+// failures propagate to the handler; context cancellation aborts early.
 func loadLocalBagTexts(ctx context.Context, root string, maxFiles int) (map[string]string, error) {
 	rootAbs, err := filepath.Abs(root)
 	if err != nil {
@@ -156,7 +161,7 @@ func loadLocalBagTexts(ctx context.Context, root string, maxFiles int) (map[stri
 	}
 	files, err := codecrawl.SourceFiles(rootAbs)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	out := make(map[string]string, min(len(files), maxFiles))
 	for i, abs := range files {
@@ -168,13 +173,18 @@ func loadLocalBagTexts(ctx context.Context, root string, maxFiles int) (map[stri
 				return nil, err
 			}
 		}
-		if data, err := readFileBounded(abs, 6<<10); err == nil && len(data) > 0 {
-			rel, err := filepath.Rel(rootAbs, abs)
-			if err != nil {
-				return nil, err
-			}
-			out[filepath.ToSlash(rel)] = string(data)
+		data, err := readFileBounded(abs, 6<<10)
+		if err != nil {
+			return nil, err
 		}
+		if len(data) == 0 {
+			continue
+		}
+		rel, err := filepath.Rel(rootAbs, abs)
+		if err != nil {
+			return nil, err
+		}
+		out[filepath.ToSlash(rel)] = string(data)
 	}
 	return out, nil
 }

@@ -112,10 +112,11 @@ type BoundedBy struct {
 // Errors returned by this package. All are validation failures that fail
 // closed.
 var (
-	ErrEmptyQuery      = errors.New("denselocal: empty query")
-	ErrQueryTooLong    = errors.New("denselocal: query exceeds MaxQueryLen")
-	ErrCorpusExceeded  = errors.New("denselocal: corpus exceeds MaxCorpus")
-	ErrIdentityMissing = errors.New("denselocal: required identity field missing")
+	ErrEmptyQuery       = errors.New("denselocal: empty query")
+	ErrQueryTooLong     = errors.New("denselocal: query exceeds MaxQueryLen")
+	ErrCorpusExceeded   = errors.New("denselocal: corpus exceeds MaxCorpus")
+	ErrIdentityMissing  = errors.New("denselocal: required identity field missing")
+	ErrModelUnsupported = errors.New("denselocal: unsupported model")
 )
 
 // queryHash returns the canonical SHA-256 of a query (hex). It is included
@@ -151,6 +152,9 @@ func NewEngine(scope string, model Model, bagTexts map[string]string, bounds Bou
 	}
 	if scope == "" || model == "" {
 		return nil, ErrIdentityMissing
+	}
+	if model != ModelBag {
+		return nil, fmt.Errorf("%w: %s", ErrModelUnsupported, model)
 	}
 	if len(bagTexts) > bounds.MaxCorpus {
 		return nil, fmt.Errorf("%w: got %d documents, max %d",

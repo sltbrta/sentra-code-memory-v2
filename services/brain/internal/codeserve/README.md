@@ -29,6 +29,17 @@ Issue #47 adds the bounded local typed operators:
   SCM session product.
 - `savings_summary` — reads the local `internal/savings` token-savings ledger.
 
+Additional stable, opt-in local-first verbs are shipped across JSONL, CLI,
+HTTP, and MCP:
+
+- `code_ingest_scip` — bounded ingestion of an explicit user-generated SCIP
+  JSON document into the derived code index.
+- `session_recall` — provenance-first bounded recall over the repo-local
+  session log, with abstention.
+- `hooks_local` — confined, reversible local hook install/status/uninstall/run.
+- `dense_local_search` — lexical bag-of-words cosine only; no dense vectors or
+  ANN/HNSW serving.
+
 Issue #47 also catalogues deferred/non-goal verbs (`lifecycle_install`,
 `session_product`, `code_dense_rerank`, `hosted_tenancy`, `query_advanced`).
 They have no handler: calling one returns a structured disclosure
@@ -107,8 +118,12 @@ is byte-identical to the legacy payload.
   receipt. Direct CLI usage reads the ChangeSet from `--changeset FILE`.
 
 All four verbs are in `CatalogMetadata()`, JSONL, direct CLI, HTTP dispatch, and
-MCP tools/list/tools/call. The local mutation surface assumes a trusted caller;
-HTTP remains unauthenticated and should remain loopback-only.
+MCP tools/list/tools/call. HTTP should remain loopback-only. Mutating
+`hooks_local` actions and `code_apply_changeset` are refused over HTTP/MCP
+unless the operator explicitly opts into trust; direct CLI and operator JSONL
+pipelines are unchanged. See
+[Local Lifecycle Hooks](../../../../docs/specs/code-intelligence/LIFECYCLE-HOOKS-LOCAL.md#trust-boundary-issue-63)
+for the exact header, query parameter, MCP argument, and threat model.
 
 ## Non-goals
 

@@ -100,6 +100,15 @@ Use `catalog` for the complete protocol list. Direct aliases (`index`,
 `search`, `relevant`, `exact`, `defs`, `refs`, `expand`, `impact`, `route`,
 `freshness`, `ingest`, and `memory-ask`) map to those same protocol verbs.
 
+HTTP/MCP mutation requires explicit operator trust. By default those adapters
+refuse `hooks_local` actions `install`, `uninstall`, and `run`, plus every
+`code_apply_changeset` dispatch. Opt in on HTTP with
+`X-Sentra-Operator-Trust: 1` or `?operator_trust=1`, or on MCP with
+`"_operator_trust": true` in `arguments`. Direct CLI and explicit operator
+JSONL pipelines retain their operator-trusted behavior. See the
+[local lifecycle hooks trust-boundary spec](specs/code-intelligence/LIFECYCLE-HOOKS-LOCAL.md#trust-boundary-issue-63)
+for the security model and refusal envelope.
+
 ## Optional offline MLX models
 
 On Apple Silicon, `scripts/mlx-serve.sh` launches the OpenAI-compatible local
