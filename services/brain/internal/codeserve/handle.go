@@ -1130,7 +1130,12 @@ func handleCodeRead(ctx context.Context, req Request) Response {
 	// symlink containment checks work across filesystem boundaries.
 	rootReal, err := filepath.EvalSymlinks(rootAbs)
 	if err != nil {
-		rootReal = rootAbs
+		// Fail closed. Falling back to the unresolved root meant the
+		// containment check below compared a resolved target against an
+		// unresolved root, so a symlinked root could be escaped -- and an
+		// unreadable root silently weakened the check rather than refusing.
+		return codeErrResp(string(VerbCodeRead), ErrPathDenied,
+			"cannot resolve workspace root")
 	}
 	resolved := filepath.Join(rootAbs, filepath.Clean(path))
 	// Resolve symlinks and verify the target stays inside root.
@@ -1140,7 +1145,9 @@ func handleCodeRead(ctx context.Context, req Request) Response {
 			"cannot resolve path: "+err.Error())
 	}
 	rel, err := filepath.Rel(rootReal, real)
-	if err != nil || strings.HasPrefix(rel, "..") {
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		// Separator-aware: a file legitimately named "..config" is not an
+		// escape, and rejecting it produced a misleading refusal.
 		return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
 			"path escapes workspace root")
 	}

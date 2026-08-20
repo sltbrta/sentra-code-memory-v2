@@ -35,6 +35,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/pathguard"
 )
 
 // HookKind is the bounded set of hook names this installer knows about.
@@ -324,16 +326,13 @@ func resolveHooksDir(root string, strategy Strategy, gitCommon string) (string, 
 // symlink race cannot escape. We Resolve path components and require every
 // segment to descend from allowedRoot's resolved path.
 func ensureConfined(target, allowedRoot string) error {
-	realTarget, terr := filepath.EvalSymlinks(filepath.Dir(target))
-	if terr != nil {
-		realTarget = filepath.Dir(target)
-	}
-	realAllowed, aerr := filepath.EvalSymlinks(allowedRoot)
-	if aerr != nil {
-		realAllowed = allowedRoot
-	}
-	rel, err := filepath.Rel(realAllowed, filepath.Join(realTarget, filepath.Base(target)))
-	if err != nil || strings.HasPrefix(rel, "..") || strings.Contains(rel, "..") {
+	// Delegates to the shared guard, which resolves symlinks, tolerates a path
+	// that does not exist yet (hooks are checked before they are written), and
+	// fails closed on any resolution error. The previous inline version fell
+	// back to the unresolved path when EvalSymlinks failed -- weakening the
+	// check exactly when resolution was uncertain -- and used
+	// strings.Contains(rel, "..") which rejected legitimate names.
+	if !pathguard.Within(allowedRoot, target) {
 		return ErrPathNotAllowed
 	}
 	return nil
@@ -1009,12 +1008,18 @@ func Uninstall(opts Options) (Result, error) {
 
 	var notes []string
 	for _, entry := range manifest.Installed {
-		target := entry.Path
+		// The manifest records an absolute path from install time, which stops
+		// being true the moment the repository is moved or renamed. Trusting it
+		// made the first confinement check abort uninstall before a single hook
+		// was removed, leaving the repository permanently un-uninstallable
+		// short of hand-editing the manifest. The live location is derived from
+		// the current hooks directory instead; entry.Path is advisory.
+		target := liveHookPath(hooksDir, entry)
 		if target == "" {
-			notes = append(notes, fmt.Sprintf("%s: skipped (manifest entry has no path)", entry.Kind))
+			notes = append(notes, fmt.Sprintf("%s: skipped (manifest entry has no kind or path)", entry.Kind))
 			continue
 		}
-		if err := ensureConfined(target, filepath.Dir(hooksDir)); err != nil {
+		if err := ensureConfined(target, allowedRootFor(strategy, root, gitCommon)); err != nil {
 			return Result{}, err
 		}
 		live, liveExists, err := readFileIfExists(target)
@@ -1123,7 +1128,10 @@ func Status(opts Options) (Report, error) {
 	ownedByKind := map[HookKind]bool{}
 	for _, e := range manifest.Installed {
 		ownedByKind[e.Kind] = true
-		data, fileExists, ferr := readFileIfExists(e.Path)
+		// Recomputed from the live hooks directory: a moved repository would
+		// otherwise report every installed hook as missing, prompting a
+		// re-install that snapshots our own scripts as the "prior" state.
+		data, fileExists, ferr := readFileIfExists(liveHookPath(hooksDir, e))
 		if ferr != nil {
 			return Report{}, ferr
 		}
@@ -1190,7 +1198,13 @@ func resolveStrategy(root string, opts Options) (Strategy, string, error) {
 func allowedRootFor(strategy Strategy, root, gitCommon string) string {
 	switch strategy {
 	case StrategyRepoHooks:
-		return filepath.Join(root, ".sentra")
+		// The repository root, not root/.sentra. Asking whether
+		// root/.sentra/hooks sits inside root/.sentra is trivially true even
+		// when .sentra is a symlink pointing somewhere else entirely, so the
+		// check only refused that case by accident: an unresolved target
+		// happened to be compared against a resolved root. Confining to the
+		// repository is what the check was for.
+		return root
 	case StrategyGitCommon:
 		return gitCommon
 	default:
@@ -1385,4 +1399,18 @@ var nowFunc = func() time.Time { return time.Now().UTC() }
 
 func nowUTC() string {
 	return nowFunc().Format(time.RFC3339)
+}
+
+// liveHookPath returns where a manifest entry's script lives now.
+//
+// InstalledHook.Path is absolute and recorded at install time, so it is only
+// correct while the repository stays put. The kind is stable, and the hooks
+// directory is resolved fresh on every call, so joining them survives a move or
+// rename. The stored path is used only as a fallback for entries that predate
+// a recorded kind.
+func liveHookPath(hooksDir string, entry InstalledHook) string {
+	if kind := strings.TrimSpace(string(entry.Kind)); kind != "" {
+		return filepath.Join(hooksDir, kind)
+	}
+	return entry.Path
 }
