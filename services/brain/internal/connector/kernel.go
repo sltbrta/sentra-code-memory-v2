@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	contractsv1 "github.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1"
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // Kernel serializes Stage 08 connector lifecycle operations in process memory.
@@ -657,9 +658,7 @@ func sha256Hex(payload []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// truncate cuts on a rune boundary rather than a byte offset.
 func truncate(value string, max int) string {
-	if len(value) <= max {
-		return value
-	}
-	return value[:max]
+	return textbound.Bytes(value, max)
 }

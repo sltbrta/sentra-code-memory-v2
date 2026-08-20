@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // mergePath2StructureDiag folds path2 expand diagnostics into retrieve diags.
@@ -600,9 +602,11 @@ func truncateErr(err error, n int) string {
 	if err == nil {
 		return ""
 	}
+	// Cut on a rune boundary: this string reaches diag["path2_*_error"] and
+	// then encoding/json, which rewrites invalid UTF-8 as U+FFFD.
 	s := err.Error()
-	if n > 0 && len(s) > n {
-		return s[:n]
+	if n > 0 {
+		return textbound.Bytes(s, n)
 	}
 	return s
 }

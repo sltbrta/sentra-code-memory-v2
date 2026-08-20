@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 const (
@@ -195,9 +197,8 @@ func (e *HTTPEmbedder) Embed(ctx context.Context, texts []string, inputType stri
 	return out, nil
 }
 
+// truncate cuts on a rune boundary. The result goes into a provider's JSON
+// request body, where a split rune corrupts the last token of the document.
 func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n]
+	return textbound.Bytes(s, n)
 }
