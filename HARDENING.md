@@ -50,6 +50,41 @@ Schema per entry: date, wave, trigger, why deferred, what would satisfy it.
   record a `savings.Step` per served response, and base the baseline on the gold
   files for a query rather than the tree.
 
+### 2026-08-21 — performance findings not addressed
+
+- **Wave:** W3
+- **Trigger:** the audit found real performance defects that were confirmed by
+  reading but not fixed in this pass: `code_exact` re-reads and re-parses the
+  whole repository per query with no index or cache; there is no in-process
+  index cache, so every verb call gob-decodes the entire index under a file
+  lock; HNSW upsert is a linear id scan making load O(n²) and every batch
+  rewrites the whole file; the reranker sees only the first 1,500 bytes of each
+  document, which on code is the licence header and imports.
+- **Why deferred:** each is a behaviour-preserving optimisation whose risk is a
+  retrieval-quality regression, and the branch already carries a large
+  correctness diff. Mixing them in would make a bisect harder precisely where
+  the quality gate matters.
+- **What would satisfy it:** take them one at a time behind `just bench-code`,
+  with a `benchstat` comparison against the current numbers recorded in the
+  amplification receipt. The reranker window in particular needs a quality run,
+  not just a speed one — chunking around candidate definitions changes what is
+  scored, not only how fast.
+
+### 2026-08-21 — `stAllStampsMatch` ignores the repository ignore policy
+
+- **Wave:** W3
+- **Trigger:** the warm fast path walks with a hardcoded `skipDir` set while
+  every other walk uses `repoignore`, so its file census is a strict superset of
+  the indexed set and the `len(live) != len(prev.fileStamps)` gate fails
+  permanently in any repository with an ignore rule. The README claim was
+  corrected in this branch; the code was not.
+- **Why deferred:** the fix is small but it changes when the full-refresh path
+  runs, which is exactly the kind of change that wants its own benchmark
+  comparison rather than riding along with a security batch.
+- **What would satisfy it:** load `repoignore` in `stAllStampsMatch` so both
+  sides of the comparison use one policy, then confirm the warm path is taken on
+  this repository (which contains `.pytest_cache/`) and record the timing.
+
 ### 2026-08-21 — `TestFrozenExactly100ChangeFixture` is load-sensitive
 
 - **Wave:** W3

@@ -1,0 +1,74 @@
+{
+  "schema": "pi-agent:amplification:v1",
+  "receipt_kind": "amplification",
+  "run_id": "run-harden-audit-166",
+  "wave": "W3",
+  "lane": "release",
+  "base": "9278cdf542d6a2b1934d40e5a970b20266ed120c",
+  "branch": "harden/audit-166",
+  "recorded_at": "2026-08-21T02:55:00Z",
+  "categories": {
+    "concurrency": {
+      "status": "pass",
+      "command": "cd services && go test -count=1 -race ./...",
+      "packages_ok": 82,
+      "data_races": 0,
+      "failures": 0,
+      "note": "The gate was inert before this branch: -race passed from the day it was written because no test ran two operations at once. The hammer tests in memory and hosted are what make this result mean anything. It found its first real defect immediately after they landed -- an unsynchronised counter in a new test's own fixture."
+    },
+    "fuzz": {
+      "status": "pass",
+      "targets": [
+        {
+          "name": "FuzzLoadHandlesArbitraryIgnoreFiles",
+          "package": "services/brain/internal/repoignore",
+          "executions": 53895,
+          "corpus_entries": 185,
+          "surface": "the glob-to-regexp translator, which panicked on a .gitignore line of `[!]` and took the indexer with it",
+          "crashes": 0
+        },
+        {
+          "name": "FuzzBytesAlwaysValid",
+          "package": "services/internal/textbound",
+          "executions": 28955336,
+          "corpus_entries": 47,
+          "surface": "rune-boundary truncation; asserts valid UTF-8, prefix property, and the byte bound",
+          "crashes": 0
+        }
+      ]
+    },
+    "mutation": {
+      "status": "pass-by-targeted-mutant",
+      "note": "No mutation-score tool was run, and this is deliberately not recorded as a score. What was done instead is the targeted form the TDD policy accepts: for each confirmed finding the fix was reverted (or the original defect reinstated) and the test re-run to confirm it goes red for the stated reason. That is a mutant placed exactly where it matters, rather than a percentage over arbitrary ones.",
+      "targeted_reverts_verified": [
+        "product-brain serve decoder loop -> 1.25 GB of output in 5s, test times out",
+        "gardener worker recover removed -> panic escapes RunWave",
+        "memory PPR dangling handling -> total mass 0.745 instead of 1.0",
+        "ontology PPR id tiebreak removed -> run 2 differs at position 2",
+        "codecrawl resolveEdgeTarget map order -> run 2 ranks a different file first",
+        "hosted flush map aliasing restored -> two DATA RACE reports",
+        "meeting truncate byte slice restored -> invalid UTF-8 emitted",
+        "lifecycle RunHook no-op restored -> session log holds 0 events",
+        "codeserve trust gate removed -> hooks_local install succeeds ungated"
+      ]
+    },
+    "performance": {
+      "status": "not-run",
+      "reason": "No performance-affecting optimisation is included in this branch. The retrieval-quality gate (just bench-code) is the relevant regression check and matched its checked-in baseline digest on every batch: 1231205ae7a330b259fd5c172c798d6353bbd03fb557a4acd6f6126598fcc573. The performance findings the audit raised are recorded as open entries in HARDENING.md, each to be taken behind a benchstat comparison rather than folded in here."
+    },
+    "vulnerability": {
+      "status": "pass",
+      "command": "cd services && govulncheck ./...",
+      "before": 11,
+      "after": 0,
+      "note": "Included pgx placeholder-confusion SQL injection reachable from hosted.neonChunkStore.SiblingChunks, and an HTTP/2 infinite loop in x/net reachable from the gateway provider client."
+    },
+    "retrieval_quality": {
+      "status": "pass",
+      "command": "just bench-code",
+      "baseline_digest": "1231205ae7a330b259fd5c172c798d6353bbd03fb557a4acd6f6126598fcc573",
+      "baseline_match": true,
+      "note": "Unchanged across every batch, including the determinism work -- which moved the stability of the answers, not the answers."
+    }
+  }
+}
