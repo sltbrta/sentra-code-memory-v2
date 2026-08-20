@@ -20,6 +20,8 @@ func (s *Store) GetUtility(docID string) float64 {
 	if s == nil {
 		return 1
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if u, ok := s.data.Utility[docID]; ok {
 		return u.Score
 	}
@@ -28,6 +30,8 @@ func (s *Store) GetUtility(docID string) float64 {
 
 // SetUtility sets absolute utility.
 func (s *Store) SetUtility(docID string, score float64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s == nil {
 		return nil
 	}
@@ -38,13 +42,15 @@ func (s *Store) SetUtility(docID string, score float64) error {
 	rec.DocumentID = docID
 	rec.Score = score
 	s.data.Utility[docID] = rec
-	return s.persist()
+	return s.persistLocked()
 }
 
 // DecayUtility applies a fixed multiplicative factor (default 0.95) to all docs.
 // Prefer DecayUtilityHalfLife for Lattice E4 time-based decay.
 // Returns updated scores. This is the write half of the closed loop.
 func (s *Store) DecayUtility(factor float64) map[string]float64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s == nil {
 		return nil
 	}
@@ -65,7 +71,7 @@ func (s *Store) DecayUtility(factor float64) map[string]float64 {
 		s.data.Utility[id] = rec
 		out[id] = rec.Score
 	}
-	_ = s.persist()
+	_ = s.persistLocked()
 	return out
 }
 
@@ -77,6 +83,8 @@ func (s *Store) DecayUtility(factor float64) map[string]float64 {
 // If LastDecay is zero, sets LastDecay=now and skips decay on first call
 // (establishes the decay clock). Returns updated scores.
 func (s *Store) DecayUtilityHalfLife(now time.Time) map[string]float64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s == nil {
 		return nil
 	}
@@ -119,12 +127,14 @@ func (s *Store) DecayUtilityHalfLife(now time.Time) map[string]float64 {
 		s.data.Utility[id] = rec
 		out[id] = rec.Score
 	}
-	_ = s.persist()
+	_ = s.persistLocked()
 	return out
 }
 
 // ReinforceUtility boosts cited documents (retrieval reinforcement C3).
 func (s *Store) ReinforceUtility(docIDs []string, boost float64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s == nil || len(docIDs) == 0 {
 		return
 	}
@@ -149,7 +159,7 @@ func (s *Store) ReinforceUtility(docIDs []string, boost float64) {
 		rec.CiteCount++
 		s.data.Utility[id] = rec
 	}
-	_ = s.persist()
+	_ = s.persistLocked()
 }
 
 // ApplyUtilityToScores multiplies base scores by utility weights (closed-loop ranking).
@@ -188,6 +198,8 @@ func (s *Store) RankDocumentsByUtility(docIDs []string) []string {
 
 // EnsureUtility seeds score 1.0 for docs missing utility.
 func (s *Store) EnsureUtility(docIDs []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s == nil {
 		return
 	}
@@ -202,5 +214,5 @@ func (s *Store) EnsureUtility(docIDs []string) {
 			s.data.Utility[id] = UtilityRecord{DocumentID: id, Score: 1}
 		}
 	}
-	_ = s.persist()
+	_ = s.persistLocked()
 }

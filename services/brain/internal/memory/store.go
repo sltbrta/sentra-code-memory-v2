@@ -158,12 +158,20 @@ func (s *Store) SetDocEdges(edges map[string][]string) error {
 }
 
 // DocEdges returns adjacency for PPR.
+// DocEdges takes the store lock and delegates. The docEdgesLocked form exists
+// because composed maintenance operations call it while already holding
+// the lock, and sync.Mutex is not reentrant -- taking it twice deadlocks.
 func (s *Store) DocEdges() map[string][]string {
 	if s == nil {
 		return nil
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.docEdgesLocked()
+}
+
+// docEdgesLocked assumes the caller holds s.mu.
+func (s *Store) docEdgesLocked() map[string][]string {
 	out := make(map[string][]string, len(s.data.Edges))
 	for k, nbrs := range s.data.Edges {
 		out[k] = append([]string(nil), nbrs...)
@@ -193,12 +201,20 @@ func (s *Store) SetDocTexts(docs map[string]string) error {
 }
 
 // DocTexts returns stored document bodies.
+// DocTexts takes the store lock and delegates. The docTextsLocked form exists
+// because composed maintenance operations call it while already holding
+// the lock, and sync.Mutex is not reentrant -- taking it twice deadlocks.
 func (s *Store) DocTexts() map[string]string {
 	if s == nil {
 		return map[string]string{}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.docTextsLocked()
+}
+
+// docTextsLocked assumes the caller holds s.mu.
+func (s *Store) docTextsLocked() map[string]string {
 	if s.data.DocTexts == nil {
 		return map[string]string{}
 	}

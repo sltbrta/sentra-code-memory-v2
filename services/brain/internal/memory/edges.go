@@ -22,10 +22,20 @@ func parseEdgeKey(k string) (string, string, bool) {
 }
 
 // WeightedEdges returns "a->b" → weight. If EdgeWeights empty, expands DocEdges at 1.0.
+// WeightedEdges takes the store lock and delegates. The weightedEdgesLocked form exists
+// because composed maintenance operations call it while already holding
+// the lock, and sync.Mutex is not reentrant -- taking it twice deadlocks.
 func (s *Store) WeightedEdges() map[string]float64 {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.weightedEdgesLocked()
+}
+
+// weightedEdgesLocked assumes the caller holds s.mu.
+func (s *Store) weightedEdgesLocked() map[string]float64 {
 	if len(s.data.EdgeWeights) > 0 {
 		out := make(map[string]float64, len(s.data.EdgeWeights))
 		for k, v := range s.data.EdgeWeights {
@@ -47,7 +57,17 @@ func (s *Store) WeightedEdges() map[string]float64 {
 }
 
 // SetWeightedEdges replaces weights and rebuilds adjacency DocEdges for PPR.
+// SetWeightedEdges takes the store lock and delegates. The setWeightedEdgesLocked form exists
+// because composed maintenance operations call it while already holding
+// the lock, and sync.Mutex is not reentrant -- taking it twice deadlocks.
 func (s *Store) SetWeightedEdges(weights map[string]float64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.setWeightedEdgesLocked(weights)
+}
+
+// setWeightedEdgesLocked assumes the caller holds s.mu.
+func (s *Store) setWeightedEdgesLocked(weights map[string]float64) error {
 	if s == nil {
 		return nil
 	}
@@ -68,19 +88,29 @@ func (s *Store) SetWeightedEdges(weights map[string]float64) error {
 		adj[a] = appendUnique(adj[a], b)
 	}
 	s.data.Edges = adj
-	return s.persist()
+	return s.persistLocked()
 }
 
 // SeedEdgeWeightsFromAdj ensures EdgeWeights exists from current DocEdges at weight 1.0.
+// SeedEdgeWeightsFromAdj takes the store lock and delegates. The seedEdgeWeightsFromAdjLocked form exists
+// because composed maintenance operations call it while already holding
+// the lock, and sync.Mutex is not reentrant -- taking it twice deadlocks.
 func (s *Store) SeedEdgeWeightsFromAdj() error {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.seedEdgeWeightsFromAdjLocked()
+}
+
+// seedEdgeWeightsFromAdjLocked assumes the caller holds s.mu.
+func (s *Store) seedEdgeWeightsFromAdjLocked() error {
 	if len(s.data.EdgeWeights) > 0 {
 		return nil
 	}
-	w := s.WeightedEdges()
-	return s.SetWeightedEdges(w)
+	w := s.weightedEdgesLocked()
+	return s.setWeightedEdgesLocked(w)
 }
 
 // PruneWeakEdges drops edges with weight < minWeight. Returns number pruned.
@@ -89,10 +119,12 @@ func (s *Store) PruneWeakEdges(minWeight float64) int {
 	if s == nil {
 		return 0
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if minWeight <= 0 {
 		minWeight = 0.1
 	}
-	w := s.WeightedEdges()
+	w := s.weightedEdgesLocked()
 	if len(w) == 0 {
 		return 0
 	}
@@ -108,7 +140,7 @@ func (s *Store) PruneWeakEdges(minWeight float64) int {
 	if pruned == 0 && len(s.data.EdgeWeights) > 0 {
 		return 0
 	}
-	_ = s.SetWeightedEdges(kept)
+	_ = s.setWeightedEdgesLocked(kept)
 	return pruned
 }
 
@@ -119,8 +151,10 @@ func (s *Store) HypothesizeEdges() int {
 	if s == nil {
 		return 0
 	}
-	_ = s.SeedEdgeWeightsFromAdj()
-	w := s.WeightedEdges()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_ = s.seedEdgeWeightsFromAdjLocked()
+	w := s.weightedEdgesLocked()
 	before := len(w)
 	if before == 0 {
 		return 0
@@ -186,7 +220,7 @@ func (s *Store) HypothesizeEdges() int {
 		}
 		next[k] = v
 	}
-	_ = s.SetWeightedEdges(next)
+	_ = s.setWeightedEdgesLocked(next)
 	return len(next) - before
 }
 
@@ -240,6 +274,8 @@ func (s *Store) LinkClaimDocuments(maxEdges int) int {
 	if s == nil {
 		return 0
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if maxEdges <= 0 {
 		maxEdges = DefaultClaimEdgeCap
 	}
@@ -323,8 +359,8 @@ func (s *Store) LinkClaimDocuments(maxEdges int) int {
 		keys = keys[:maxEdges]
 	}
 
-	_ = s.SeedEdgeWeightsFromAdj()
-	w := s.WeightedEdges()
+	_ = s.seedEdgeWeightsFromAdjLocked()
+	w := s.weightedEdgesLocked()
 	if w == nil {
 		w = map[string]float64{}
 	}
@@ -338,7 +374,7 @@ func (s *Store) LinkClaimDocuments(maxEdges int) int {
 			w[k] = wt
 		}
 	}
-	_ = s.SetWeightedEdges(w)
+	_ = s.setWeightedEdgesLocked(w)
 	return len(keys)
 }
 

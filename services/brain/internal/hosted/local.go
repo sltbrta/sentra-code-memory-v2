@@ -207,9 +207,32 @@ func (d *durableStore) flush() error {
 		return err
 	}
 
+	// Snapshot under the lock rather than aliasing the live maps.
+	//
+	// This took inner.mu.RLock, read the two map references, released the lock,
+	// and then ranged over them in writeFullChunksLocked / flushSidecarsLocked.
+	// Those are the *live* maps: the auto-gardener calls flush on a 500ms loop
+	// while ingest writes into them under inner.mu -- a different mutex from
+	// the one flush holds. Go reports concurrent map iteration and map write as
+	// a fatal error, which no recover can catch.
+	//
+	// The copy costs one pass over the corpus per flush; the alternative costs
+	// the process.
 	d.inner.mu.RLock()
-	bag := d.inner.chunks[d.brainID]
-	side := d.inner.sidecars[d.brainID]
+	liveBag := d.inner.chunks[d.brainID]
+	bag := make(map[string]memChunk, len(liveBag))
+	for id, chunk := range liveBag {
+		bag[id] = chunk
+	}
+	liveSide := d.inner.sidecars[d.brainID]
+	side := make(map[string]map[string]string, len(liveSide))
+	for docID, kinds := range liveSide {
+		copied := make(map[string]string, len(kinds))
+		for kind, text := range kinds {
+			copied[kind] = text
+		}
+		side[docID] = copied
+	}
 	d.inner.mu.RUnlock()
 
 	basePath := filepath.Join(d.dir, localChunksName)

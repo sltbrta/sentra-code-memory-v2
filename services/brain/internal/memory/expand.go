@@ -26,6 +26,8 @@ type ExpansionResult struct {
 // claim IDs and/or seed document IDs. Deterministic BFS; caps set Degraded.
 // Optional diag hook — does not alter retrieve unless a caller wires it.
 func (s *Store) ExpandFromSeeds(seedClaimIDs, seedDocIDs []string, caps ExpansionCaps) ExpansionResult {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	res := ExpansionResult{}
 	if s == nil {
 		return res

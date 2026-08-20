@@ -272,6 +272,8 @@ func minInt(a, b int) int {
 
 // StorePageIndex replaces stored pageindex trees (one root per document typically).
 func (s *Store) StorePageIndex(trees []PageNode) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s == nil {
 		return nil
 	}
@@ -301,7 +303,7 @@ func (s *Store) StorePageIndex(trees []PageNode) error {
 		out = append(out, byDoc[id])
 	}
 	s.data.PageIndex = out
-	return s.persist()
+	return s.persistLocked()
 }
 
 // ListPageIndex returns stored TOC roots.
@@ -309,6 +311,8 @@ func (s *Store) ListPageIndex() []PageNode {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return append([]PageNode(nil), s.data.PageIndex...)
 }
 
@@ -318,6 +322,8 @@ func (s *Store) SearchPageIndex(query string, limit int) []PageNode {
 	if s == nil || limit == 0 {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if limit < 0 {
 		limit = 8
 	}

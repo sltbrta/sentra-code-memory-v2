@@ -138,11 +138,13 @@ func uniqueSorted(xs []string) []string {
 
 // StoreRAPTOR persists summary nodes.
 func (s *Store) StoreRAPTOR(nodes []SummaryNode) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s == nil {
 		return nil
 	}
 	s.data.Summaries = nodes
-	return s.persist()
+	return s.persistLocked()
 }
 
 // ListSummaries returns RAPTOR nodes.
@@ -150,5 +152,7 @@ func (s *Store) ListSummaries() []SummaryNode {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return append([]SummaryNode(nil), s.data.Summaries...)
 }

@@ -70,6 +70,8 @@ func GlobalPageRank(edges map[string][]string, iterations int) map[string]float6
 
 // StorePageRank persists global PageRank scores into the cortex projection.
 func (s *Store) StorePageRank(scores map[string]float64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s == nil {
 		return nil
 	}
@@ -84,7 +86,7 @@ func (s *Store) StorePageRank(scores map[string]float64) error {
 		}
 		s.data.PageRank[id] = sc
 	}
-	return s.persist()
+	return s.persistLocked()
 }
 
 // PageRankScores returns a copy of stored global PR scores.
@@ -92,6 +94,8 @@ func (s *Store) PageRankScores() map[string]float64 {
 	if s == nil || s.data.PageRank == nil {
 		return map[string]float64{}
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	out := make(map[string]float64, len(s.data.PageRank))
 	for k, v := range s.data.PageRank {
 		out[k] = v
@@ -107,6 +111,8 @@ func (s *Store) ApplyPageRankPrior(base map[string]float64, weight float64) map[
 	if s == nil || len(base) == 0 {
 		return base
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if weight <= 0 {
 		weight = 0.15
 	}

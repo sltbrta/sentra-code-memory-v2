@@ -210,11 +210,13 @@ func (s *Store) BuildBipartitePhraseEdges(maxPhrases int) map[string][]string {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if maxPhrases <= 0 {
 		maxPhrases = 256
 	}
 	// Start from doc adjacency.
-	base := s.DocEdges()
+	base := s.docEdgesLocked()
 	out := map[string][]string{}
 	for a, nbrs := range base {
 		out[a] = append([]string(nil), nbrs...)
@@ -245,7 +247,7 @@ func (s *Store) BuildBipartitePhraseEdges(maxPhrases int) map[string][]string {
 		}
 	}
 	// Rare tokens from doc texts (appear in ≤4 docs).
-	texts := s.DocTexts()
+	texts := s.docTextsLocked()
 	tokDocs := map[string]map[string]struct{}{}
 	for id, text := range texts {
 		for _, t := range cortexProseTokens(text) {
