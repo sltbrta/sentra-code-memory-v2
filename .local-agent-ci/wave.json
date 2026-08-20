@@ -1,0 +1,10 @@
+{
+  "schema": "pi-agent:wave:v1",
+  "wave": "W3",
+  "name": "harden",
+  "declared_at": "2026-08-21T00:00:00.000Z",
+  "rationale": "Security, performance, observability, dependency audit, and failure modes are the whole of the current work. Per lanes.json, W3 defers nothing and defaults to the release lane.",
+  "default_lane": "release",
+  "tests": "amplification -- property/fuzz, mutation, perf regression, concurrency",
+  "defers": []
+}

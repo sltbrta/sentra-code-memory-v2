@@ -61,6 +61,14 @@ func execute(args []string, in io.Reader, out, errOut io.Writer) int {
 	// through to codeserve so cancellation propagates instead of each verb
 	// starting from context.Background().
 	ctx := context.Background()
+	// A direct CLI subcommand is the operator's own intent: they ran this
+	// binary with these arguments. That is the out-of-band signal the trust
+	// gate wants, so the direct path carries the grant.
+	//
+	// The long-running server loops (serve, http, mcp) deliberately do NOT get
+	// it here. Their requests come from an agent over a pipe or socket, and
+	// each requires its own explicit --operator-trust opt-in.
+	direct := codeserve.WithOperatorTrust(ctx)
 	switch args[0] {
 	case "catalog":
 		return writeJSON(out, codeserve.Handle(ctx, codeserve.Request{"verb": "catalog"}))
@@ -77,7 +85,7 @@ func execute(args []string, in io.Reader, out, errOut io.Writer) int {
 	case "mcp":
 		return runMCP(args[1:], in, out, errOut)
 	case "hooks":
-		return runHooks(ctx, args[1:], out, errOut)
+		return runHooks(direct, args[1:], out, errOut)
 	case "dense-local":
 		return runDenseLocal(ctx, args[1:], out, errOut)
 	default:
@@ -90,14 +98,36 @@ func execute(args []string, in io.Reader, out, errOut io.Writer) int {
 		if code != 0 {
 			return code
 		}
-		return writeJSON(out, codeserve.Handle(ctx, req))
+		return writeJSON(out, codeserve.Handle(direct, req))
 	}
 }
+
+// operatorTrustRequested reports the process-level operator grant for the
+// agent-facing server loops. It is read from the process environment and an
+// explicit flag -- never from a request -- so a caller on the other end of the
+// pipe cannot grant itself the permission the gate exists to withhold.
+func operatorTrustRequested(flagValue bool) bool {
+	if flagValue {
+		return true
+	}
+	return strings.TrimSpace(os.Getenv(operatorTrustEnvVar)) == "1"
+}
+
+// operatorTrustEnvVar is the out-of-band process-level grant for the
+// agent-facing server loops.
+const operatorTrustEnvVar = "SENTRA_CODE_MEMORY_OPERATOR_TRUST"
 
 func serve(args []string, in io.Reader, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	timeout := fs.Duration("timeout", 0, "per-request timeout (0 means caller lifetime)")
+	trust := fs.Bool("operator-trust", false,
+		"grant operator trust to every request on this stream, admitting mutating "+
+			"verbs (code_apply_changeset, hooks install/uninstall/run). Off by "+
+			"default: requests here come from an agent. Env "+operatorTrustEnvVar+"=1.")
+	root := fs.String("root", "",
+		"confine every request to this subtree (default: the working directory). "+
+			"Pass --root=/ to serve the whole filesystem.")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -105,6 +135,20 @@ func serve(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "serve does not accept positional arguments")
 		return 2
 	}
+	streamCtx := context.Background()
+	if operatorTrustRequested(*trust) {
+		streamCtx = codeserve.WithOperatorTrust(streamCtx)
+	}
+	// serve was left unpinned when http and mcp were pinned, which a review
+	// caught: it is the surface with the widest exposure, since the README
+	// tells coding agents to keep one warm and pipe JSONL into it. The README
+	// then claimed all the long-running surfaces confined requests to a
+	// subtree, which was true of two of the three.
+	pin, code := resolveRootPin(*root, errOut)
+	if code != 0 {
+		return code
+	}
+	streamCtx = codeserve.WithRootPin(streamCtx, pin)
 
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 64<<10), maxRequestBytes)
@@ -120,7 +164,7 @@ func serve(args []string, in io.Reader, out, errOut io.Writer) int {
 			fmt.Fprintf(errOut, "line %d: request must be a JSON object\n", line)
 			return 2
 		}
-		ctx := context.Background()
+		ctx := streamCtx
 		cancel := func() {}
 		if *timeout > 0 {
 			ctx, cancel = context.WithTimeout(ctx, *timeout)

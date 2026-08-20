@@ -162,7 +162,7 @@ func (c *Client) UpsertChunks(ctx context.Context, brainID string, chunks []Chun
 // Local residual: use workers as a local burst fleet (in lieu of hosted burst
 // compute). When store is durable FS, flushes once after the fan-out so parallel
 // writers do not each rewrite chunks.jsonl.
-func (c *Client) BurstUpsert(ctx context.Context, brainID string, chunks []ChunkWrite, workers int) (IngestResult, error) {
+func (c *Client) BurstUpsert(ctx context.Context, brainID string, chunks []ChunkWrite, workers int) (result IngestResult, retErr error) {
 	ctx, qualitySpan := c.startIngestQualitySpan(ctx, "burst", len(chunks))
 	var qualityErr error
 	qualityOutput := 0
@@ -195,9 +195,17 @@ func (c *Client) BurstUpsert(ctx context.Context, brainID string, chunks []Chunk
 	}
 
 	// Parallel-safe durable batch: one disk flush after workers.
+	//
+	// endBatch is the ONLY disk write for the whole burst -- per-upsert flushes
+	// are deferred -- so discarding its error meant a fully successful
+	// IngestResult could be returned having written nothing at all.
 	if d, ok := c.store.(*durableStore); ok {
 		d.beginBatch()
-		defer func() { _ = d.endBatch() }()
+		defer func() {
+			if err := d.endBatch(); err != nil && retErr == nil {
+				retErr = fmt.Errorf("hosted: burst flush failed: %w", err)
+			}
+		}()
 	}
 
 	receipts := make([]ChunkReceipt, len(chunks))
@@ -255,7 +263,7 @@ func (c *Client) BurstUpsert(ctx context.Context, brainID string, chunks []Chunk
 		c.InvalidateQueryCache()
 		c.EnsureHotLex()
 	}
-	return IngestResult{
+	result = IngestResult{
 		BrainID:      brainID,
 		Ingested:     n,
 		Upserted:     n,
@@ -263,7 +271,13 @@ func (c *Client) BurstUpsert(ctx context.Context, brainID string, chunks []Chunk
 		ProductOwned: true,
 		Mode:         "burst",
 		Receipts:     receipts,
-	}, nil
+	}
+	// qualityErr used to feed only a deferred telemetry span while this
+	// returned nil, so a caller saw success for an ingest that wrote nothing.
+	// Ingested carries the reduced count, but nothing compares it against
+	// len(chunks) -- the documents simply never entered the corpus, and
+	// retrieval answered "not found" for data the operator watched succeed.
+	return result, qualityErr
 }
 
 func (c *Client) ensureStore(ctx context.Context) error {

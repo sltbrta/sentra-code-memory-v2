@@ -164,5 +164,29 @@ func compile(pattern string, rooted bool) *regexp.Regexp {
 		}
 	}
 	b.WriteString("(?:/.*)?$")
-	return regexp.MustCompile(b.String())
+	// A .gitignore is repository content, so this expression is built partly
+	// from untrusted input: a bracket expression's body is spliced through, and
+	// `[!]` or `[z-a]` is a valid gitignore line but an invalid character class.
+	// MustCompile turned such a repository into a panic on every crawl, watch
+	// and ingest path, none of which recover.
+	//
+	// git treats an unparseable bracket expression as literal text, so fall
+	// back to matching the pattern literally rather than dropping the rule --
+	// dropping it would silently start indexing files the author excluded.
+	if re, err := regexp.Compile(b.String()); err == nil {
+		return re
+	}
+	var literal strings.Builder
+	literal.WriteString("^")
+	if !rooted {
+		literal.WriteString("(?:.*/)?")
+	}
+	literal.WriteString(regexp.QuoteMeta(pattern))
+	literal.WriteString("(?:/.*)?$")
+	if re, err := regexp.Compile(literal.String()); err == nil {
+		return re
+	}
+	// Unreachable in practice: QuoteMeta output always compiles. Returning a
+	// never-matching expression keeps the contract (never nil) if it ever is.
+	return regexp.MustCompile(`$never^`)
 }

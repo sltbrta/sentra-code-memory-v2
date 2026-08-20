@@ -1,63 +1,68 @@
 {
   "schema": "pi-agent:workflow-manifest:v1",
-  "run_id": "run-remaining-six-final-land",
-  "head": "cc13d0b9013a5ac70f51d2c1068d3c8b8e2b96f1",
-  "implementer_session": "01a00039-dc60-7581-a1fd-05f6ce69ef11",
-  "workflow": "remaining-six-final-land",
-  "scope": "Finalize and clean up the completed six-area local-first release at current HEAD: SCIP/session recall, optional official Gemini SDK seam with deterministic fallback, reversible local hooks with operator-trust gating, bounded lexical dense arm, authority/docs hygiene, and expanded benchmark evidence.",
+  "run_id": "run-harden-audit-166",
+  "head": "9278cdf542d6a2b1934d40e5a970b20266ed120c",
+  "implementer_session": "5618a7c3-fd04-4035-a246-7a9f9601a6ff",
+  "workflow": "harden-audit-166",
+  "wave": "W3",
+  "lane": "release",
+  "scope": "Convert the 166 candidate findings from the 2026-08-21 multi-agent audit into executable checks, fix every finding a check confirms, and falsify the rest with evidence. Establish the CI gate the repository has never had.",
+  "claim": "Given the reproductions recorded in docs/findings/hardening-2026-08.md, the system currently produces the wrong output (RCE via verification_commands, process-killing panics, silent durable data loss, unlocked shared state); after this change each reproduction yields a structured refusal or correct result, proven by a test that fails at base 9278cdf and passes at HEAD.",
   "non_goals": [
-    "Hosted tenancy, billing, cloud sync, remote overlays, public distribution, enterprise isolation",
-    "Full SCM session product",
-    "Direct model-driven filesystem writes without operator trust",
-    "Compiler-grade claims beyond explicit SCIP evidence"
+    "Hosted tenancy, billing, cloud sync, public distribution",
+    "Rewriting retrieval quality or ranking semantics beyond determinism fixes",
+    "Bazel workspace adoption",
+    "Any behavior change not traceable to a numbered finding in the ledger"
   ],
   "affected_files": [
-    ".local-agent-ci/workflow-manifest.json",
-    "services/brain/**",
+    ".github/workflows/**",
+    "services/**",
+    "packages/contracts/generated-manifest.json",
+    "workers/code-index/**",
+    "scripts/**",
     "docs/**",
+    "justfile",
     "README.md",
-    "services/go.mod",
-    "services/go.sum"
+    "HARDENING.md",
+    "DECISIONS.md"
   ],
   "acceptance_commands": [
     "just check-all",
+    "just check-race",
     "just bench-code",
     "go vet ./services/... ./packages/contracts/...",
+    "cd packages/contracts && ruby tools/generated-manifest.rb check",
+    "cd services && govulncheck ./...",
     "git diff --check"
   ],
   "risks": [
-    "Public contract changes and optional SDK dependency",
-    "Hook persistence and trust boundary",
-    "SCIP authority correctness",
-    "Repository cleanup of child worktrees"
+    "Dependency and toolchain bumps (hard risk per policies/risk.json)",
+    "Trust-boundary relocation into codeserve.Handle changes refusal behavior on all three surfaces",
+    "context.Context threading changes exported codecrawl signatures",
+    "Deleting dormant subsystems is irreversible in spirit; each is gated on a DECISIONS.md entry"
   ],
-  "issue_ids": [
-    "54",
-    "55",
-    "57",
-    "59",
-    "60"
-  ],
-  "created_at": "2026-08-14T14:43:14.356Z",
+  "issue_ids": [],
+  "created_at": "2026-08-21T00:00:00.000Z",
   "tier": "T2",
-  "stage": "land",
+  "stage": "implement",
   "phases": [
-    {
-      "id": "review",
-      "title": "Final review"
-    },
-    {
-      "id": "preflight",
-      "title": "Final preflight"
-    },
-    {
-      "id": "fresh",
-      "title": "Fresh-eyes approval"
-    },
-    {
-      "id": "land",
-      "title": "Land and cleanup"
-    }
+    { "id": "harness", "title": "B0 CI, ledgers, deps, shared test support" },
+    { "id": "triage", "title": "B1 Red-proof all 166 candidates" },
+    { "id": "trust", "title": "B2 Trust boundary and RCE" },
+    { "id": "crashes", "title": "B3 Panics and input bounds" },
+    { "id": "durable", "title": "B4 Durable writes" },
+    { "id": "concurrency", "title": "B5 Shared-state locking" },
+    { "id": "determinism", "title": "B6 Map-order and convergence" },
+    { "id": "context", "title": "B7 Context, timeouts, resource bounds" },
+    { "id": "paths", "title": "B8 Path containment and authorization" },
+    { "id": "text", "title": "B9 UTF-8 safety" },
+    { "id": "perf", "title": "B10 Performance" },
+    { "id": "real", "title": "B11 Real implementations" },
+    { "id": "disposition", "title": "B12 Per-package wire-or-delete" },
+    { "id": "docs", "title": "B13 Documentation drift" },
+    { "id": "review", "title": "Fresh-eyes review" },
+    { "id": "preflight", "title": "Final preflight" },
+    { "id": "land", "title": "Land and cleanup" }
   ],
   "required_receipts": [
     "preflight",

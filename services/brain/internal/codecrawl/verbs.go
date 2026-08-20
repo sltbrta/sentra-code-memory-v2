@@ -838,6 +838,17 @@ func (idx *Index) IngestPaths(root string, rels []string) (changed int, err erro
 		if info.IsDir() || ignores.Ignored(rel, false) {
 			continue
 		}
+		// os.Stat resolves a symlink before indexableFile sees it, so the
+		// symlink half of that check does nothing here. Lstat the entry
+		// directly: this is the path a review showed disagreeing with CrawlDir,
+		// where ingesting a symlinked file added it and the next full crawl
+		// silently removed it again.
+		if lst, lerr := os.Lstat(abs); lerr != nil || !indexableFile(lst) {
+			continue
+		}
+		if !indexableFile(info) {
+			continue
+		}
 		if _, ok := extOK[strings.ToLower(filepath.Ext(abs))]; !ok {
 			continue
 		}

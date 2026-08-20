@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,10 @@ import (
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/sessionlog"
 )
 
+// panicVerbHook is a test-only injection point for the panic boundary. It is
+// nil outside tests and is never assigned by production code.
+var panicVerbHook func()
+
 // Request is one JSON-line protocol request.
 type Request map[string]any
 
@@ -30,14 +35,65 @@ type Request map[string]any
 type Response map[string]any
 
 // Handle dispatches one multi-verb request. Never panics; always returns a map.
-func Handle(ctx context.Context, req Request) Response {
+//
+// "Never panics" is now enforced rather than asserted. The recover below is the
+// process boundary for two surfaces that have none of their own: the JSONL
+// serve loop and the MCP stdio loop both call Handle directly, so an
+// unrecovered panic in any of ~25 handlers discards every pipelined request
+// and kills the process. net/http recovers per connection, so the HTTP surface
+// degraded more gracefully than the two the product actually documents.
+func Handle(ctx context.Context, req Request) (resp Response) {
 	if req == nil {
 		return errResp("", "nil request")
 	}
 	verb, _ := req["verb"].(string)
 	verb = strings.TrimSpace(verb)
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			return
+		}
+		// The detail goes to stderr, where the operator running the process can
+		// see it. The response carries a stable code and no internals: on a
+		// model-facing surface the response is the one channel back to the
+		// caller, and a stack trace describes the host.
+		fmt.Fprintf(os.Stderr, "sentra-code-memory: panic handling verb %q: %v\n%s\n",
+			verb, recovered, debug.Stack())
+		resp = Response{
+			"ok": false, "verb": verb,
+			"error":         "internal error handling the request",
+			"error_code":    string(ErrInternal),
+			"product_owned": true,
+		}
+	}()
+	// The operator-trust gate lives here, at the single dispatch point, rather
+	// than in each adapter. It previously lived only in the HTTP and MCP
+	// adapters, so the JSONL `serve` loop -- which calls Handle directly, and is
+	// the surface the README tells coding agents to keep warm -- applied no gate
+	// at all: code_apply_changeset reached an external command and hooks_local
+	// installed executables into the caller's repository.
+	//
+	// Trust is read from the context, never from req: a permission the caller
+	// can write into its own request is not a boundary.
+	if action := str(req, "action"); IsOperatorTrustAction(verb, action) && !HasOperatorTrust(ctx) {
+		return OperatorTrustError(verb, action, "dispatch")
+	}
+	// Root pin: a surface may declare which subtree it serves. Enforced here
+	// for the same reason as the trust gate -- every rooted verb confined its
+	// work inside the root it was handed, but nothing constrained which root a
+	// model-authored request could name, so `{"root":"/"}` read the host.
+	if !requestWithinPin(ctx, req) {
+		return rootPinError(verb)
+	}
 	switch Verb(verb) {
 	case VerbPing:
+		// Test-only seam. Nil in every build; the panic-boundary test installs
+		// a handler here because a recover cannot be tested without inducing a
+		// panic, and the first attempt at that test asserted only that hostile
+		// input still returned a map -- which it does with no recover at all.
+		if panicVerbHook != nil {
+			panicVerbHook()
+		}
 		return okResp(verb, map[string]any{"product_owned": true})
 	case VerbCatalog, "":
 		if verb == "" {
@@ -148,6 +204,53 @@ func idxErrResp(verb string, err error) Response {
 func str(req Request, key string) string {
 	v, _ := req[key].(string)
 	return strings.TrimSpace(v)
+}
+
+// MaxTopK bounds any caller-supplied result count. It exists because `top_k`
+// reached make() unclamped on four verbs, so {"top_k":1e15} was a one-line
+// process kill (`makeslice: cap out of range`) and even an in-range 1e8 was a
+// multi-gigabyte allocation. The value is far above any useful page size.
+const MaxTopK = 1000
+
+// MaxWatchTimeoutMS bounds code_watch. The handler previously clamped an
+// out-of-range value *up* to a 24-hour maximum, so one request could hold the
+// single-threaded serve loop for a day.
+const MaxWatchTimeoutMS = 5 * 60 * 1000
+
+// boundedIntField reads an integer field and reports whether it is within
+// [min,max]. Out-of-range is a caller error worth naming, not something to
+// silently clamp: a caller asking for a million results has misunderstood the
+// contract, and quietly returning twenty teaches them nothing.
+//
+// The float64 case checks the range before converting, because converting an
+// out-of-range float to int is implementation-defined in Go and produced the
+// negative capacity that crashed the process.
+func boundedIntField(req Request, key string, def, min, max int) (int, bool) {
+	raw, present := req[key]
+	if !present {
+		return def, true
+	}
+	var value int
+	switch v := raw.(type) {
+	case float64:
+		if math.IsNaN(v) || math.IsInf(v, 0) || v < float64(min) || v > float64(max) {
+			return 0, false
+		}
+		value = int(v)
+	case int:
+		value = v
+	case int64:
+		if v < int64(min) || v > int64(max) {
+			return 0, false
+		}
+		value = int(v)
+	default:
+		return def, true
+	}
+	if value < min || value > max {
+		return 0, false
+	}
+	return value, true
 }
 
 func intField(req Request, key string, def int) int {
@@ -290,7 +393,10 @@ func handleCodeSearch(req Request) Response {
 	if err != nil {
 		return idxErrResp(string(VerbCodeSearch), err)
 	}
-	topK := intField(req, "top_k", 8)
+	topK, topKOK := boundedIntField(req, "top_k", 8, 0, MaxTopK)
+	if !topKOK {
+		return errResp(string(VerbCodeSearch), fmt.Sprintf("top_k must be between 0 and %d", MaxTopK))
+	}
 	if topK <= 0 {
 		topK = 8
 	}
@@ -641,7 +747,10 @@ func handleCodeExact(ctx context.Context, req Request, verb Verb) Response {
 	if verb == VerbCodeRefs {
 		kind = "reference"
 	}
-	topK := intField(req, "top_k", 20)
+	topK, ok := boundedIntField(req, "top_k", 20, 0, MaxTopK)
+	if !ok {
+		return errResp(string(verb), fmt.Sprintf("top_k must be between 0 and %d", MaxTopK))
+	}
 	t0 := time.Now()
 	res := productsearch.Search(ctx, productsearch.Request{
 		Profile: productsearch.ProfileCodeExact, CodeRoot: root, Question: q,
@@ -665,7 +774,10 @@ func handleMemoryAsk(ctx context.Context, req Request) Response {
 	}
 	defer func() { _ = c.Close() }()
 	sid := str(req, "session")
-	topK := intField(req, "top_k", 6)
+	topK, ok := boundedIntField(req, "top_k", 6, 0, MaxTopK)
+	if !ok {
+		return errResp(string(VerbMemoryAsk), fmt.Sprintf("top_k must be between 0 and %d", MaxTopK))
+	}
 	ans := c.AnswerOpts(ctx, hosted.AnswerOptions{Question: q, TopK: topK, SessionID: sid})
 	return okResp(string(VerbMemoryAsk), map[string]any{"answer": ans})
 }
@@ -1029,7 +1141,12 @@ func handleCodeRead(ctx context.Context, req Request) Response {
 	// symlink containment checks work across filesystem boundaries.
 	rootReal, err := filepath.EvalSymlinks(rootAbs)
 	if err != nil {
-		rootReal = rootAbs
+		// Fail closed. Falling back to the unresolved root meant the
+		// containment check below compared a resolved target against an
+		// unresolved root, so a symlinked root could be escaped -- and an
+		// unreadable root silently weakened the check rather than refusing.
+		return codeErrResp(string(VerbCodeRead), ErrPathDenied,
+			"cannot resolve workspace root")
 	}
 	resolved := filepath.Join(rootAbs, filepath.Clean(path))
 	// Resolve symlinks and verify the target stays inside root.
@@ -1039,7 +1156,9 @@ func handleCodeRead(ctx context.Context, req Request) Response {
 			"cannot resolve path: "+err.Error())
 	}
 	rel, err := filepath.Rel(rootReal, real)
-	if err != nil || strings.HasPrefix(rel, "..") {
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		// Separator-aware: a file legitimately named "..config" is not an
+		// escape, and rejecting it produced a misleading refusal.
 		return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
 			"path escapes workspace root")
 	}
@@ -1215,7 +1334,10 @@ func handleCodeImports(ctx context.Context, req Request) Response {
 	if root == "" || q == "" {
 		return errResp(string(VerbCodeImports), "root and q required")
 	}
-	topK := intField(req, "top_k", 20)
+	topK, ok := boundedIntField(req, "top_k", 20, 0, MaxTopK)
+	if !ok {
+		return errResp(string(VerbCodeImports), fmt.Sprintf("top_k must be between 0 and %d", MaxTopK))
+	}
 	t0 := time.Now()
 	res := productsearch.Search(ctx, productsearch.Request{
 		Profile: productsearch.ProfileCodeExact, CodeRoot: root, Question: q,
@@ -1283,12 +1405,17 @@ func handleCodeWatch(ctx context.Context, req Request) Response {
 	}
 	fsnotify := boolField(req, "fsnotify", false)
 	timeout := defaultWatchTimeout
-	if timeoutMS := intField(req, "timeout_ms", 0); timeoutMS > 0 {
-		if timeoutMS > int(maxWatchDuration/time.Millisecond) {
-			timeout = maxWatchDuration
-		} else {
-			timeout = time.Duration(timeoutMS) * time.Millisecond
-		}
+	// Refused rather than clamped up. The previous code raised an absurd
+	// timeout_ms to the 24-hour maximum, so a single request could hold the
+	// single-threaded serve loop for a day -- silently, because the caller was
+	// told nothing about the value it actually got.
+	timeoutMS, timeoutOK := boundedIntField(req, "timeout_ms", 0, 0, MaxWatchTimeoutMS)
+	if !timeoutOK {
+		return errResp(string(VerbCodeWatch),
+			fmt.Sprintf("timeout_ms must be between 0 and %d", MaxWatchTimeoutMS))
+	}
+	if timeoutMS > 0 {
+		timeout = time.Duration(timeoutMS) * time.Millisecond
 	}
 
 	var events []WatchEvent

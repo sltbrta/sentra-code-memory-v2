@@ -48,6 +48,14 @@ type CortexOpts struct {
 
 // RunCortexMaintenanceOpts is the full heavy cortex wave.
 func (s *Store) RunCortexMaintenanceOpts(docs map[string]string, opts CortexOpts) CortexMaintenanceResult {
+	// One wave at a time. Every step below is a read-modify-write across
+	// several individually-locked calls; without this, a concurrent wave
+	// interleaves between a read and its write and the loser's work is
+	// discarded wholesale.
+	if s != nil {
+		s.maintenanceMu.Lock()
+		defer s.maintenanceMu.Unlock()
+	}
 	res := CortexMaintenanceResult{}
 	if s == nil {
 		return res
@@ -210,11 +218,13 @@ func (s *Store) BuildBipartitePhraseEdges(maxPhrases int) map[string][]string {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if maxPhrases <= 0 {
 		maxPhrases = 256
 	}
 	// Start from doc adjacency.
-	base := s.DocEdges()
+	base := s.docEdgesLocked()
 	out := map[string][]string{}
 	for a, nbrs := range base {
 		out[a] = append([]string(nil), nbrs...)
@@ -245,7 +255,7 @@ func (s *Store) BuildBipartitePhraseEdges(maxPhrases int) map[string][]string {
 		}
 	}
 	// Rare tokens from doc texts (appear in ≤4 docs).
-	texts := s.DocTexts()
+	texts := s.docTextsLocked()
 	tokDocs := map[string]map[string]struct{}{}
 	for id, text := range texts {
 		for _, t := range cortexProseTokens(text) {
@@ -282,7 +292,7 @@ func (s *Store) BuildBipartitePhraseEdges(maxPhrases int) map[string][]string {
 		ranked = ranked[:maxPhrases]
 	}
 	for _, r := range ranked {
-		pid := "phrase:" + r.p
+		pid := PhraseNodeID(r.p)
 		for d := range phraseDocs[r.p] {
 			out[pid] = appendUnique(out[pid], d)
 			out[d] = appendUnique(out[d], pid)
@@ -411,4 +421,24 @@ func BuildCommunitySummaries(docs map[string]string, edges map[string][]string, 
 		})
 	}
 	return nodes
+}
+
+// PhraseNodeID builds the graph node id for a phrase.
+//
+// Two producers built these ids independently and disagreed:
+// SeedPhrasePassageEdgesFromClaims replaced spaces with underscores and cut at
+// 48 bytes, while BuildBipartitePhraseEdges used the raw phrase. The same
+// phrase therefore became two disconnected nodes, so seeded edges contributed
+// nothing to the graph the query path actually builds -- the comment claiming
+// the prefixes matched was simply wrong.
+//
+// Truncation is by rune, not byte: cutting mid-rune produced invalid UTF-8 ids
+// and could collide distinct long phrases.
+func PhraseNodeID(phrase string) string {
+	normalized := strings.ReplaceAll(strings.TrimSpace(phrase), " ", "_")
+	const maxPhraseRunes = 40
+	if runes := []rune(normalized); len(runes) > maxPhraseRunes {
+		normalized = string(runes[:maxPhraseRunes])
+	}
+	return "phrase:" + normalized
 }

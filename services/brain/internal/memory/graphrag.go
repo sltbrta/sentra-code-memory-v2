@@ -135,11 +135,10 @@ func (s *Store) SeedPhrasePassageEdgesFromClaims() int {
 			if len(ph) < 3 {
 				continue
 			}
-			// Same prefix as BuildBipartitePhraseEdges so PhraseSeedScores/PPR match.
-			node := "phrase:" + strings.ReplaceAll(ph, " ", "_")
-			if len(node) > 48 {
-				node = node[:48]
-			}
+			// Shared builder, so this producer and BuildBipartitePhraseEdges
+			// agree on the id. They did not before, and the same phrase became
+			// two disconnected nodes.
+			node := PhraseNodeID(ph)
 			for _, doc := range c.DocumentIDs {
 				if doc == "" {
 					continue

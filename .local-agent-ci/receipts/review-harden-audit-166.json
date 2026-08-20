@@ -1,0 +1,65 @@
+{
+  "schema": "pi-agent:review:v1",
+  "receipt_kind": "review",
+  "run_id": "run-harden-audit-166",
+  "wave": "W3",
+  "lane": "release",
+  "fixed_point": "9278cdf542d6a2b1934d40e5a970b20266ed120c",
+  "branch": "harden/audit-166",
+  "recorded_at": "2026-08-21T03:24:00Z",
+  "sample": {
+    "kind": "one-wide-cold-fresh-eyes",
+    "contexts": 3,
+    "reviewer_distinct_from_implementer": true,
+    "note": "Three read-only reviewer contexts, none of which wrote the branch, given the same pinned diff and claim with isolated axes: security and trust boundaries; correctness, concurrency and durability; and whether the new tests actually catch the bugs they claim to. One wide sample, not one per axis per retry."
+  },
+  "axes": {
+    "security": {
+      "findings": 11,
+      "blockers": 3,
+      "should_fix": 4,
+      "follow_up": 4,
+      "resolved_blockers": [
+        "root pin inspected only the `root` field: `index_cache`, `dir` and `scip` walked past it, and a request naming no root at all skipped the pin entirely -- reviewer returned verbatim source from outside the pin",
+        "`serve` had no pin at all, and the README I had written claimed all three long-running surfaces confined requests",
+        "request-supplied `dir` wrote durable state outside the pin through memory_* and session_continuation"
+      ]
+    },
+    "correctness": {
+      "findings": 11,
+      "blockers": 2,
+      "should_fix": 4,
+      "follow_up": 5,
+      "resolved_blockers": [
+        "`PageRankScores` read `s.data` above its own lock -- a data race introduced by the commit that was removing data races, race-detector confirmed",
+        "`RunCortexMaintenanceOpts` is a read-modify-write across individually-locked calls; two concurrent waves left 3 of 40 summaries. Locking the parts and leaving the composition torn."
+      ],
+      "confirmed_correct": [
+        "no remaining re-entrant lock path (independent go/ast analyzer, 48 locking methods, 0 chains)",
+        "PPR dangling-mass rewrite is mathematically correct across 11 graph shapes",
+        "`recover()` restores the named return on every path and strands no lock",
+        "`boundedIntField` float handling is correct for NaN, Inf and near-MaxInt64",
+        "`durablefile` temp+rename cannot cross filesystems"
+      ]
+    },
+    "test_oracles": {
+      "findings": 33,
+      "blockers": 4,
+      "should_fix": 16,
+      "follow_up": 13,
+      "note": "The most consequential axis. Two recorded red proofs did not happen: R-003's test never called flush and reimplemented the fixed logic inline, and C-002's test never induced a panic. Both passed with their fix entirely removed. Both rewritten and genuinely red-proved. The reviewer also showed the wiring layer was untested by reintroducing the RCE one level above the gate with every package staying green; that is now covered and red-proved.",
+      "relabelled": "Sixteen rows whose fix could be reverted with the suite green are relabelled FIXED-UNPROVEN, with the missing test named in HARDENING.md."
+    }
+  },
+  "outcome": "approved-with-recorded-follow-ups",
+  "blockers_resolved": 9,
+  "blockers_outstanding": 0,
+  "follow_ups_recorded_in": ["HARDENING.md", "DECISIONS.md", "docs/findings/2026-08-21-audit-166-triage.md"],
+  "verification_after_fixes": {
+    "just check": "pass",
+    "just check-race": "pass, 0 data races",
+    "just bench-code": "pass, baseline digest 1231205ae7a330b259fd5c172c798d6353bbd03fb557a4acd6f6126598fcc573 unchanged",
+    "govulncheck": "0 reachable"
+  },
+  "honest_note": "Every blocker on this branch that was introduced rather than inherited -- the pin gaps, the unpinned serve surface, the PageRankScores race, the torn maintenance composition, and both fabricated red proofs -- was found by a reviewer, not by the implementer or the suite. That is the argument for the sample, and it is why self-approval is not review."
+}

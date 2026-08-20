@@ -29,11 +29,17 @@ const (
 // MCP-level operator opt-in field name. When a verb carries
 // VerbSpec.RequiresOperatorTrust (issue #63), its mutating actions
 // (hooks install/uninstall/run, changeset apply) are refused at
-// tools/call dispatch unless the
-// JSON arguments carry "_operator_trust": true. codeserve will neither
-// recognize nor forward this field because codeserve.Handle only reads
-// the verb-defined keys; the adapter owns the gating decision so the
-// surface stays self-documenting for an MCP client.
+// tools/call dispatch.
+//
+// The opt-in is deliberately NOT readable from the tool arguments. On this
+// surface the arguments are authored by a model, so a flag the model can set
+// is not a trust boundary -- it is a formality that a prompt injection clears
+// on its own. Trust arrives on the context instead, granted by the operator at
+// process start (`sentra-code-memory mcp --operator-trust`, or
+// SENTRA_CODE_MEMORY_OPERATOR_TRUST=1), and is enforced in codeserve.Handle.
+//
+// The constant is retained only so the field can be explicitly stripped from
+// forwarded arguments and rejected if a client sends it.
 const operatorTrustOptInArgKey = "_operator_trust"
 
 // rpcRequest is a JSON-RPC 2.0 request/notification.
@@ -121,12 +127,10 @@ func MCPTools() []MCPTool {
 		for _, f := range s.Optional {
 			props[f] = mcpFieldSchema(f)
 		}
-		if s.RequiresOperatorTrust {
-			props[operatorTrustOptInArgKey] = map[string]any{
-				"type":        "boolean",
-				"description": "explicit operator opt-in (issue #63) required to dispatch this verb's mutating actions; read-only actions are always admitted.",
-			}
-		}
+		// Deliberately not advertising an opt-in field: this verb's mutating
+		// actions require an operator grant made at process start, which no
+		// tool argument can supply. Advertising a flag the model can set would
+		// document a bypass rather than a gate.
 		schema := map[string]any{
 			"type":                 "object",
 			"properties":           props,
@@ -140,7 +144,13 @@ func MCPTools() []MCPTool {
 			desc = desc + " (aliases: " + strings.Join(s.Aliases, ", ") + ")"
 		}
 		if s.RequiresOperatorTrust {
-			desc = desc + " Mutating actions of this verb over MCP require the explicit _operator_trust=true opt-in; read-only actions are always admitted. Use the direct CLI for one-off operations."
+			// Names the gate without naming a lever. Advertising the old
+			// `_operator_trust` argument told a compliant client to send a
+			// field that is now refused at the transport level, which is the
+			// opposite of the contract's promise that a caller who believes it
+			// granted a permission is told otherwise in the normal envelope.
+			desc = desc + " (mutating actions require an operator grant made at " +
+				"process start; no tool argument can supply it)"
 		}
 		tools = append(tools, MCPTool{
 			Name: s.Name, Description: desc, InputSchema: schema,
@@ -185,8 +195,40 @@ func mcpFieldSchema(field string) map[string]any {
 func ServeMCP(ctx context.Context, in io.Reader, out, errOut io.Writer) error {
 	reader := bufio.NewReader(in)
 	enc := json.NewEncoder(out)
+
+	// Reads run on their own goroutine so cancellation is observable while the
+	// loop is blocked on stdin.
+	//
+	// This used to call readMCPLine inline and only check ctx *after* a full
+	// line had been handled, so an idle server never noticed. signal.NotifyContext
+	// also disables Go's default die-on-SIGINT, so the process could not be
+	// stopped by Ctrl-C or SIGTERM at all -- verified during the audit, where
+	// only SIGKILL ended it. An MCP host that stops a server with SIGTERM was
+	// leaving an orphan holding stdin and stdout.
+	type readResult struct {
+		line    []byte
+		tooLong bool
+		err     error
+	}
+	lines := make(chan readResult, 1)
+	go func() {
+		for {
+			line, tooLong, err := readMCPLine(reader)
+			lines <- readResult{line: line, tooLong: tooLong, err: err}
+			if err != nil {
+				return
+			}
+		}
+	}()
+
 	for {
-		line, tooLong, readErr := readMCPLine(reader)
+		var next readResult
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case next = <-lines:
+		}
+		line, tooLong, readErr := next.line, next.tooLong, next.err
 		if tooLong {
 			responses := []*rpcResponse{{JSONRPC: jsonRPCVersion, Error: &rpcError{
 				Code: codeParseError, Message: "parse error: request line exceeds maximum size",
@@ -336,12 +378,13 @@ type toolsCallParams struct {
 // returned as successful MCP results with isError:true so the agent sees the
 // structured error_code rather than a transport-level JSON-RPC failure.
 //
-// Operator-trust gate (issue #63): mutating actions on verbs whose catalog
-// spec carries RequiresOperatorTrust (hooks_local install /
-// uninstall / run, code_apply_changeset) are refused unless the JSON arguments explicitly
-// include "_operator_trust": true. The check runs before codeserve
-// dispatch and the gate's structured codeserve envelope is forwarded
-// verbatim so an MCP client sees the same error_code as HTTP.
+// Operator-trust gate (issue #63): mutating actions on verbs whose catalog spec
+// carries RequiresOperatorTrust (hooks_local install / uninstall / run,
+// code_apply_changeset) are refused unless the *context* carries the grant,
+// which only a process-start flag or environment variable can set. Arguments
+// claiming the grant are refused outright rather than ignored. The gate's
+// structured codeserve envelope is forwarded verbatim so an MCP client sees the
+// same error_code as HTTP.
 func dispatchMCPToolCall(ctx context.Context, params json.RawMessage) (any, *rpcError) {
 	var p toolsCallParams
 	if len(params) > 0 {
@@ -357,8 +400,19 @@ func dispatchMCPToolCall(ctx context.Context, params json.RawMessage) (any, *rpc
 	if v, ok := p.Arguments["verb"].(string); ok && strings.TrimSpace(v) != "" {
 		verb = strings.TrimSpace(v)
 	}
+	if mcpArgumentsClaimOperatorTrust(p.Arguments) {
+		// Refuse loudly rather than ignoring it. A client that sends this field
+		// believes it is granting a permission; letting the call proceed as if
+		// nothing happened would leave that belief intact.
+		return nil, &rpcError{
+			Code: codeInvalidParams,
+			Message: operatorTrustOptInArgKey + " is not honored on this surface: " +
+				"operator trust is granted at process start (--operator-trust or " +
+				"SENTRA_CODE_MEMORY_OPERATOR_TRUST=1), not by tool arguments",
+		}
+	}
 	if codeserve.IsOperatorTrustAction(verb, mcpActionString(p.Arguments["action"])) {
-		if !mcpOperatorTrustOptedIn(p.Arguments) {
+		if !codeserve.HasOperatorTrust(ctx) {
 			body, _ := json.Marshal(codeserve.OperatorTrustError(verb, mcpActionString(p.Arguments["action"]), "mcp"))
 			return mcpCallResult{
 				Content: []mcpTextContent{{Type: "text", Text: string(body)}},
@@ -395,16 +449,10 @@ func mcpActionString(v any) string {
 	return strings.TrimSpace(s)
 }
 
-// mcpOperatorTrustOptedIn reports whether the JSON arguments map carries
-// "_operator_trust": true. Accepting the bool form keeps it
-// self-documenting in tools/list descriptions; other shapes (string "1",
-// string "true") are intentionally not honored so the opt-in is explicit
-// and hard to inject accidentally through JSON schema coercion.
-func mcpOperatorTrustOptedIn(args map[string]any) bool {
-	v, ok := args[operatorTrustOptInArgKey]
-	if !ok {
-		return false
-	}
-	b, ok := v.(bool)
-	return ok && b
+// mcpArgumentsClaimOperatorTrust reports whether the caller tried to grant
+// itself trust through the tool arguments. It exists so that attempt can be
+// observed and refused rather than silently ignored.
+func mcpArgumentsClaimOperatorTrust(args map[string]any) bool {
+	_, ok := args[operatorTrustOptInArgKey]
+	return ok
 }

@@ -21,6 +21,8 @@ func (s *Store) ListQuarantine() []QuarantineEntry {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	out := append([]QuarantineEntry(nil), s.data.Quarantine...)
 	sort.Slice(out, func(i, j int) bool { return out[i].At.Before(out[j].At) })
 	return out
@@ -31,6 +33,8 @@ func (s *Store) AddQuarantine(docID, reason string, utility float64, generation 
 	if s == nil || docID == "" {
 		return fmt.Errorf("memory: quarantine requires store and document_id")
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	now := time.Now().UTC()
 	for i := range s.data.Quarantine {
 		if s.data.Quarantine[i].DocumentID == docID {
@@ -40,7 +44,7 @@ func (s *Store) AddQuarantine(docID, reason string, utility float64, generation 
 			if generation != "" {
 				s.data.Quarantine[i].Generation = generation
 			}
-			return s.persist()
+			return s.persistLocked()
 		}
 	}
 	s.data.Quarantine = append(s.data.Quarantine, QuarantineEntry{
@@ -50,7 +54,7 @@ func (s *Store) AddQuarantine(docID, reason string, utility float64, generation 
 		At:         now,
 		Generation: generation,
 	})
-	return s.persist()
+	return s.persistLocked()
 }
 
 // IsQuarantined reports whether docID is in quarantine.
@@ -58,6 +62,8 @@ func (s *Store) IsQuarantined(docID string) bool {
 	if s == nil {
 		return false
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, q := range s.data.Quarantine {
 		if q.DocumentID == docID {
 			return true

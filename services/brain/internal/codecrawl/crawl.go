@@ -22,6 +22,23 @@ var extOK = map[string]struct{}{
 
 const maxWorkers = 256
 
+// MaxIndexableFileBytes bounds one source file.
+//
+// Nothing bounded a read: os.ReadFile plus string(raw) put two full copies of
+// every file in memory, across up to maxWorkers goroutines at once, and
+// extractHeuristicSymbols then allocated a line slice over another copy. One
+// multi-gigabyte generated bundle in a tree was enough to OOM the indexer, the
+// warm serve loop, the HTTP server and the watch daemon alike.
+//
+// A source file a human wrote is far below this; anything above it is
+// generated or binary, and indexing it degrades ranking as well as memory.
+const MaxIndexableFileBytes = 4 << 20
+
+// MaxIndexableFiles bounds one crawl. codeindex already has a two-tier
+// default/hard-cap design for exactly this; codecrawl had nothing, so both the
+// path slice and the equally sized channel grew with the tree.
+const MaxIndexableFiles = 200_000
+
 func normalizeWorkers(workers int) int {
 	if workers < 1 {
 		return 1
@@ -254,12 +271,23 @@ func CrawlDir(root string, workers int) (*Index, Stats, error) {
 		if info.IsDir() {
 			return nil
 		}
+		if !indexableFile(info) {
+			return nil
+		}
 		if _, ok := extOK[strings.ToLower(filepath.Ext(path))]; !ok {
 			return nil
 		}
 		paths = append(paths, path)
 		return nil
 	})
+
+	// Enforce the file-count bound. It was declared with a justification and
+	// never applied -- a review caught the constant referenced nowhere but its
+	// own declaration, which is the same overclaiming this branch has been
+	// removing elsewhere.
+	if len(paths) > MaxIndexableFiles {
+		paths = paths[:MaxIndexableFiles]
+	}
 
 	idx := newEmptyIndex()
 	t0 := time.Now()
@@ -279,7 +307,7 @@ func CrawlDir(root string, workers int) (*Index, Stats, error) {
 			defer wg.Done()
 			for path := range ch {
 				info, err := os.Stat(path)
-				if err != nil {
+				if err != nil || !indexableFile(info) {
 					atomic.AddInt64(&errCount, 1)
 					continue
 				}
@@ -318,4 +346,21 @@ func CrawlDir(root string, workers int) (*Index, Stats, error) {
 		Errors:       int(errCount),
 	}
 	return idx, st, nil
+}
+
+// indexableFile reports whether a directory entry is safe to read as source.
+//
+// Only regular files qualify. os.Stat succeeds on a FIFO, a character device
+// and a socket, and os.ReadFile on any of them either blocks until a writer
+// appears (FIFO, socket) or never ends (/dev/zero, /dev/random) -- so a single
+// `mkfifo pipe.go` in a workspace wedged a crawl worker forever, and because
+// nothing on this path takes a context the hang was unkillable.
+//
+// Symlinks are excluded for a second reason: filepath.Walk lstats, so a
+// symlink reaches this check unresolved, and following one lets a workspace
+// pull content from outside its own root into the shared index, where it
+// becomes searchable. The durable cache goes to real trouble to canonicalise
+// its root; the crawl should not undo that.
+func indexableFile(info os.FileInfo) bool {
+	return info != nil && info.Mode().IsRegular() && info.Size() <= MaxIndexableFileBytes
 }

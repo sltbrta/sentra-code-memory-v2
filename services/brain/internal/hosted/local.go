@@ -7,12 +7,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"io"
+	"sort"
+
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/productsec"
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/durablefile"
 )
 
 const (
@@ -198,13 +203,36 @@ func (d *durableStore) flush() error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(d.dir, localMetaName), append(raw, '\n'), 0o644); err != nil {
+	if err := durablefile.Write(filepath.Join(d.dir, localMetaName), append(raw, '\n'), localFilePerm); err != nil {
 		return err
 	}
 
+	// Snapshot under the lock rather than aliasing the live maps.
+	//
+	// This took inner.mu.RLock, read the two map references, released the lock,
+	// and then ranged over them in writeFullChunksLocked / flushSidecarsLocked.
+	// Those are the *live* maps: the auto-gardener calls flush on a 500ms loop
+	// while ingest writes into them under inner.mu -- a different mutex from
+	// the one flush holds. Go reports concurrent map iteration and map write as
+	// a fatal error, which no recover can catch.
+	//
+	// The copy costs one pass over the corpus per flush; the alternative costs
+	// the process.
 	d.inner.mu.RLock()
-	bag := d.inner.chunks[d.brainID]
-	side := d.inner.sidecars[d.brainID]
+	liveBag := d.inner.chunks[d.brainID]
+	bag := make(map[string]memChunk, len(liveBag))
+	for id, chunk := range liveBag {
+		bag[id] = chunk
+	}
+	liveSide := d.inner.sidecars[d.brainID]
+	side := make(map[string]map[string]string, len(liveSide))
+	for docID, kinds := range liveSide {
+		copied := make(map[string]string, len(kinds))
+		for kind, text := range kinds {
+			copied[kind] = text
+		}
+		side[docID] = copied
+	}
 	d.inner.mu.RUnlock()
 
 	basePath := filepath.Join(d.dir, localChunksName)
@@ -287,22 +315,46 @@ func (d *durableStore) flush() error {
 func (d *durableStore) flushSidecarsLocked(side map[string]map[string]string) error {
 	base := filepath.Join(d.dir, localSidecarName)
 	delta := filepath.Join(d.dir, localSidecarDelta)
+
+	// writeBase had the same defect as the corpus writer: os.Create truncated
+	// the live file, every Encode error was discarded, and Close's error --
+	// where a buffered-write failure such as ENOSPC actually surfaces -- was
+	// thrown away before the delta was removed.
+	writeBase := func() error {
+		docIDs := make([]string, 0, len(side))
+		for docID := range side {
+			docIDs = append(docIDs, docID)
+		}
+		sort.Strings(docIDs)
+		return durablefile.WriteFunc(base, localFilePerm, func(w io.Writer) error {
+			enc := json.NewEncoder(w)
+			for _, docID := range docIDs {
+				kinds := side[docID]
+				names := make([]string, 0, len(kinds))
+				for kind := range kinds {
+					names = append(names, kind)
+				}
+				sort.Strings(names)
+				for _, kind := range names {
+					if err := enc.Encode(map[string]string{
+						"document_id": docID, "kind": kind, "text": kinds[kind], "op": "upsert",
+					}); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		})
+	}
+
 	info, err := os.Stat(base)
 	baseEmpty := os.IsNotExist(err) || (err == nil && info.Size() == 0)
 	if baseEmpty || d.forceFullFlush {
-		sf, err := os.Create(base)
-		if err != nil {
+		if err := writeBase(); err != nil {
 			return err
 		}
-		senc := json.NewEncoder(sf)
-		for docID, kinds := range side {
-			for kind, text := range kinds {
-				_ = senc.Encode(map[string]string{
-					"document_id": docID, "kind": kind, "text": text, "op": "upsert",
-				})
-			}
-		}
-		_ = sf.Close()
+		// Only now is it safe to drop the delta: the base write is complete
+		// and fsynced. Removing it first is how the records were lost.
 		_ = os.Remove(delta)
 		d.dirtySidecars = map[string]struct{}{}
 		return nil
@@ -310,69 +362,111 @@ func (d *durableStore) flushSidecarsLocked(side map[string]map[string]string) er
 	if len(d.dirtySidecars) == 0 {
 		return nil
 	}
-	f, err := os.OpenFile(delta, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(delta, os.O_APPEND|os.O_CREATE|os.O_WRONLY, localFilePerm)
 	if err != nil {
 		return err
 	}
 	enc := json.NewEncoder(f)
+	docIDs := make([]string, 0, len(d.dirtySidecars))
 	for docID := range d.dirtySidecars {
-		kinds := side[docID]
-		for kind, text := range kinds {
-			_ = enc.Encode(map[string]string{
-				"document_id": docID, "kind": kind, "text": text, "op": "upsert",
-			})
-		}
+		docIDs = append(docIDs, docID)
 	}
-	_ = f.Close()
-	d.dirtySidecars = map[string]struct{}{}
-	if countJSONLLines(delta) >= compactDeltaLines {
-		// Compact sidecars into base.
-		sf, err := os.Create(base)
-		if err != nil {
-			return err
+	sort.Strings(docIDs)
+	for _, docID := range docIDs {
+		kinds := side[docID]
+		names := make([]string, 0, len(kinds))
+		for kind := range kinds {
+			names = append(names, kind)
 		}
-		senc := json.NewEncoder(sf)
-		for docID, kinds := range side {
-			for kind, text := range kinds {
-				_ = senc.Encode(map[string]string{
-					"document_id": docID, "kind": kind, "text": text, "op": "upsert",
-				})
+		sort.Strings(names)
+		for _, kind := range names {
+			if err := enc.Encode(map[string]string{
+				"document_id": docID, "kind": kind, "text": kinds[kind], "op": "upsert",
+			}); err != nil {
+				_ = f.Close()
+				return err
 			}
 		}
-		_ = sf.Close()
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	// Cleared only after the append is durable: clearing first meant a failed
+	// write silently dropped the dirty set and the records with it.
+	d.dirtySidecars = map[string]struct{}{}
+	if countJSONLLines(delta) >= compactDeltaLines {
+		if err := writeBase(); err != nil {
+			return err
+		}
 		_ = os.Remove(delta)
 	}
 	return nil
 }
 
+// localFilePerm is 0600, not the 0644 these files used to carry. chunks.jsonl
+// holds the full plaintext of every ingested document and the sidecars hold
+// derived text from it; both were readable by every local account.
+const localFilePerm os.FileMode = 0o600
+
+// maxJSONLLineBytes matches the readers in this file, which raise the scanner
+// bound to 8 MiB. countJSONLLines used the 64 KiB default.
+const maxJSONLLineBytes = 8 * 1024 * 1024
+
 func (d *durableStore) writeFullChunksLocked(path string, bag map[string]memChunk) error {
-	cf, err := os.Create(path)
-	if err != nil {
-		return err
+	// This function used to os.Create the live corpus -- truncating it before
+	// the replacement existed -- then discard every Encode error and return
+	// cf.Close()'s only. On a full disk it reported success having written a
+	// truncated corpus, and the caller then removed the delta that still held
+	// the missing records. Both copies gone, no error anywhere.
+	//
+	// durablefile writes to a temp file and renames, so the live corpus is
+	// untouched until a complete, fsynced replacement exists.
+	//
+	// Iteration order is sorted so a rewrite of unchanged content produces
+	// identical bytes; Go map order would otherwise make every flush look like
+	// a change to anything comparing digests.
+	ids := make([]string, 0, len(bag))
+	for chunkID := range bag {
+		ids = append(ids, chunkID)
 	}
-	enc := json.NewEncoder(cf)
-	for chunkID, ch := range bag {
-		_ = enc.Encode(map[string]string{
-			"chunk_id":    chunkID,
-			"document_id": ch.dsid,
-			"text":        ch.text,
-			"source_uri":  ch.sourceURI,
-			"op":          "upsert",
-		})
-	}
-	return cf.Close()
+	sort.Strings(ids)
+	return durablefile.WriteFunc(path, localFilePerm, func(w io.Writer) error {
+		enc := json.NewEncoder(w)
+		for _, chunkID := range ids {
+			ch := bag[chunkID]
+			if err := enc.Encode(map[string]string{
+				"chunk_id":    chunkID,
+				"document_id": ch.dsid,
+				"text":        ch.text,
+				"source_uri":  ch.sourceURI,
+				"op":          "upsert",
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (d *durableStore) appendDeltaLocked(path string, bag map[string]memChunk, dirty map[string]struct{}) error {
 	if len(dirty) == 0 {
 		return nil
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, localFilePerm)
 	if err != nil {
 		return err
 	}
 	enc := json.NewEncoder(f)
+	ids := make([]string, 0, len(dirty))
 	for id := range dirty {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
 		ch, ok := bag[id]
 		if !ok {
 			// Tombstone for deleted ids (future); skip if missing.
@@ -389,9 +483,20 @@ func (d *durableStore) appendDeltaLocked(path string, bag map[string]memChunk, d
 			return err
 		}
 	}
+	// fsync before returning: the caller clears the dirty set on success, so
+	// an unflushed append means those chunks exist nowhere.
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
 	return f.Close()
 }
 
+// countJSONLLines counts non-empty lines. It used the default 64 KiB scanner
+// limit while the readers deliberately raise theirs to 8 MiB, and it discarded
+// scanner.Err(), so a single oversized chunk line silently returned a short
+// count -- and the delta, never reaching the compaction threshold, grew without
+// bound and was replayed in full on every restart.
 func countJSONLLines(path string) int {
 	f, err := os.Open(path)
 	if err != nil {
@@ -400,10 +505,18 @@ func countJSONLLines(path string) int {
 	defer f.Close()
 	n := 0
 	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), maxJSONLLineBytes)
 	for sc.Scan() {
 		if strings.TrimSpace(sc.Text()) != "" {
 			n++
 		}
+	}
+	if sc.Err() != nil {
+		// A line past the bound means the true count is at least what was
+		// seen. Returning the short count would keep compaction from ever
+		// firing; returning the threshold guarantees the next flush compacts,
+		// which rewrites the base and drops the unreadable delta.
+		return compactDeltaLines
 	}
 	return n
 }
@@ -717,11 +830,28 @@ func (c *Client) startAutoGardener() {
 	c.autoGardenerCancel = cancel
 	go func() {
 		// Prefer RunGardenerWave loop so cortex maintenance runs post-wave.
+		//
+		// A panic in this goroutine has no caller to recover it and would take
+		// the host process down. Maintenance failing is not a reason to lose
+		// the service it maintains.
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "hosted: auto-gardener panicked, maintenance stopped: %v\n%s\n",
+					r, debug.Stack())
+			}
+		}()
 		for {
 			if ctx.Err() != nil {
 				return
 			}
-			_, _ = c.RunGardenerWave(ctx)
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Fprintf(os.Stderr, "hosted: auto-gardener wave panicked: %v\n", r)
+					}
+				}()
+				_, _ = c.RunGardenerWave(ctx)
+			}()
 			select {
 			case <-ctx.Done():
 				return

@@ -43,7 +43,10 @@ func localGitRepo(t *testing.T) string {
 // the same evidence as the CLI.
 func TestCodeserveHooksLocalInstallStatusUninstall(t *testing.T) {
 	dir := localGitRepo(t)
-	ctx := context.Background()
+	// hooks_local install/uninstall/run are operator-trust gated at dispatch;
+	// these tests exercise the handler, so they carry the grant the direct CLI
+	// supplies. The refusal path is covered in operator_trust_dispatch_test.go.
+	ctx := codeserve.WithOperatorTrust(context.Background())
 
 	install := codeserve.Handle(ctx, codeserve.Request{
 		"verb":     "hooks_local",
@@ -104,7 +107,10 @@ func TestCodeserveHooksLocalValidatesAction(t *testing.T) {
 // manifest stays self-consistent (issue #59 acceptance: idempotent).
 func TestCodeserveHooksLocalIdempotent(t *testing.T) {
 	dir := localGitRepo(t)
-	ctx := context.Background()
+	// hooks_local install/uninstall/run are operator-trust gated at dispatch;
+	// these tests exercise the handler, so they carry the grant the direct CLI
+	// supplies. The refusal path is covered in operator_trust_dispatch_test.go.
+	ctx := codeserve.WithOperatorTrust(context.Background())
 	first := codeserve.Handle(ctx, codeserve.Request{
 		"verb": "hooks_local", "action": "install", "root": dir, "strategy": "repo-hooks",
 	})
@@ -133,7 +139,10 @@ func TestCodeserveHooksLocalIdempotent(t *testing.T) {
 // hooks instead of orphaning the first one.
 func TestCodeserveHooksLocalSequentialSubsets(t *testing.T) {
 	dir := localGitRepo(t)
-	ctx := context.Background()
+	// hooks_local install/uninstall/run are operator-trust gated at dispatch;
+	// these tests exercise the handler, so they carry the grant the direct CLI
+	// supplies. The refusal path is covered in operator_trust_dispatch_test.go.
+	ctx := codeserve.WithOperatorTrust(context.Background())
 
 	first := codeserve.Handle(ctx, codeserve.Request{
 		"verb": "hooks_local", "action": "install", "root": dir,
@@ -190,7 +199,10 @@ func TestCodeserveHooksLocalSequentialSubsets(t *testing.T) {
 // TestCodeserveDenseLocalSearchValidates exercises the JSONL handler's
 // required-fields contract.
 func TestCodeserveDenseLocalSearchValidates(t *testing.T) {
-	ctx := context.Background()
+	// hooks_local install/uninstall/run are operator-trust gated at dispatch;
+	// these tests exercise the handler, so they carry the grant the direct CLI
+	// supplies. The refusal path is covered in operator_trust_dispatch_test.go.
+	ctx := codeserve.WithOperatorTrust(context.Background())
 	noQ := codeserve.Handle(ctx, codeserve.Request{
 		"verb": "dense_local_search", "root": "/tmp",
 	})

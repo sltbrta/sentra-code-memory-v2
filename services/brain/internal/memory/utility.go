@@ -20,6 +20,8 @@ func (s *Store) GetUtility(docID string) float64 {
 	if s == nil {
 		return 1
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if u, ok := s.data.Utility[docID]; ok {
 		return u.Score
 	}
@@ -31,6 +33,8 @@ func (s *Store) SetUtility(docID string, score float64) error {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.data.Utility == nil {
 		s.data.Utility = map[string]UtilityRecord{}
 	}
@@ -38,7 +42,7 @@ func (s *Store) SetUtility(docID string, score float64) error {
 	rec.DocumentID = docID
 	rec.Score = score
 	s.data.Utility[docID] = rec
-	return s.persist()
+	return s.persistLocked()
 }
 
 // DecayUtility applies a fixed multiplicative factor (default 0.95) to all docs.
@@ -48,6 +52,8 @@ func (s *Store) DecayUtility(factor float64) map[string]float64 {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if factor <= 0 || factor > 1 {
 		factor = 0.95
 	}
@@ -65,7 +71,7 @@ func (s *Store) DecayUtility(factor float64) map[string]float64 {
 		s.data.Utility[id] = rec
 		out[id] = rec.Score
 	}
-	_ = s.persist()
+	_ = s.persistLocked()
 	return out
 }
 
@@ -80,6 +86,8 @@ func (s *Store) DecayUtilityHalfLife(now time.Time) map[string]float64 {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
@@ -119,7 +127,7 @@ func (s *Store) DecayUtilityHalfLife(now time.Time) map[string]float64 {
 		s.data.Utility[id] = rec
 		out[id] = rec.Score
 	}
-	_ = s.persist()
+	_ = s.persistLocked()
 	return out
 }
 
@@ -128,6 +136,8 @@ func (s *Store) ReinforceUtility(docIDs []string, boost float64) {
 	if s == nil || len(docIDs) == 0 {
 		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if boost <= 0 {
 		boost = 0.1
 	}
@@ -149,7 +159,7 @@ func (s *Store) ReinforceUtility(docIDs []string, boost float64) {
 		rec.CiteCount++
 		s.data.Utility[id] = rec
 	}
-	_ = s.persist()
+	_ = s.persistLocked()
 }
 
 // ApplyUtilityToScores multiplies base scores by utility weights (closed-loop ranking).
@@ -191,6 +201,8 @@ func (s *Store) EnsureUtility(docIDs []string) {
 	if s == nil {
 		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.data.Utility == nil {
 		s.data.Utility = map[string]UtilityRecord{}
 	}
@@ -202,5 +214,5 @@ func (s *Store) EnsureUtility(docIDs []string) {
 			s.data.Utility[id] = UtilityRecord{DocumentID: id, Score: 1}
 		}
 	}
-	_ = s.persist()
+	_ = s.persistLocked()
 }

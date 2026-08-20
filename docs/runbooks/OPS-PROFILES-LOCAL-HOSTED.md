@@ -7,7 +7,14 @@ non-goals here (see `docs/roadmap/DEFERRED-AND-NON-GOALS.md`).
 ## Local profile (this product)
 
 - Single-user, loopback-only. The HTTP adapter defaults to `127.0.0.1` and the
-  MCP adapter is stdio; neither provides authentication.
+  MCP adapter is stdio. The HTTP adapter takes a bearer token via `--token` or
+  `SENTRA_CODE_MEMORY_HTTP_TOKEN`, and refuses a non-loopback bind without one
+  unless `--allow-insecure` is passed. Both surfaces confine requests to a
+  subtree: `--root` defaults to the working directory, and `--root=/` is the
+  explicit opt-out. Mutating verbs additionally require an out-of-band operator
+  grant (`--operator-trust`, `SENTRA_CODE_MEMORY_OPERATOR_TRUST=1`, or the
+  `X-Sentra-Operator-Trust: 1` header); no request field or tool argument can
+  supply it.
 - All state is on the local filesystem: the durable `code-index.gob`, the
   repo-local `sessionlog`, the memory projection, and the savings ledger.
 - Credentials are optional and only for the local/hosted model clients used by

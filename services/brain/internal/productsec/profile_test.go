@@ -82,6 +82,16 @@ func TestSealSessionRejectsPathSessionID(t *testing.T) {
 func TestEvidenceDigestStable(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
+	// A populated brain always carries security.json -- the local brain
+	// constructor writes one -- and LoadSecurity now refuses to serve a brain
+	// that has a corpus but has lost its ACL, because defaulting such a brain
+	// to single_user was a complete authorisation bypass. The fixture creates
+	// the file the real path would have created.
+	if err := productsec.SaveSecurity(dir, productsec.BrainSecurity{
+		Profile: productsec.ProfileSingleUser, Owner: "local",
+	}); err != nil {
+		t.Fatal(err)
+	}
 	chunks := filepath.Join(dir, "chunks.jsonl")
 	if err := os.WriteFile(chunks, []byte(`{"id":"1"}`+"\n"), 0o644); err != nil {
 		t.Fatal(err)

@@ -61,6 +61,8 @@ func (s *Store) PutAgentMemoryTier(principal, kind, text string, tags []string, 
 	if s == nil {
 		return AgentMemoryEntry{}, fmt.Errorf("memory: nil store")
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	principal = strings.TrimSpace(principal)
 	text = strings.TrimSpace(text)
 	if principal == "" {
@@ -77,7 +79,7 @@ func (s *Store) PutAgentMemoryTier(principal, kind, text string, tags []string, 
 		Kind: kind, Tier: normalizeTier(tier), Text: text, Tags: tags, CreatedAt: time.Now().UTC(),
 	}
 	s.data.AgentMem = append(s.data.AgentMem, e)
-	return e, s.persist()
+	return e, s.persistLocked()
 }
 
 // PromoteAgentMemory moves an entry to a new tier (stm|mtm|ltm).
@@ -85,6 +87,8 @@ func (s *Store) PromoteAgentMemory(id, tier string) error {
 	if s == nil {
 		return fmt.Errorf("memory: nil store")
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return fmt.Errorf("memory: empty agent memory id")
@@ -93,7 +97,7 @@ func (s *Store) PromoteAgentMemory(id, tier string) error {
 	for i := range s.data.AgentMem {
 		if s.data.AgentMem[i].ID == id {
 			s.data.AgentMem[i].Tier = tier
-			return s.persist()
+			return s.persistLocked()
 		}
 	}
 	return fmt.Errorf("memory: agent memory %q not found", id)
@@ -104,6 +108,8 @@ func (s *Store) GetAgentMemory(principal string, limit int) []AgentMemoryEntry {
 	if s == nil || strings.TrimSpace(principal) == "" {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if limit <= 0 {
 		limit = 50
 	}

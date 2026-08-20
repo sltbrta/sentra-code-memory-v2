@@ -174,21 +174,32 @@ func (m *MemoryChunkStore) PassagesForDocs(brainID string, docIDs []string, maxC
 	defer m.mu.RUnlock()
 	bag := m.chunks[brainID]
 	var out []Passage
+	// Pick the lowest chunk id rather than whichever the map reached first.
+	//
+	// For a multi-chunk document this returned a different chunk on every call,
+	// so identical requests produced different evidence packs, different
+	// citations and different answers -- and it defeated the retrieve cache's
+	// determinism assumptions.
 	for _, id := range docIDs {
+		chosen := ""
 		for chunkID, ch := range bag {
 			if ch.dsid != id {
 				continue
 			}
-			text := clipPassageText(ch.text, maxChars)
-			out = append(out, Passage{
-				DocumentID: id,
-				Text:       text,
-				ChunkID:    chunkID,
-				Score:      0.35,
-				Channel:    "structure_hop",
-			})
-			break
+			if chosen == "" || chunkID < chosen {
+				chosen = chunkID
+			}
 		}
+		if chosen == "" {
+			continue
+		}
+		out = append(out, Passage{
+			DocumentID: id,
+			Text:       clipPassageText(bag[chosen].text, maxChars),
+			ChunkID:    chosen,
+			Score:      0.35,
+			Channel:    "structure_hop",
+		})
 	}
 	return out
 }
@@ -281,21 +292,28 @@ func (m *MemoryChunkStore) SiblingChunks(ctx context.Context, brainID, dsid stri
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	bag := m.chunks[brainID]
-	var out []Hit
+	// Take the lowest chunk ids rather than whichever the map reached first.
+	// Truncating a randomly ordered scan returned a different subset of
+	// siblings on every call for the same document.
+	ids := make([]string, 0, len(bag))
 	for chunkID, ch := range bag {
-		if ch.dsid != dsid {
-			continue
+		if ch.dsid == dsid {
+			ids = append(ids, chunkID)
 		}
+	}
+	sort.Strings(ids)
+	if len(ids) > limit {
+		ids = ids[:limit]
+	}
+	out := make([]Hit, 0, len(ids))
+	for _, chunkID := range ids {
 		out = append(out, Hit{
 			ChunkID:   chunkID,
 			DSID:      dsid,
-			Text:      ch.text,
-			SourceURI: ch.sourceURI,
+			Text:      bag[chunkID].text,
+			SourceURI: bag[chunkID].sourceURI,
 			Channel:   "hydrate",
 		})
-		if len(out) >= limit {
-			break
-		}
 	}
 	return out, nil
 }

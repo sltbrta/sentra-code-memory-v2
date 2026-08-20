@@ -310,9 +310,19 @@ type hypothesisWorker struct{}
 func (hypothesisWorker) Kind() JobKind { return JobHypothesisTest }
 func (hypothesisWorker) Run(_ context.Context, job Job, _ Budget) (Receipt, error) {
 	// Downgrade edges with weight < 0.2; strengthen >= 0.2 (sample all).
+	//
+	// Keys are sorted, as utilityDecayWorker two functions above already does.
+	// Iterating the payload map directly made the receipt's Output a different
+	// byte sequence on every run for identical input, which defeats receipt
+	// digesting and any determinism assertion built on it.
 	var b strings.Builder
-	for k, vs := range job.Payload {
-		v, _ := strconv.ParseFloat(vs, 64)
+	keys := make([]string, 0, len(job.Payload))
+	for k := range job.Payload {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v, _ := strconv.ParseFloat(job.Payload[k], 64)
 		if v < 0.2 {
 			fmt.Fprintf(&b, "downgrade %s\n", k)
 		} else {

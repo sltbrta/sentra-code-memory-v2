@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	contractsv1 "github.com/sltbrta/sentra-code-memory-v2/packages/contracts/gen/go/ouroboros/contracts/v1"
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 	"google.golang.org/protobuf/proto"
 	_ "modernc.org/sqlite"
 )
@@ -672,11 +673,12 @@ func matchesTerms(text string, terms []string) bool {
 	return false
 }
 
+// truncate cuts on a rune boundary. These strings land in proto3 string
+// fields, where proto.Marshal rejects invalid UTF-8 outright -- so a byte cut
+// made any transcript containing a multibyte character fail at serialization
+// rather than return a shorter answer.
 func truncate(value string, max int) string {
-	if len(value) <= max {
-		return value
-	}
-	return value[:max]
+	return textbound.Bytes(value, max)
 }
 
 func requestDigest(request *contractsv1.ImportTranscriptRequest) (string, error) {

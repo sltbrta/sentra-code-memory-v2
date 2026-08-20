@@ -21,7 +21,17 @@ type Episode struct {
 }
 
 // BindEpisode creates or updates an episode binding documents/claims.
+// BindEpisode takes the store lock and delegates. The bindEpisodeLocked form exists
+// because composed maintenance operations call it while already holding
+// the lock, and sync.Mutex is not reentrant -- taking it twice deadlocks.
 func (s *Store) BindEpisode(ep Episode) (Episode, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.bindEpisodeLocked(ep)
+}
+
+// bindEpisodeLocked assumes the caller holds s.mu.
+func (s *Store) bindEpisodeLocked(ep Episode) (Episode, error) {
 	if s == nil {
 		return Episode{}, fmt.Errorf("memory: nil store")
 	}
@@ -38,11 +48,11 @@ func (s *Store) BindEpisode(ep Episode) (Episode, error) {
 	for i := range s.data.Episodes {
 		if s.data.Episodes[i].ID == ep.ID {
 			s.data.Episodes[i] = ep
-			return ep, s.persist()
+			return ep, s.persistLocked()
 		}
 	}
 	s.data.Episodes = append(s.data.Episodes, ep)
-	return ep, s.persist()
+	return ep, s.persistLocked()
 }
 
 // ResegmentEpisode merges document IDs from multiple episodes into one (C8).
@@ -50,6 +60,8 @@ func (s *Store) ResegmentEpisode(targetID string, sourceIDs []string, title stri
 	if s == nil {
 		return Episode{}, fmt.Errorf("memory: nil store")
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	docs := map[string]struct{}{}
 	claims := map[string]struct{}{}
 	var start, end time.Time
@@ -84,7 +96,7 @@ func (s *Store) ResegmentEpisode(targetID string, sourceIDs []string, title stri
 	if title == "" {
 		title = "resegmented:" + strings.Join(sourceIDs, ",")
 	}
-	return s.BindEpisode(Episode{
+	return s.bindEpisodeLocked(Episode{
 		ID: targetID, Kind: "reseg", Title: title,
 		Start: start, End: end, DocumentIDs: docIDs, ClaimIDs: claimIDs,
 		Summary: "resegmented from " + strings.Join(sourceIDs, ","),
@@ -96,6 +108,8 @@ func (s *Store) ListEpisodes() []Episode {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	out := append([]Episode(nil), s.data.Episodes...)
 	sort.Slice(out, func(i, j int) bool { return out[i].Start.Before(out[j].Start) })
 	return out

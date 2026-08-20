@@ -20,6 +20,13 @@ type HTTPConfig struct {
 	// Token, when set, requires "Authorization: Bearer <token>" on every
 	// endpoint (issue #41 explicit local trust).
 	Token string
+	// OperatorTrust grants every dispatch on this listener the operator opt-in,
+	// so mutating verbs are admitted without a per-request header. It is set
+	// from a process-level flag or environment variable, never from a request.
+	OperatorTrust bool
+	// RootPin confines every request to this subtree. Empty serves any root,
+	// which is what the CLI does only when the operator passes --root=/.
+	RootPin string
 }
 
 // Operator opt-in surface constants. When a verb carries
@@ -48,7 +55,7 @@ const (
 func NewHTTP(cfg HTTPConfig) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
-	mux.HandleFunc("/dispatch", dispatchHandler(cfg.Timeout))
+	mux.HandleFunc("/dispatch", dispatchHandler(cfg.Timeout, cfg.OperatorTrust, cfg.RootPin))
 	return bounded(TrustPolicy{Token: cfg.Token}.wrap(mux))
 }
 
@@ -83,7 +90,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // dispatchHandler dispatches one codeserve request map.
-func dispatchHandler(timeout time.Duration) http.HandlerFunc {
+func dispatchHandler(timeout time.Duration, processTrust bool, rootPin string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			writeJSONStatus(w, http.StatusMethodNotAllowed, structuredErr(
@@ -125,8 +132,12 @@ func dispatchHandler(timeout time.Duration) http.HandlerFunc {
 		// caller explicitly opts in. Status and other read-only actions are
 		// passed through unchanged. codeserve owns the verb/action decision
 		// so the surface here stays one structured-error response.
+		optedIn := processTrust || requestHasOperatorTrustOptIn(r)
 		if codeserve.IsOperatorTrustAction(stringField(req, "verb"), stringField(req, "action")) {
-			if !requestHasOperatorTrustOptIn(r) {
+			if !optedIn {
+				// Refused here as well as in Handle so the HTTP surface can
+				// answer 403 rather than a 200 carrying ok:false. Handle's gate
+				// is the boundary; this one is the status code.
 				writeJSONStatus(w, http.StatusForbidden, codeserve.OperatorTrustError(
 					stringField(req, "verb"), stringField(req, "action"), "http"))
 				return
@@ -138,6 +149,13 @@ func dispatchHandler(timeout time.Duration) http.HandlerFunc {
 			ctx, cancel = context.WithTimeout(ctx, timeout)
 			defer cancel()
 		}
+		if optedIn {
+			// The opt-in arrives out of band -- a header or query parameter set
+			// by the operator's own client, never a field inside the JSON body
+			// the model authored.
+			ctx = codeserve.WithOperatorTrust(ctx)
+		}
+		ctx = codeserve.WithRootPin(ctx, rootPin)
 		resp := dispatch(ctx, req)
 		// 200 even on codeserve-level errors: the response carries ok:false and
 		// a structured error_code, matching JSONL semantics.

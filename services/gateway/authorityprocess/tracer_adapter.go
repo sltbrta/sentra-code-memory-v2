@@ -20,6 +20,7 @@ import (
 	factorytracer "github.com/sltbrta/sentra-code-memory-v2/services/brain/factorytracer"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/outcomes"
 	"github.com/sltbrta/sentra-code-memory-v2/services/broker/github"
+	brokerauthority "github.com/sltbrta/sentra-code-memory-v2/services/broker/localauthority"
 	gateway "github.com/sltbrta/sentra-code-memory-v2/services/gateway/internal/localauthority"
 	"github.com/sltbrta/sentra-code-memory-v2/services/gateway/internal/localbootstrap"
 	"github.com/sltbrta/sentra-code-memory-v2/services/gateway/internal/tracer001"
@@ -47,9 +48,9 @@ const (
 func composeTracerAuthority(
 	_ context.Context,
 	config *localbootstrap.Config,
-	_ dependencies,
+	deps dependencies,
 ) (gateway.TracerAuthority, func() error, error) {
-	if config == nil {
+	if config == nil || deps.broker == nil {
 		return nil, nil, errInvalidConfig
 	}
 	api, err := tracerGitHubAPI()
@@ -60,11 +61,23 @@ func composeTracerAuthority(
 	if fake, ok := api.(*github.FakeAPI); ok {
 		fake.SeedRef(tracerRepoOwner, tracerRepoName, "refs/heads/main", tracerPinnedBaseGitOID)
 	}
-	broker, err := github.NewBroker(github.Config{
-		API:    api,
-		Policy: tracerAllowPolicy{},
-		Clock:  func() time.Time { return time.Now().UTC() },
-		Token:  "process-synthetic-token",
+	// The real tenant-scoped evaluator, not an allow-everything stand-in.
+	//
+	// This was wired with tracerAllowPolicy, which returned Allowed: true
+	// unconditionally and echoed the request's own RevocationEpoch back --
+	// making the broker's revocation comparison a tautology as well. It was the
+	// only Policy in front of the GitHub branch-publish and draft-PR effects,
+	// so with OUROBOROS_TRACER_LIVE_GITHUB=1 and a PAT any authenticated local
+	// caller could push branches and open PRs with no policy check and no way
+	// to revoke.
+	ghBroker, err := github.NewBroker(github.Config{
+		API: api,
+		Policy: factoryPolicyAdapter{
+			broker: deps.broker,
+			brain:  brokerauthority.Identifier{Namespace: "repository", Value: tracerRepoOwner + "/" + tracerRepoName},
+		},
+		Clock: func() time.Time { return time.Now().UTC() },
+		Token: "process-synthetic-token",
 	})
 	if err != nil {
 		return nil, nil, errInvalidConfig
@@ -72,7 +85,7 @@ func composeTracerAuthority(
 	path := newTracerPath(tracerPathConfig{
 		configHex:    config.ConfigurationDigest(),
 		policyHex:    config.PolicyDigest(),
-		github:       broker,
+		github:       ghBroker,
 		outcomes:     outcomes.New(),
 		clock:        func() time.Time { return time.Now().UTC() },
 		authorized:   tracerAuthorizedPrincipal,
@@ -110,14 +123,6 @@ func tracerGitHubAPI() (github.API, error) {
 		return github.NewRESTAPI(nil, token), nil
 	}
 	return github.NewFakeAPI(), nil
-}
-
-type tracerAllowPolicy struct{}
-
-func (tracerAllowPolicy) Check(
-	_ context.Context, _ shared.MappedIdentityFact, request shared.PolicyRequest,
-) (shared.PolicyDecision, error) {
-	return shared.PolicyDecision{Allowed: true, RevocationEpoch: request.RevocationEpoch}, nil
 }
 
 type tracerClock struct {

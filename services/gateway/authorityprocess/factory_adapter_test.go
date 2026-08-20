@@ -209,9 +209,15 @@ func TestFactoryGateEvaluation(t *testing.T) {
 		Op: "modify", Path: "src/go/modify-00.go", Language: "go",
 		AfterBytes: []byte("package main\n\nfunc marker( {\n"),
 	}
+	// Changed deliberately with the DOCS gate's semantics. The gate used to ask
+	// whether the file contained the characters "//" anywhere, so a file with
+	// no comments at all -- even one with nothing to document -- failed it,
+	// while a file full of undocumented exported API passed on a stray inline
+	// comment. It now checks that exported declarations carry doc comments, so
+	// the fixture has to declare something exported and leave it undocumented.
 	undocGo := broker.FactoryAppliedEdit{
 		Op: "add", Path: "src/go/add-00.go", Language: "go",
-		AfterBytes: []byte("package main\n"),
+		AfterBytes: []byte("package main\n\nfunc Exported() string { return \"x\" }\n"),
 	}
 	if !evaluateFactoryGate(contractsv1.FactoryGateKind_FACTORY_GATE_KIND_BUILD, completed(validGo, nil)) {
 		t.Fatal("BUILD failed on completed leaf")

@@ -4,8 +4,8 @@
   },
   "inputs": {
     "buf.gen.yaml": {
-      "bytes": 7492,
-      "sha256": "363ce6dc81c4c614e2b0f7494c990050ce50cc55f0c2184096757ead489e6c69"
+      "bytes": 7504,
+      "sha256": "0ccc082223e2c2fd3ceb65d039fbf0ef58d2fcb7c29791818946e5a723f1f348"
     },
     "buf.lock": {
       "bytes": 283,
@@ -88,8 +88,8 @@
       "sha256": "8f96c1fc5a5b90278b546700c4a6cab854d3cfdf59eb1a63b7c4785da7906c2a"
     },
     "tools/templates/go-contracts-v1.BUILD.bazel": {
-      "bytes": 879,
-      "sha256": "0081b00931460aa9e9b95957fb1d0068dcc51adb736191451710ce94673e0c72"
+      "bytes": 891,
+      "sha256": "3630429c1f53a9c00b681e07ac403ea9fecf31571425cd9472a49b93075848b9"
     }
   },
   "outputs": {
@@ -98,8 +98,8 @@
       "sha256": "11d73b778168a1a3ae34654f02530fd92db941dc3c354620ef1ae0ea3e02ebe8"
     },
     "gen/go/ouroboros/contracts/v1/BUILD.bazel": {
-      "bytes": 879,
-      "sha256": "0081b00931460aa9e9b95957fb1d0068dcc51adb736191451710ce94673e0c72"
+      "bytes": 891,
+      "sha256": "3630429c1f53a9c00b681e07ac403ea9fecf31571425cd9472a49b93075848b9"
     },
     "gen/go/ouroboros/contracts/v1/brain.pb.go": {
       "bytes": 31541,
@@ -122,32 +122,32 @@
       "sha256": "92c7c2e1ac9ad3d10429d03fa4d80d8d6b2cdd2401f33e6ace9e3e9f3b9267c2"
     },
     "gen/go/ouroboros/contracts/v1/contractsv1connect/connectors.connect.go": {
-      "bytes": 16857,
-      "sha256": "a7d9ff264174a34226ecd17c7f265e39dd9a075bf33a766e96d4ef86362ea2e1"
+      "bytes": 16869,
+      "sha256": "149c134eefbc85ae6317de1e393202977e0918b9bdacfabdd22dd808c9814656"
     },
     "gen/go/ouroboros/contracts/v1/contractsv1connect/factory.connect.go": {
-      "bytes": 13890,
-      "sha256": "398bf7064bfb7407796cbbee02df1c389a3a21e0f994d3a99c34c6524f8a2010"
+      "bytes": 13902,
+      "sha256": "d0f01d454a3fea947e0147fe25c4c462ec979fbf922ff33fb5fb38454045b661"
     },
     "gen/go/ouroboros/contracts/v1/contractsv1connect/ingestion.connect.go": {
-      "bytes": 13324,
-      "sha256": "56848e8ad955c47cbedc9ca9ae81442919a2cc665d75fbef1180565fec39b6e9"
+      "bytes": 13336,
+      "sha256": "08fec1403aa3cb252de1b142db4d190cdf308774ce8529657e6b0ca384c45898"
     },
     "gen/go/ouroboros/contracts/v1/contractsv1connect/local_authority.connect.go": {
-      "bytes": 10373,
-      "sha256": "1fe8b2847a9934d156bd16e62975c84b265aa03e69ff5bcdbe3a8e217368b81e"
+      "bytes": 10385,
+      "sha256": "f20fe19c26e5493ba2cf7624b1c775dfc5d6cc9b37ab175777246a0608c30d90"
     },
     "gen/go/ouroboros/contracts/v1/contractsv1connect/meetings.connect.go": {
-      "bytes": 13862,
-      "sha256": "13edd8357fdc26592ad0a20027887f1542b220c735627b2065a21f4fcced4b20"
+      "bytes": 13874,
+      "sha256": "63d571cdf1efdd84f487b48d095fe8b45c4beee3739ead4c48864c53784c05e8"
     },
     "gen/go/ouroboros/contracts/v1/contractsv1connect/multimodal.connect.go": {
-      "bytes": 14977,
-      "sha256": "8ff3551bf538a6f7072fb1da79003ef425cbae6241b2777af0202af01e70d82c"
+      "bytes": 14989,
+      "sha256": "390ebb6c2735d4ace0c9313ef77a2f995c9f6eefef467237476058994f70fb59"
     },
     "gen/go/ouroboros/contracts/v1/contractsv1connect/query.connect.go": {
-      "bytes": 10716,
-      "sha256": "5577befe0f5342d7310cbdcdd65b9d2ebe47d631f1f7a258040eda111b7313e3"
+      "bytes": 10728,
+      "sha256": "96616abb48677b86a701a4abe0856210747e3c8c35543380f8e337c9cd95ba07"
     },
     "gen/go/ouroboros/contracts/v1/evidence.pb.go": {
       "bytes": 58325,

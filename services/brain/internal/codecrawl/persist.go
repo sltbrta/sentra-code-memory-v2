@@ -438,6 +438,14 @@ func ensureHashes(idx *Index, root string) {
 		if err != nil {
 			continue
 		}
+		// As in IngestPaths: this info came from os.Stat, which follows the
+		// link, so the symlink exclusion needs an explicit Lstat.
+		if lst, lerr := os.Lstat(p); lerr != nil || !indexableFile(lst) {
+			continue
+		}
+		if !indexableFile(info) {
+			continue
+		}
 		idx.fileStamps[rel] = FileStamp{Size: info.Size(), MtimeNs: info.ModTime().UnixNano()}
 		if _, ok := idx.fileHashes[rel]; ok {
 			continue

@@ -141,8 +141,10 @@ func (s *Store) StoreRAPTOR(nodes []SummaryNode) error {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.data.Summaries = nodes
-	return s.persist()
+	return s.persistLocked()
 }
 
 // ListSummaries returns RAPTOR nodes.
@@ -150,5 +152,7 @@ func (s *Store) ListSummaries() []SummaryNode {
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return append([]SummaryNode(nil), s.data.Summaries...)
 }

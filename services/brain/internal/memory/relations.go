@@ -91,7 +91,17 @@ func (r TemporalRelation) KnownAt(t time.Time) bool {
 }
 
 // AdmitRelation appends a bi-temporal edge; marks conflicts on same ConflictKey + overlapping valid time.
+// AdmitRelation takes the store lock and delegates. The admitRelationLocked form exists
+// because composed maintenance operations call it while already holding
+// the lock, and sync.Mutex is not reentrant -- taking it twice deadlocks.
 func (s *Store) AdmitRelation(rel TemporalRelation) (TemporalRelation, []TemporalRelation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.admitRelationLocked(rel)
+}
+
+// admitRelationLocked assumes the caller holds s.mu.
+func (s *Store) admitRelationLocked(rel TemporalRelation) (TemporalRelation, []TemporalRelation, error) {
 	if s == nil {
 		return TemporalRelation{}, nil, fmt.Errorf("memory: nil store")
 	}
@@ -119,7 +129,7 @@ func (s *Store) AdmitRelation(rel TemporalRelation) (TemporalRelation, []Tempora
 	// Multi-valued predicates: different dst do not contest.
 	if ontology.IsMultiValuedPredicate(rel.Relation) {
 		s.data.Relations = append(s.data.Relations, rel)
-		if err := s.persist(); err != nil {
+		if err := s.persistLocked(); err != nil {
 			return TemporalRelation{}, nil, err
 		}
 		return rel, nil, nil
@@ -156,7 +166,7 @@ func (s *Store) AdmitRelation(rel TemporalRelation) (TemporalRelation, []Tempora
 		contested = append(contested, *ex)
 	}
 	s.data.Relations = append(s.data.Relations, rel)
-	if err := s.persist(); err != nil {
+	if err := s.persistLocked(); err != nil {
 		return TemporalRelation{}, nil, err
 	}
 	return rel, contested, nil
@@ -167,6 +177,8 @@ func (s *Store) SupersedeRelation(oldID string, neu TemporalRelation) (TemporalR
 	if s == nil {
 		return TemporalRelation{}, fmt.Errorf("memory: nil store")
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	found := false
 	for i := range s.data.Relations {
 		if s.data.Relations[i].ID == oldID {
@@ -182,7 +194,7 @@ func (s *Store) SupersedeRelation(oldID string, neu TemporalRelation) (TemporalR
 	if neu.Status == "" {
 		neu.Status = RelationActive
 	}
-	admitted, _, err := s.AdmitRelation(neu)
+	admitted, _, err := s.admitRelationLocked(neu)
 	if err != nil {
 		return TemporalRelation{}, err
 	}
@@ -192,7 +204,7 @@ func (s *Store) SupersedeRelation(oldID string, neu TemporalRelation) (TemporalR
 			break
 		}
 	}
-	_ = s.persist()
+	_ = s.persistLocked()
 	return admitted, nil
 }
 
@@ -201,6 +213,8 @@ func (s *Store) CurrentRelationsAsOf(validAt, knownAt time.Time, includeConteste
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if validAt.IsZero() {
 		validAt = time.Now().UTC()
 	}
@@ -346,6 +360,8 @@ func (s *Store) RelationsForDocuments(docIDs []string) []TemporalRelation {
 	if s == nil || len(docIDs) == 0 {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	want := map[string]struct{}{}
 	for _, d := range docIDs {
 		want[d] = struct{}{}
@@ -396,6 +412,8 @@ func (s *Store) SeedRelationsFromClaims() int {
 	if s == nil {
 		return 0
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	haveClaim := map[string]struct{}{}
 	haveTriple := map[string]struct{}{}
 	for _, r := range s.data.Relations {
@@ -423,7 +441,7 @@ func (s *Store) SeedRelationsFromClaims() int {
 		if _, ok := haveTriple[tk]; ok {
 			continue
 		}
-		admitted, _, err := s.AdmitRelation(rel)
+		admitted, _, err := s.admitRelationLocked(rel)
 		if err != nil {
 			continue
 		}

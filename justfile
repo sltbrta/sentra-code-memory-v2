@@ -3,16 +3,35 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 default:
     @just --list
 
+# Preflight gate. Previously named 17 of 86 packages by hand, omitting every
+# broker and gateway package -- the entire authorization surface. It now covers
+# the whole module. -count=1 defeats the test cache: a cached PASS recorded
+# before an edit is not evidence about the edit.
 check:
-    go test ./services/brain/cmd/sentra-code-memory ./services/brain/cmd/bench-code ./services/brain/internal/adapters ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/contextpack ./services/brain/internal/denselocal ./services/brain/internal/lifecycle ./services/brain/internal/llmadapter ./services/brain/internal/savings ./services/brain/internal/scmbench ./services/brain/internal/memory ./services/brain/internal/productsearch ./services/brain/internal/repoignore ./services/brain/internal/sessionlog ./services/brain/internal/workflow
-    go vet ./services/brain/cmd/sentra-code-memory ./services/brain/cmd/bench-code ./services/brain/internal/adapters ./services/brain/internal/codecrawl ./services/brain/internal/codeindex ./services/brain/internal/codeserve ./services/brain/internal/contextpack ./services/brain/internal/denselocal ./services/brain/internal/lifecycle ./services/brain/internal/llmadapter ./services/brain/internal/savings ./services/brain/internal/scmbench ./services/brain/internal/memory ./services/brain/internal/productsearch ./services/brain/internal/repoignore ./services/brain/internal/sessionlog ./services/brain/internal/workflow
+    cd services && go build ./...
+    cd services && go vet ./...
+    cd services && go test -count=1 ./...
+    gofmt -l services packages | (! grep .) || (echo "gofmt: files above are unformatted" && exit 1)
+    # The repository's pre-commit hook enforces goimports grouping, so the gate
+    # checks the same thing rather than letting CI and the hook disagree.
+    command -v goimports >/dev/null && (goimports -l services packages | (! grep .) || (echo "goimports: files above need grouping" && exit 1)) || echo "goimports not installed; skipping"
 
-check-all:
-    go test ./services/...
-    go test ./packages/contracts/...
+# The concurrency gate. The suite passed -race from the day it was written
+# because nothing exercised concurrency; the hammer tests added in the 2026-08
+# hardening pass are what make this meaningful.
+check-race:
+    cd services && go test -count=1 -race ./...
+
+check-all: check check-race
+    go test -count=1 ./packages/contracts/...
     cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml
+    cd packages/contracts && ruby tools/generated-manifest.rb check
 
-ci: check-all
+# Reachable-vulnerability scan. Requires golang.org/x/vuln/cmd/govulncheck.
+vuln:
+    cd services && govulncheck ./...
+
+ci: check-all vuln bench-code
 
 cli-help:
     go run ./services/brain/cmd/sentra-code-memory --help

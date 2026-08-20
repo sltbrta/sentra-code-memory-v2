@@ -1,6 +1,9 @@
 package ontology
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 // ValidateGraph checks structural invariants of a generation graph.
 func ValidateGraph(g Graph) error {
@@ -159,16 +162,19 @@ func PPR(g Graph, seeds []string, steps int, damping float64, limit int) []strin
 	for id, sc := range score {
 		ranked = append(ranked, pair{id, sc})
 	}
-	// simple selection sort for small n (avoid sort import churn in leaf)
-	for i := 0; i < len(ranked); i++ {
-		best := i
-		for j := i + 1; j < len(ranked); j++ {
-			if ranked[j].sc > ranked[best].sc {
-				best = j
-			}
+	// Sorted by score, then by id.
+	//
+	// Collecting from a map and sorting on score alone left ties in whatever
+	// order Go's randomised map iteration produced -- and exact ties are the
+	// normal case in personalised PageRank over a symmetric co-occurrence
+	// graph, not an edge case. Identical inputs returned different candidate
+	// sets between processes. The id tiebreak makes the order total.
+	sort.SliceStable(ranked, func(i, j int) bool {
+		if ranked[i].sc != ranked[j].sc {
+			return ranked[i].sc > ranked[j].sc
 		}
-		ranked[i], ranked[best] = ranked[best], ranked[i]
-	}
+		return ranked[i].id < ranked[j].id
+	})
 	out := make([]string, 0, limit)
 	for _, p := range ranked {
 		if len(out) >= limit {

@@ -24,13 +24,23 @@ go build -o sentra-code-memory ./services/brain/cmd/sentra-code-memory
 cd /path/to/repo && ./sentra-code-memory watch --workers 8  # watches cwd by default
 ```
 
+Mutating verbs (`code_apply_changeset`, `hooks install|uninstall|run`) require
+an explicit operator grant that no request field or tool argument can supply.
+The direct CLI carries it because you ran the binary; the long-running server
+surfaces need `--operator-trust` (or `SENTRA_CODE_MEMORY_OPERATOR_TRUST=1`).
+All three long-running surfaces (`serve`, `http`, `mcp`) confine every request
+to a subtree. `--root` defaults to the working directory, so pass it explicitly
+when the process is started somewhere other than the repository it serves;
+`--root=/` is the explicit opt-out. The pin covers every path-bearing field of a
+request -- `root`, `dir`, `index_cache` and `scip` -- not just `root`.
+
 Coding agents can keep one process warm with JSONL:
 
 ```sh
 printf '%s\n' \
   '{"verb":"code_search","root":"/path/to/repo",'\
   '"q":"authentication","top_k":20,"no_refresh":true}' \
-  | ./sentra-code-memory serve
+  | ./sentra-code-memory serve --root /path/to/repo
 ```
 
 Local-only hooks lifecycle and lexical bag-of-words code retrieval (issue #59)
@@ -81,7 +91,7 @@ and
 ## What is included
 
 - Multi-worker working-tree crawl with stamp/hash incremental refresh.
-- Durable atomic `code-index.gob` cache and zero-work warm reads.
+- Durable atomic `code-index.gob` cache and stamp-skipped warm refresh.
 - Heuristic search, relevant context, bounded expansion/impact/route/freshness,
   task-personalized repository maps, deterministic structural rules, build/index
   diagnostics, transactional ChangeSet application, path ingestion, and exact
@@ -97,36 +107,14 @@ and
 ## Checks
 
 ```sh
-go test ./services/brain/cmd/sentra-code-memory \
-  ./services/brain/cmd/bench-code \
-  ./services/brain/internal/codecrawl \
-  ./services/brain/internal/codeindex \
-  ./services/brain/internal/codeserve \
-  ./services/brain/internal/adapters \
-  ./services/brain/internal/denselocal \
-  ./services/brain/internal/lifecycle \
-  ./services/brain/internal/llmadapter \
-  ./services/brain/internal/sessionlog \
-  ./services/brain/internal/workflow \
-  ./services/brain/internal/memory \
-  ./services/brain/internal/scmbench \
-  ./services/brain/internal/productsearch
-
-go vet ./services/brain/cmd/sentra-code-memory \
-  ./services/brain/cmd/bench-code \
-  ./services/brain/internal/codecrawl \
-  ./services/brain/internal/codeindex \
-  ./services/brain/internal/codeserve \
-  ./services/brain/internal/adapters \
-  ./services/brain/internal/denselocal \
-  ./services/brain/internal/lifecycle \
-  ./services/brain/internal/llmadapter \
-  ./services/brain/internal/sessionlog \
-  ./services/brain/internal/workflow \
-  ./services/brain/internal/memory \
-  ./services/brain/internal/scmbench \
-  ./services/brain/internal/productsearch
+just check        # build, vet, test, gofmt and goimports across all 86 packages
+just check-race   # the same suite under the race detector
+just check-all    # both, plus contracts, cargo, and the generated-contract gate
+just bench-code   # deterministic offline retrieval gate with a threshold check
 ```
+
+CI runs the same commands on every push (`.github/workflows/ci.yml`), plus
+`govulncheck`.
 
 The full extracted backend also retains authority/evaluation tests that require
 optional source-tree evidence or a pinned Bun toolchain; those are intentionally

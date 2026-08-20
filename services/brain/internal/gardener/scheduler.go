@@ -3,6 +3,8 @@ package gardener
 import (
 	"context"
 	"fmt"
+	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 )
@@ -60,8 +62,18 @@ func (s *Scheduler) RunWave(ctx context.Context, workerID string) ([]Receipt, er
 			go func(j Job) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				rec := s.runOne(ctx, j, budget)
-				_ = s.Queue.Complete(ctx, rec)
+				// A worker panic here takes down the whole host process: this
+				// goroutine has no caller to recover it, and the scheduler runs
+				// inside long-lived services. A failed job should fail the job.
+				rec := runOneRecovered(s, ctx, j, budget)
+				if err := s.Queue.Complete(ctx, rec); err != nil {
+					// Losing this write strands the job as permanently claimed,
+					// so it is recorded on the receipt rather than discarded.
+					rec.OK = false
+					if rec.Output == "" {
+						rec.Output = "complete failed: " + err.Error()
+					}
+				}
 				mu.Lock()
 				receipts = append(receipts, rec)
 				mu.Unlock()
@@ -104,4 +116,21 @@ func (s *Scheduler) runOne(ctx context.Context, job Job, budget Budget) Receipt 
 		rec.Duration = rec.FinishedAt.Sub(t0)
 	}
 	return rec
+}
+
+// runOneRecovered converts a worker panic into a failed receipt. Without it a
+// single malformed job payload kills every service that runs a gardener wave.
+func runOneRecovered(s *Scheduler, ctx context.Context, job Job, budget Budget) (receipt Receipt) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "gardener: panic in job %s (%s): %v\n%s\n",
+				job.ID, job.Kind, r, debug.Stack())
+			receipt = Receipt{
+				JobID: job.ID, Kind: job.Kind, GenerationID: job.GenerationID,
+				DocumentID: job.DocumentID, OK: false,
+				Output: "worker panicked", FinishedAt: time.Now(),
+			}
+		}
+	}()
+	return s.runOne(ctx, job, budget)
 }

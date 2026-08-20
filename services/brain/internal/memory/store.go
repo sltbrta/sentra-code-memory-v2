@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/durablefile"
 )
 
 // dataFile is the durable projection under a product brain dir.
@@ -36,10 +38,25 @@ type diskData struct {
 // section; other mutators call persist() which locks only for the JSON write.
 // Prefer locking in mutators when adding new concurrent writers.
 type Store struct {
-	dir  string
-	mu   sync.Mutex
-	data diskData
-	seq  atomic.Int64
+	dir string
+	// maintenanceMu serialises whole cortex-maintenance waves.
+	//
+	// mu makes each individual mutator safe, which is necessary and not
+	// sufficient: RunCortexMaintenanceOpts is a read-modify-write composed of
+	// several of them (ListSummaries then StoreRAPTOR, DocEdges then
+	// StorePageRank, SetDocEdges then LinkClaimDocuments), and two concurrent
+	// waves interleave between the read and the write. The auto-gardener runs a
+	// wave every 500ms while the ingest path runs one synchronously, so this is
+	// the ordinary case, not a rare one -- measured at 3 of 40 summaries
+	// surviving. Locking the parts and leaving the composition torn is the
+	// failure this guards.
+	//
+	// It is a separate mutex from mu, and is always taken first, because a wave
+	// calls dozens of individually-locking methods.
+	maintenanceMu sync.Mutex
+	mu            sync.Mutex
+	data          diskData
+	seq           atomic.Int64
 
 	// ContestedGroups index, guarded by mu. Rebuilt lazily on read and
 	// invalidated by every claim/status mutation, so repeated answer-path
@@ -106,12 +123,18 @@ func (s *Store) persist() error {
 }
 
 // persistLocked writes memory.json. Caller must hold s.mu.
+// persistLocked writes the whole cortex. It used os.WriteFile, which truncates
+// the live file in place: a crash, SIGKILL or ENOSPC part-way through left a
+// truncated memory.json that fails json.Unmarshal at Open, taking every claim,
+// temporal relation, episode, PageIndex tree, PageRank vector and agent-memory
+// tier with it. There was no temp file and no backup generation, and every
+// mutator takes this path -- thousands of times per gardener wave.
 func (s *Store) persistLocked() error {
 	raw, err := json.MarshalIndent(s.data, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(s.dir, dataFile), raw, 0o600)
+	return durablefile.Write(filepath.Join(s.dir, dataFile), raw, 0o600)
 }
 
 // invalidateContestedLocked drops the ContestedGroups index so the next read
@@ -150,12 +173,20 @@ func (s *Store) SetDocEdges(edges map[string][]string) error {
 }
 
 // DocEdges returns adjacency for PPR.
+// DocEdges takes the store lock and delegates. The docEdgesLocked form exists
+// because composed maintenance operations call it while already holding
+// the lock, and sync.Mutex is not reentrant -- taking it twice deadlocks.
 func (s *Store) DocEdges() map[string][]string {
 	if s == nil {
 		return nil
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.docEdgesLocked()
+}
+
+// docEdgesLocked assumes the caller holds s.mu.
+func (s *Store) docEdgesLocked() map[string][]string {
 	out := make(map[string][]string, len(s.data.Edges))
 	for k, nbrs := range s.data.Edges {
 		out[k] = append([]string(nil), nbrs...)
@@ -185,12 +216,20 @@ func (s *Store) SetDocTexts(docs map[string]string) error {
 }
 
 // DocTexts returns stored document bodies.
+// DocTexts takes the store lock and delegates. The docTextsLocked form exists
+// because composed maintenance operations call it while already holding
+// the lock, and sync.Mutex is not reentrant -- taking it twice deadlocks.
 func (s *Store) DocTexts() map[string]string {
 	if s == nil {
 		return map[string]string{}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.docTextsLocked()
+}
+
+// docTextsLocked assumes the caller holds s.mu.
+func (s *Store) docTextsLocked() map[string]string {
 	if s.data.DocTexts == nil {
 		return map[string]string{}
 	}

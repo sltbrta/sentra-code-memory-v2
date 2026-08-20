@@ -58,7 +58,7 @@ func TestJSONLServesMalformedSCIPAsStructuredError(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	if code := execute([]string{"serve"}, bytes.NewReader(append(line, '\n')), &stdout, &stderr); code != 0 {
+	if code := execute([]string{"serve", "--root=/"}, bytes.NewReader(append(line, '\n')), &stdout, &stderr); code != 0 {
 		t.Fatalf("serve exit=%d stderr=%s", code, stderr.String())
 	}
 	var response map[string]any

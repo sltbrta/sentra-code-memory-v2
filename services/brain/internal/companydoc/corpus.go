@@ -3,6 +3,7 @@ package companydoc
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/dense"
@@ -98,13 +99,16 @@ func (c *LiveCorpus) Retrieve(ctx context.Context, question string, topK int) ([
 	for id, text := range c.Docs {
 		lex = append(lex, scored{id, tokenOverlap(qtok, bagTokens(text))})
 	}
-	for i := 0; i < len(lex); i++ {
-		for j := i + 1; j < len(lex); j++ {
-			if lex[j].v > lex[i].v {
-				lex[i], lex[j] = lex[j], lex[i]
-			}
+	// Sorted by score, then id. Collected from a map and sorted on score
+	// alone, ties kept whatever order Go's randomised iteration produced --
+	// and tokenOverlap ties (0.5, 0.33) are common across documents, so the
+	// same corpus and question returned different cited documents per process.
+	sort.SliceStable(lex, func(i, j int) bool {
+		if lex[i].v != lex[j].v {
+			return lex[i].v > lex[j].v
 		}
-	}
+		return lex[i].id < lex[j].id
+	})
 	lexIDs := make([]string, 0, topK*2)
 	for _, s := range lex {
 		if s.v <= 0 {
@@ -209,13 +213,13 @@ func rrfFuseLists(a, b []string, k, topN int) []string {
 	for id, sc := range scores {
 		arr = append(arr, p{id, sc})
 	}
-	for i := 0; i < len(arr); i++ {
-		for j := i + 1; j < len(arr); j++ {
-			if arr[j].sc > arr[i].sc {
-				arr[i], arr[j] = arr[j], arr[i]
-			}
+	// Same defect in the RRF fusion step: an id tiebreak makes the order total.
+	sort.SliceStable(arr, func(i, j int) bool {
+		if arr[i].sc != arr[j].sc {
+			return arr[i].sc > arr[j].sc
 		}
-	}
+		return arr[i].id < arr[j].id
+	})
 	out := make([]string, 0, topN)
 	for _, x := range arr {
 		out = append(out, x.id)

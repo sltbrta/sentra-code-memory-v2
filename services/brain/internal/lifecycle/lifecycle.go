@@ -35,6 +35,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"context"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/sessionlog"
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/pathguard"
 )
 
 // HookKind is the bounded set of hook names this installer knows about.
@@ -324,16 +329,13 @@ func resolveHooksDir(root string, strategy Strategy, gitCommon string) (string, 
 // symlink race cannot escape. We Resolve path components and require every
 // segment to descend from allowedRoot's resolved path.
 func ensureConfined(target, allowedRoot string) error {
-	realTarget, terr := filepath.EvalSymlinks(filepath.Dir(target))
-	if terr != nil {
-		realTarget = filepath.Dir(target)
-	}
-	realAllowed, aerr := filepath.EvalSymlinks(allowedRoot)
-	if aerr != nil {
-		realAllowed = allowedRoot
-	}
-	rel, err := filepath.Rel(realAllowed, filepath.Join(realTarget, filepath.Base(target)))
-	if err != nil || strings.HasPrefix(rel, "..") || strings.Contains(rel, "..") {
+	// Delegates to the shared guard, which resolves symlinks, tolerates a path
+	// that does not exist yet (hooks are checked before they are written), and
+	// fails closed on any resolution error. The previous inline version fell
+	// back to the unresolved path when EvalSymlinks failed -- weakening the
+	// check exactly when resolution was uncertain -- and used
+	// strings.Contains(rel, "..") which rejected legitimate names.
+	if !pathguard.Within(allowedRoot, target) {
 		return ErrPathNotAllowed
 	}
 	return nil
@@ -1009,12 +1011,18 @@ func Uninstall(opts Options) (Result, error) {
 
 	var notes []string
 	for _, entry := range manifest.Installed {
-		target := entry.Path
+		// The manifest records an absolute path from install time, which stops
+		// being true the moment the repository is moved or renamed. Trusting it
+		// made the first confinement check abort uninstall before a single hook
+		// was removed, leaving the repository permanently un-uninstallable
+		// short of hand-editing the manifest. The live location is derived from
+		// the current hooks directory instead; entry.Path is advisory.
+		target := liveHookPath(hooksDir, entry)
 		if target == "" {
-			notes = append(notes, fmt.Sprintf("%s: skipped (manifest entry has no path)", entry.Kind))
+			notes = append(notes, fmt.Sprintf("%s: skipped (manifest entry has no kind or path)", entry.Kind))
 			continue
 		}
-		if err := ensureConfined(target, filepath.Dir(hooksDir)); err != nil {
+		if err := ensureConfined(target, allowedRootFor(strategy, root, gitCommon)); err != nil {
 			return Result{}, err
 		}
 		live, liveExists, err := readFileIfExists(target)
@@ -1123,7 +1131,10 @@ func Status(opts Options) (Report, error) {
 	ownedByKind := map[HookKind]bool{}
 	for _, e := range manifest.Installed {
 		ownedByKind[e.Kind] = true
-		data, fileExists, ferr := readFileIfExists(e.Path)
+		// Recomputed from the live hooks directory: a moved repository would
+		// otherwise report every installed hook as missing, prompting a
+		// re-install that snapshots our own scripts as the "prior" state.
+		data, fileExists, ferr := readFileIfExists(liveHookPath(hooksDir, e))
 		if ferr != nil {
 			return Report{}, ferr
 		}
@@ -1190,7 +1201,13 @@ func resolveStrategy(root string, opts Options) (Strategy, string, error) {
 func allowedRootFor(strategy Strategy, root, gitCommon string) string {
 	switch strategy {
 	case StrategyRepoHooks:
-		return filepath.Join(root, ".sentra")
+		// The repository root, not root/.sentra. Asking whether
+		// root/.sentra/hooks sits inside root/.sentra is trivially true even
+		// when .sentra is a symlink pointing somewhere else entirely, so the
+		// check only refused that case by accident: an unresolved target
+		// happened to be compared against a resolved root. Confining to the
+		// repository is what the check was for.
+		return root
 	case StrategyGitCommon:
 		return gitCommon
 	default:
@@ -1350,13 +1367,24 @@ func samePath(a, b string) bool {
 	return ar == br
 }
 
-// RunHook is the entry point installed scripts call. It is a no-op currently
-// — it exists so the hook can forward events to the CLI without the CLI
-// having to embed bash logic — and it is a future extension point for
-// agents wanting lifecycle event delivery. Network use is forbidden here;
-// keep events local.
+// RunHook is the entry point installed scripts call. It records the git
+// lifecycle event in the repository's session log.
+//
+// This used to return nil without doing anything, behind roughly 1,400 lines of
+// installer that writes executables into a user's repository and rewrites their
+// core.hooksPath: all of the risk and none of the benefit. Separately,
+// sessionlog.Append had no non-test caller at all, so session_continuation and
+// session_recall always answered from an empty log. The two gaps fit together
+// -- git lifecycle events are exactly the durable, locally-observable facts the
+// session log was built to hold -- so wiring them closes both.
+//
+// Failure is never propagated to git. A hook that exits non-zero blocks the
+// user's commit or push, and no amount of session bookkeeping justifies that;
+// the installed script also guards with `|| true`, but relying on the caller
+// for this would be careless. Network use remains forbidden: events stay local.
 func RunHook(event, root string) error {
-	if err := validateKind(HookKind(event)); err != nil {
+	kind := HookKind(event)
+	if err := validateKind(kind); err != nil {
 		// Unknown hook kinds are not installer failures; they belong to
 		// other tools. Return nil so the calling git workflow is undisturbed.
 		return nil
@@ -1371,11 +1399,62 @@ func RunHook(event, root string) error {
 	if !IsGitRepo(root) {
 		return nil
 	}
-	// The hook intentionally does not perform any action beyond exiting 0.
-	// Sentra lifecycle events are observable through the watch/refresh
-	// pipeline, so duplicating them here would be redundant. The CLI
-	// subcommand exists so installed scripts have a stable command line.
+	recordHookEvent(kind, root)
 	return nil
+}
+
+// hookEventKind maps a git hook to the session-log class it represents.
+//
+// A checkout or merge changes the working tree under the agent, which is a
+// refresh of everything it believed; a commit or push is the agent's own work
+// reaching a durable point.
+func hookEventKind(kind HookKind) sessionlog.Kind {
+	switch kind {
+	case HookPostCheckout, HookPostMerge:
+		return sessionlog.KindRefresh
+	case HookPostCommit, HookPrePush:
+		return sessionlog.KindCompletion
+	default:
+		return sessionlog.KindRefresh
+	}
+}
+
+// recordHookEvent appends one event, swallowing every failure.
+//
+// Errors are deliberately dropped rather than returned: this runs inside the
+// user's git command, and a session log that cannot be written is not a reason
+// to fail their commit. The alternative -- surfacing the error -- would make a
+// full disk or a read-only checkout break git itself.
+func recordHookEvent(kind HookKind, root string) {
+	writer, err := sessionlog.Open(filepath.Join(root, ".sentra", "sessions"))
+	if err != nil {
+		return
+	}
+	head := gitHeadForHook(root)
+	_, _ = writer.Append(sessionlog.Event{
+		Kind:      hookEventKind(kind),
+		Verb:      "hooks_local:" + string(kind),
+		Freshness: sessionlog.FreshnessAsOf,
+		Provenance: sessionlog.Provenance{
+			Repository: "local",
+			Tree:       head,
+		},
+	})
+}
+
+// gitHeadForHook resolves HEAD for provenance. An empty result is fine: a
+// repository with no commits yet still emits events.
+func gitHeadForHook(root string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "-C", root,
+		"-c", "core.hooksPath=/dev/null", "rev-parse", "HEAD")
+	cmd.Env = []string{"HOME=/nonexistent", "LANG=C", "PATH=" + os.Getenv("PATH")}
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // nowUTC returns the canonical RFC3339 UTC timestamp used in the manifest.
@@ -1385,4 +1464,18 @@ var nowFunc = func() time.Time { return time.Now().UTC() }
 
 func nowUTC() string {
 	return nowFunc().Format(time.RFC3339)
+}
+
+// liveHookPath returns where a manifest entry's script lives now.
+//
+// InstalledHook.Path is absolute and recorded at install time, so it is only
+// correct while the repository stays put. The kind is stable, and the hooks
+// directory is resolved fresh on every call, so joining them survives a move or
+// rename. The stored path is used only as a fallback for entries that predate
+// a recorded kind.
+func liveHookPath(hooksDir string, entry InstalledHook) string {
+	if kind := strings.TrimSpace(string(entry.Kind)); kind != "" {
+		return filepath.Join(hooksDir, kind)
+	}
+	return entry.Path
 }

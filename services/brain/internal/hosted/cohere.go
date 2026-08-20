@@ -11,7 +11,8 @@ import (
 	"os"
 	"strings"
 	"time"
-	"unicode/utf8"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 const (
@@ -265,20 +266,16 @@ func embedCohereBatch(ctx context.Context, texts []string, cfg cohereQueryEmbedC
 	return rows, parsed.Meta.BilledUnits.InputTokens, nil
 }
 
+// truncateUTF8Bytes delegates to the shared helper. The local version walked
+// back one byte at a time revalidating the whole string, which is O(n) in the
+// pathological case; textbound.Bytes retreats at most three positions.
 func truncateUTF8Bytes(text string, limit int) string {
-	if limit <= 0 || len(text) <= limit {
-		return text
-	}
-	text = text[:limit]
-	for !utf8.ValidString(text) {
-		text = text[:len(text)-1]
-	}
-	return text
+	return textbound.Bytes(text, limit)
 }
 
+// truncate cuts on a rune boundary. It sat directly below the safe helper in
+// this same file and did a bare byte slice, and it is the one used on provider
+// error bodies.
 func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n]
+	return textbound.Bytes(s, n)
 }

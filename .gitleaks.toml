@@ -1,0 +1,11 @@
+# Gitleaks configuration.
+#
+# There is no allowlist. The fixtures for this repository's own secret detector
+# have to be shaped like real vendor keys -- that is the point of them -- but
+# they are assembled from split prefixes at run time rather than written as
+# literals, so the detector sees the same bytes and no scanner, local or
+# server-side, has anything to flag. An allowlist would only have covered the
+# pre-commit hook; GitHub's push protection does not read this file.
+
+[extend]
+useDefault = true
