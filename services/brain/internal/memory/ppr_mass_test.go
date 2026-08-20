@@ -1,6 +1,7 @@
 package memory_test
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -33,9 +34,29 @@ func TestPersonalizedPageRankConservesMassWithDanglingSeeds(t *testing.T) {
 	}
 }
 
+// A fresh-eyes review pointed out that the first version of this test used a
+// three-node graph whose sums are exactly representable in float64, so it
+// passed regardless of accumulation order and proved nothing. Float addition is
+// not associative; the defect only shows on a graph large enough for the
+// rounding to differ.
 func TestPersonalizedPageRankIsDeterministic(t *testing.T) {
-	edges := map[string][]string{"a": {"b", "c"}, "b": {"a"}, "c": {"a"}}
-	seeds := map[string]float64{"a": 0.34, "b": 0.33, "c": 0.33}
+	// The contributions must differ from each other, or float addition is
+	// order-independent and the test proves nothing however large the graph is
+	// -- which is what the first two versions of this fixture got wrong. Seeds
+	// are irrational-ish and unequal, and out-degrees vary, so each node
+	// contributes a distinct share.
+	edges := map[string][]string{}
+	seeds := map[string]float64{}
+	const fanIn = 400
+	for i := 0; i < fanIn; i++ {
+		node := fmt.Sprintf("n%03d", i)
+		edges[node] = []string{"hub"}
+		if i%3 == 0 {
+			edges[node] = append(edges[node], fmt.Sprintf("n%03d", (i+7)%fanIn))
+		}
+		edges["hub"] = append(edges["hub"], node)
+		seeds[node] = math.Sqrt(float64(i)+1) / float64(fanIn)
+	}
 
 	first := memory.PersonalizedPageRank(seeds, edges, 0.85, 20)
 	for run := 2; run <= 20; run++ {

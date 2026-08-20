@@ -26,7 +26,7 @@ func TestCatalogAndJSONLServe(t *testing.T) {
 	input := bytes.NewBufferString(`{"verb":"ping"}
 {"verb":"unknown"}
 `)
-	if code := execute([]string{"serve"}, input, &stdout, &stderr); code != 0 {
+	if code := execute([]string{"serve", "--root=/"}, input, &stdout, &stderr); code != 0 {
 		t.Fatalf("serve exit=%d stderr=%s", code, stderr.String())
 	}
 	lines := bytes.Split(bytes.TrimSpace(stdout.Bytes()), []byte{'\n'})
@@ -75,7 +75,7 @@ func TestWatchRunsOneRefreshAndReportsQueueMetrics(t *testing.T) {
 
 func TestServeRejectsMalformedJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	if code := execute([]string{"serve"}, bytes.NewBufferString("not-json\n"), &stdout, &stderr); code == 0 {
+	if code := execute([]string{"serve", "--root=/"}, bytes.NewBufferString("not-json\n"), &stdout, &stderr); code == 0 {
 		t.Fatalf("malformed request unexpectedly succeeded: stdout=%s stderr=%s", stdout.String(), stderr.String())
 	}
 }

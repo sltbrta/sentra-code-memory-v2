@@ -21,26 +21,43 @@ import (
 // stream is saying "run this project's tests", not "run anything".
 
 // verificationAllowlist is the set of program names a change set may name.
-// Every entry is a build, test, or inspection tool. Deliberately absent: any
-// shell (sh, bash, zsh, fish), anything that fetches from the network (curl,
-// wget), and anything whose whole purpose is running another program (env,
-// xargs, nice, time, sudo, ssh).
+//
+// The bar is deliberately higher than "not a shell". A fresh-eyes review made
+// the point that removing `/bin/sh -c` only removed one syntax for reaching a
+// shell: `make` runs recipes through one, `npm run` runs package.json scripts
+// through one, and `node`, `python`, `ruby` and `go run` execute a file the
+// change set may have just written into the stage. The stage contains
+// change-set-controlled content by construction -- that is what is being
+// verified -- so admitting any of those hands execution back to the author.
+//
+// What remains are tools that read the tree and report, and whose behaviour is
+// not defined by a file inside it. `go test` and `go vet` compile and run the
+// package's own tests, which is the point of a verification gate and is the one
+// place this trusts the repository's code; `go run` is excluded because it
+// executes an arbitrary named entrypoint rather than the test suite.
+//
+// Deliberately absent: shells (sh, bash, zsh, fish); network fetchers (curl,
+// wget); program launchers (env, xargs, nice, time, sudo, ssh); task runners
+// whose recipes are shell (make, just, npm/pnpm/yarn run, rake, bundle exec);
+// and language interpreters invoked on a path (node, python, ruby).
 var verificationAllowlist = map[string]bool{
-	// Go
+	// Go: the test and vet subcommands are checked separately below.
 	"go": true, "gofmt": true, "golangci-lint": true, "staticcheck": true,
-	// Task runners
-	"just": true, "make": true,
-	// JavaScript and TypeScript
-	"npm": true, "npx": true, "pnpm": true, "yarn": true, "node": true,
-	"bun": true, "tsc": true, "eslint": true, "vitest": true, "jest": true,
 	// Rust
-	"cargo": true, "rustc": true,
-	// Python
-	"python": true, "python3": true, "pytest": true, "ruff": true, "mypy": true,
-	// Ruby
-	"ruby": true, "rake": true, "rspec": true, "bundle": true,
-	// Small, side-effect-free inspection tools useful as assertions
+	"cargo": true,
+	// Linters and type checkers that take configuration, not a program.
+	"tsc": true, "eslint": true, "ruff": true, "mypy": true, "pytest": true,
+	// Small, side-effect-free inspection tools useful as assertions.
 	"grep": true, "test": true, "true": true, "false": true, "diff": true, "cmp": true,
+}
+
+// verificationSubcommandDenylist rejects subcommands of an allowlisted tool
+// that execute something the change set chose. `go run ./cmd/x` and
+// `go generate` run arbitrary code from the stage; `go test -exec` replaces the
+// test binary's runner.
+var verificationSubcommandDenylist = map[string]map[string]bool{
+	"go":    {"run": true, "generate": true, "install": true, "tool": true},
+	"cargo": {"run": true, "install": true},
 }
 
 // ErrVerificationCommand reports a command the gate refuses to run. It is a
@@ -100,6 +117,20 @@ func parseVerificationCommand(command string) ([]string, error) {
 	if !verificationAllowlist[program] {
 		return nil, &verificationCommandError{
 			reason: fmt.Sprintf("%q is not an allowed verifier (allowed: %s)", program, allowedVerifiers()),
+		}
+	}
+	if denied, ok := verificationSubcommandDenylist[program]; ok && len(argv) > 1 {
+		if denied[argv[1]] {
+			return nil, &verificationCommandError{
+				reason: fmt.Sprintf("%s %s executes code chosen by the change set", program, argv[1]),
+			}
+		}
+	}
+	// -exec replaces the runner a test binary is launched with, which is the
+	// same escape by another name.
+	for _, arg := range argv[1:] {
+		if arg == "-exec" || strings.HasPrefix(arg, "-exec=") {
+			return nil, &verificationCommandError{reason: "-exec selects an arbitrary runner"}
 		}
 	}
 	if _, err := exec.LookPath(program); err != nil {

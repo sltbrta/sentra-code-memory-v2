@@ -272,11 +272,11 @@ func minInt(a, b int) int {
 
 // StorePageIndex replaces stored pageindex trees (one root per document typically).
 func (s *Store) StorePageIndex(trees []PageNode) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.data.PageIndex == nil {
 		s.data.PageIndex = []PageNode{}
 	}

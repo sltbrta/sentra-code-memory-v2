@@ -125,6 +125,9 @@ func serve(args []string, in io.Reader, out, errOut io.Writer) int {
 		"grant operator trust to every request on this stream, admitting mutating "+
 			"verbs (code_apply_changeset, hooks install/uninstall/run). Off by "+
 			"default: requests here come from an agent. Env "+operatorTrustEnvVar+"=1.")
+	root := fs.String("root", "",
+		"confine every request to this subtree (default: the working directory). "+
+			"Pass --root=/ to serve the whole filesystem.")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -136,6 +139,16 @@ func serve(args []string, in io.Reader, out, errOut io.Writer) int {
 	if operatorTrustRequested(*trust) {
 		streamCtx = codeserve.WithOperatorTrust(streamCtx)
 	}
+	// serve was left unpinned when http and mcp were pinned, which a review
+	// caught: it is the surface with the widest exposure, since the README
+	// tells coding agents to keep one warm and pipe JSONL into it. The README
+	// then claimed all the long-running surfaces confined requests to a
+	// subtree, which was true of two of the three.
+	pin, code := resolveRootPin(*root, errOut)
+	if code != 0 {
+		return code
+	}
+	streamCtx = codeserve.WithRootPin(streamCtx, pin)
 
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 64<<10), maxRequestBytes)

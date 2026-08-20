@@ -38,10 +38,25 @@ type diskData struct {
 // section; other mutators call persist() which locks only for the JSON write.
 // Prefer locking in mutators when adding new concurrent writers.
 type Store struct {
-	dir  string
-	mu   sync.Mutex
-	data diskData
-	seq  atomic.Int64
+	dir string
+	// maintenanceMu serialises whole cortex-maintenance waves.
+	//
+	// mu makes each individual mutator safe, which is necessary and not
+	// sufficient: RunCortexMaintenanceOpts is a read-modify-write composed of
+	// several of them (ListSummaries then StoreRAPTOR, DocEdges then
+	// StorePageRank, SetDocEdges then LinkClaimDocuments), and two concurrent
+	// waves interleave between the read and the write. The auto-gardener runs a
+	// wave every 500ms while the ingest path runs one synchronously, so this is
+	// the ordinary case, not a rare one -- measured at 3 of 40 summaries
+	// surviving. Locking the parts and leaving the composition torn is the
+	// failure this guards.
+	//
+	// It is a separate mutex from mu, and is always taken first, because a wave
+	// calls dozens of individually-locking methods.
+	maintenanceMu sync.Mutex
+	mu            sync.Mutex
+	data          diskData
+	seq           atomic.Int64
 
 	// ContestedGroups index, guarded by mu. Rebuilt lazily on read and
 	// invalidated by every claim/status mutation, so repeated answer-path

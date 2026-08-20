@@ -2,6 +2,7 @@ package codeserve_test
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -97,5 +98,77 @@ func TestRootPinIsNotGrantableFromTheRequestMap(t *testing.T) {
 		if code, _ := resp["error_code"].(string); code != string(codeserve.ErrRootNotPermitted) {
 			t.Fatalf("request field %q widened the pin: %v", field, resp)
 		}
+	}
+}
+
+// The tests below close blockers found by a fresh-eyes review of the first
+// version of the root pin. The pin inspected only the "root" field, so three
+// other path-bearing fields walked straight past it -- including one that
+// returned verbatim source from outside the pinned subtree.
+
+func TestHandleRefusesAnIndexCacheOutsideThePin(t *testing.T) {
+	served := testsupport.WorkTree(t, map[string]string{"in.go": "package a\n"})
+	outside := t.TempDir()
+	ctx := codeserve.WithRootPin(context.Background(), served)
+
+	resp := codeserve.Handle(ctx, codeserve.Request{
+		"verb": "code_index", "root": served,
+		"index_cache": filepath.Join(outside, "cache"),
+	})
+	if code, _ := resp["error_code"].(string); code != string(codeserve.ErrRootNotPermitted) {
+		t.Fatalf("index_cache outside the pin was admitted: %v", resp)
+	}
+}
+
+// TestHandleRefusesARootlessRequestThatNamesAnOutsideCache is the reviewer's
+// worst finding: resolvePaths permits an absent root when index_cache is set,
+// so a request naming no root at all skipped the pin and read source from
+// another repository entirely.
+func TestHandleRefusesARootlessRequestThatNamesAnOutsideCache(t *testing.T) {
+	served := testsupport.WorkTree(t, map[string]string{"in.go": "package a\n"})
+	outside := t.TempDir()
+	ctx := codeserve.WithRootPin(context.Background(), served)
+
+	resp := codeserve.Handle(ctx, codeserve.Request{
+		"verb": "code_find_relevant", "q": "secret",
+		"index_cache": filepath.Join(outside, "cache"),
+		"no_refresh":  true, "preview": true,
+	})
+	if code, _ := resp["error_code"].(string); code != string(codeserve.ErrRootNotPermitted) {
+		t.Fatalf("a rootless request reached outside the pin: %v", resp)
+	}
+}
+
+func TestHandleRefusesADirOutsideThePin(t *testing.T) {
+	served := testsupport.WorkTree(t, map[string]string{"in.go": "package a\n"})
+	outside := t.TempDir()
+	ctx := codeserve.WithRootPin(context.Background(), served)
+
+	for _, verb := range []string{"memory_put", "memory_list", "session_continuation"} {
+		t.Run(verb, func(t *testing.T) {
+			target := filepath.Join(outside, "mem-"+verb)
+			resp := codeserve.Handle(ctx, codeserve.Request{
+				"verb": verb, "dir": target,
+				"principal": "p", "text": "t", "kind": "note",
+			})
+			if code, _ := resp["error_code"].(string); code != string(codeserve.ErrRootNotPermitted) {
+				t.Fatalf("%s wrote outside the pin: %v", verb, resp)
+			}
+			if _, err := os.Stat(target); err == nil {
+				t.Fatalf("%s created a directory outside the pin", verb)
+			}
+		})
+	}
+}
+
+func TestHandleAdmitsADirInsideThePin(t *testing.T) {
+	served := testsupport.WorkTree(t, map[string]string{"in.go": "package a\n"})
+	ctx := codeserve.WithRootPin(context.Background(), served)
+	resp := codeserve.Handle(ctx, codeserve.Request{
+		"verb": "memory_put", "dir": filepath.Join(served, "mem"),
+		"principal": "p", "kind": "note", "text": "t",
+	})
+	if code, _ := resp["error_code"].(string); code == string(codeserve.ErrRootNotPermitted) {
+		t.Fatalf("a dir inside the pin was refused: %v", resp)
 	}
 }

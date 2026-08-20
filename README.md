@@ -28,8 +28,11 @@ Mutating verbs (`code_apply_changeset`, `hooks install|uninstall|run`) require
 an explicit operator grant that no request field or tool argument can supply.
 The direct CLI carries it because you ran the binary; the long-running server
 surfaces need `--operator-trust` (or `SENTRA_CODE_MEMORY_OPERATOR_TRUST=1`).
-Those surfaces also confine every request to a subtree: `--root` defaults to the
-working directory, and `--root=/` is the explicit opt-out.
+All three long-running surfaces (`serve`, `http`, `mcp`) confine every request
+to a subtree. `--root` defaults to the working directory, so pass it explicitly
+when the process is started somewhere other than the repository it serves;
+`--root=/` is the explicit opt-out. The pin covers every path-bearing field of a
+request -- `root`, `dir`, `index_cache` and `scip` -- not just `root`.
 
 Coding agents can keep one process warm with JSONL:
 
@@ -37,7 +40,7 @@ Coding agents can keep one process warm with JSONL:
 printf '%s\n' \
   '{"verb":"code_search","root":"/path/to/repo",'\
   '"q":"authentication","top_k":20,"no_refresh":true}' \
-  | ./sentra-code-memory serve
+  | ./sentra-code-memory serve --root /path/to/repo
 ```
 
 Local-only hooks lifecycle and lexical bag-of-words code retrieval (issue #59)

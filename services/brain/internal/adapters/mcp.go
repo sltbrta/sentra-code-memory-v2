@@ -144,7 +144,13 @@ func MCPTools() []MCPTool {
 			desc = desc + " (aliases: " + strings.Join(s.Aliases, ", ") + ")"
 		}
 		if s.RequiresOperatorTrust {
-			desc = desc + " Mutating actions of this verb over MCP require the explicit _operator_trust=true opt-in; read-only actions are always admitted. Use the direct CLI for one-off operations."
+			// Names the gate without naming a lever. Advertising the old
+			// `_operator_trust` argument told a compliant client to send a
+			// field that is now refused at the transport level, which is the
+			// opposite of the contract's promise that a caller who believes it
+			// granted a permission is told otherwise in the normal envelope.
+			desc = desc + " (mutating actions require an operator grant made at " +
+				"process start; no tool argument can supply it)"
 		}
 		tools = append(tools, MCPTool{
 			Name: s.Name, Description: desc, InputSchema: schema,
@@ -372,12 +378,13 @@ type toolsCallParams struct {
 // returned as successful MCP results with isError:true so the agent sees the
 // structured error_code rather than a transport-level JSON-RPC failure.
 //
-// Operator-trust gate (issue #63): mutating actions on verbs whose catalog
-// spec carries RequiresOperatorTrust (hooks_local install /
-// uninstall / run, code_apply_changeset) are refused unless the JSON arguments explicitly
-// include "_operator_trust": true. The check runs before codeserve
-// dispatch and the gate's structured codeserve envelope is forwarded
-// verbatim so an MCP client sees the same error_code as HTTP.
+// Operator-trust gate (issue #63): mutating actions on verbs whose catalog spec
+// carries RequiresOperatorTrust (hooks_local install / uninstall / run,
+// code_apply_changeset) are refused unless the *context* carries the grant,
+// which only a process-start flag or environment variable can set. Arguments
+// claiming the grant are refused outright rather than ignored. The gate's
+// structured codeserve envelope is forwarded verbatim so an MCP client sees the
+// same error_code as HTTP.
 func dispatchMCPToolCall(ctx context.Context, params json.RawMessage) (any, *rpcError) {
 	var p toolsCallParams
 	if len(params) > 0 {

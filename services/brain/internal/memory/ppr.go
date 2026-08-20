@@ -1,5 +1,7 @@
 package memory
 
+import "sort"
+
 // PersonalizedPageRank runs power-iteration PPR on an undirected weighted graph
 // (HippoRAG-style associative multi-hop). Nodes are opaque string IDs (docs or phrases).
 //
@@ -28,9 +30,19 @@ func PersonalizedPageRank(seedScores map[string]float64, edges map[string][]stri
 		return map[string]float64{}
 	}
 	// Normalize seeds.
+	// Summed in sorted key order for the same reason as the iteration below:
+	// this is a float accumulation over a map range, so its result varied in
+	// the last digits per process and every normalised seed inherited the
+	// difference. It survived the first fix because only the propagation loop
+	// was sorted -- the normaliser above it was missed.
+	seedKeys := make([]string, 0, len(seedScores))
+	for n := range seedScores {
+		seedKeys = append(seedKeys, n)
+	}
+	sort.Strings(seedKeys)
 	sumSeed := 0.0
-	for _, v := range seedScores {
-		if v > 0 {
+	for _, n := range seedKeys {
+		if v := seedScores[n]; v > 0 {
 			sumSeed += v
 		}
 	}
@@ -59,6 +71,17 @@ func PersonalizedPageRank(seedScores map[string]float64, edges map[string][]stri
 			deg[n] = 1 // dangling
 		}
 	}
+	// Iteration order is fixed. Float addition is not associative and Go
+	// randomises map order, so accumulating `next[m] += share` while ranging a
+	// map gave different last-digit results per process -- which then made
+	// memory.json differ byte-for-byte for identical inputs, in a branch that
+	// went to deliberate trouble to sort chunk ids for exactly that reason.
+	ordered := make([]string, 0, len(nodes))
+	for n := range nodes {
+		ordered = append(ordered, n)
+	}
+	sort.Strings(ordered)
+
 	// Init rank = personalization
 	rank := map[string]float64{}
 	for n, p := range pers {
@@ -66,7 +89,7 @@ func PersonalizedPageRank(seedScores map[string]float64, edges map[string][]stri
 	}
 	for it := 0; it < iterations; it++ {
 		next := map[string]float64{}
-		for n := range nodes {
+		for _, n := range ordered {
 			next[n] = (1 - damping) * pers[n]
 		}
 		// Dangling mass is accumulated across every node and redistributed in
@@ -80,7 +103,7 @@ func PersonalizedPageRank(seedScores map[string]float64, edges map[string][]stri
 		// The old form was also O(V) per empty-neighbour node inside the node
 		// loop, making an iteration O(V^2) on the answer path.
 		dangling := 0.0
-		for n := range nodes {
+		for _, n := range ordered {
 			nbrs := edges[n]
 			if len(nbrs) == 0 {
 				dangling += rank[n]
@@ -92,7 +115,7 @@ func PersonalizedPageRank(seedScores map[string]float64, edges map[string][]stri
 			}
 		}
 		if dangling > 0 {
-			for m := range nodes {
+			for _, m := range ordered {
 				next[m] += damping * dangling * pers[m]
 			}
 		}

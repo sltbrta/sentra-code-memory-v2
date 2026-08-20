@@ -48,6 +48,14 @@ type CortexOpts struct {
 
 // RunCortexMaintenanceOpts is the full heavy cortex wave.
 func (s *Store) RunCortexMaintenanceOpts(docs map[string]string, opts CortexOpts) CortexMaintenanceResult {
+	// One wave at a time. Every step below is a read-modify-write across
+	// several individually-locked calls; without this, a concurrent wave
+	// interleaves between a read and its write and the loser's work is
+	// discarded wholesale.
+	if s != nil {
+		s.maintenanceMu.Lock()
+		defer s.maintenanceMu.Unlock()
+	}
 	res := CortexMaintenanceResult{}
 	if s == nil {
 		return res

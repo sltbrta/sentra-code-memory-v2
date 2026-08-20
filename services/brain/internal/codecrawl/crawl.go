@@ -281,6 +281,14 @@ func CrawlDir(root string, workers int) (*Index, Stats, error) {
 		return nil
 	})
 
+	// Enforce the file-count bound. It was declared with a justification and
+	// never applied -- a review caught the constant referenced nowhere but its
+	// own declaration, which is the same overclaiming this branch has been
+	// removing elsewhere.
+	if len(paths) > MaxIndexableFiles {
+		paths = paths[:MaxIndexableFiles]
+	}
+
 	idx := newEmptyIndex()
 	t0 := time.Now()
 	ch := make(chan string, len(paths))

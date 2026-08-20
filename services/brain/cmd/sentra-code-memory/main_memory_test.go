@@ -69,7 +69,7 @@ func TestCLIMemorySessionSavingsOperators(t *testing.T) {
 // class disclosure through the CLI rather than an opaque unknown-verb error.
 func TestCLIDeferredDisclosure(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	if code := execute([]string{"serve"}, bytes.NewBufferString(
+	if code := execute([]string{"serve", "--root=/"}, bytes.NewBufferString(
 		`{"verb":"session_product"}`+"\n"), &stdout, &stderr); code != 0 {
 		t.Fatalf("serve exit=%d stderr=%s", code, stderr.String())
 	}

@@ -30,11 +30,11 @@ func (s *Store) ListQuarantine() []QuarantineEntry {
 
 // AddQuarantine records a document as quarantined (idempotent per docID).
 func (s *Store) AddQuarantine(docID, reason string, utility float64, generation string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s == nil || docID == "" {
 		return fmt.Errorf("memory: quarantine requires store and document_id")
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	now := time.Now().UTC()
 	for i := range s.data.Quarantine {
 		if s.data.Quarantine[i].DocumentID == docID {

@@ -78,7 +78,7 @@ func Handle(ctx context.Context, req Request) (resp Response) {
 	// for the same reason as the trust gate -- every rooted verb confined its
 	// work inside the root it was handed, but nothing constrained which root a
 	// model-authored request could name, so `{"root":"/"}` read the host.
-	if !rootWithinPin(ctx, str(req, "root")) {
+	if !requestWithinPin(ctx, req) {
 		return rootPinError(verb)
 	}
 	switch Verb(verb) {

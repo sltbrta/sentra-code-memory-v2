@@ -232,7 +232,7 @@ func (r *RESTAPI) GetRef(ctx context.Context, owner, repo, ref string) (string, 
 	// fine-grained PAT attached to the request, so a `..` in owner/repo escaped
 	// the /repos/ prefix and an `&` or `#` in a ref rewrote the request.
 	url := fmt.Sprintf("%s/repos/%s/%s/git/ref/%s", r.BaseURL,
-		neturl.PathEscape(owner), neturl.PathEscape(repo), refPathEscape(trimmed))
+		repoSegmentEscape(owner), repoSegmentEscape(repo), refPathEscape(trimmed))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", false, err
@@ -263,7 +263,7 @@ func (r *RESTAPI) GetRef(ctx context.Context, owner, repo, ref string) (string, 
 // CreateRef implements API.
 func (r *RESTAPI) CreateRef(ctx context.Context, owner, repo, ref, sha string) error {
 	url := fmt.Sprintf("%s/repos/%s/%s/git/refs", r.BaseURL,
-		neturl.PathEscape(owner), neturl.PathEscape(repo))
+		repoSegmentEscape(owner), repoSegmentEscape(repo))
 	payload, _ := json.Marshal(map[string]string{"ref": ref, "sha": sha})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
@@ -295,7 +295,7 @@ func (r *RESTAPI) ListPullRequests(ctx context.Context, owner, repo, head, base 
 	query.Set("base", base)
 	query.Set("per_page", "100")
 	url := fmt.Sprintf("%s/repos/%s/%s/pulls?%s", r.BaseURL,
-		neturl.PathEscape(owner), neturl.PathEscape(repo), query.Encode())
+		repoSegmentEscape(owner), repoSegmentEscape(repo), query.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -349,7 +349,7 @@ func (r *RESTAPI) ListPullRequests(ctx context.Context, owner, repo, head, base 
 // CreatePullRequest implements API.
 func (r *RESTAPI) CreatePullRequest(ctx context.Context, owner, repo string, in CreatePRInput) (PullRequest, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/pulls", r.BaseURL,
-		neturl.PathEscape(owner), neturl.PathEscape(repo))
+		repoSegmentEscape(owner), repoSegmentEscape(repo))
 	payload, _ := json.Marshal(map[string]any{
 		"title": in.Title,
 		"body":  in.Body,
@@ -429,10 +429,29 @@ func HTTPClientFromRoundTrip(fn RoundTripFunc) *http.Client {
 // refPathEscape escapes a git ref for use in a URL path. Slashes are the one
 // character a ref legitimately contains that must survive, since the API path
 // is /git/ref/heads/main rather than /git/ref/heads%2Fmain.
+//
+// Escaping alone is not enough, and the first version of this function got it
+// wrong: neturl.PathEscape leaves "." untouched because it is an unreserved
+// character, so a ".." segment survives escaping intact and any normalising
+// proxy resolves it back off the /repos/ prefix. A dot segment is rejected
+// rather than encoded -- no legitimate git ref contains one.
 func refPathEscape(ref string) string {
 	parts := strings.Split(ref, "/")
 	for i, part := range parts {
+		if part == "." || part == ".." {
+			return ""
+		}
 		parts[i] = neturl.PathEscape(part)
 	}
 	return strings.Join(parts, "/")
+}
+
+// repoSegmentEscape escapes one owner or repository name, rejecting anything
+// that is not a single ordinary path segment. GitHub names cannot contain a
+// slash or a dot segment, so a value that does is not a name.
+func repoSegmentEscape(segment string) string {
+	if segment == "." || segment == ".." || strings.ContainsAny(segment, "/\\") {
+		return ""
+	}
+	return neturl.PathEscape(segment)
 }

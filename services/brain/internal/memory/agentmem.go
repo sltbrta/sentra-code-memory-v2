@@ -58,11 +58,11 @@ func (s *Store) PutAgentMemory(principal, kind, text string, tags []string) (Age
 
 // PutAgentMemoryTier is PutAgentMemory with an explicit tier.
 func (s *Store) PutAgentMemoryTier(principal, kind, text string, tags []string, tier string) (AgentMemoryEntry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s == nil {
 		return AgentMemoryEntry{}, fmt.Errorf("memory: nil store")
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	principal = strings.TrimSpace(principal)
 	text = strings.TrimSpace(text)
 	if principal == "" {
@@ -84,11 +84,11 @@ func (s *Store) PutAgentMemoryTier(principal, kind, text string, tags []string, 
 
 // PromoteAgentMemory moves an entry to a new tier (stm|mtm|ltm).
 func (s *Store) PromoteAgentMemory(id, tier string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s == nil {
 		return fmt.Errorf("memory: nil store")
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return fmt.Errorf("memory: empty agent memory id")

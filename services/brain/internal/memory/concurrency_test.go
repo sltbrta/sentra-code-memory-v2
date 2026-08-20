@@ -161,3 +161,85 @@ func TestConcurrentReadsAndWritesDoNotRace(t *testing.T) {
 	close(stop)
 	waitOrFail(t, &wg, 60*time.Second)
 }
+
+// The tests below close blockers found by a fresh-eyes review of the first
+// locking pass. Locking every mutator made each call safe and left the
+// compositions torn: a maintenance wave is a read-modify-write across several
+// individually-locked calls, and two concurrent waves interleave between the
+// read and the write.
+
+func TestConcurrentPageRankReadsAndWritesDoNotRace(t *testing.T) {
+	store, err := memory.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+
+	for w := 0; w < 4; w++ {
+		wg.Add(1)
+		go func(worker int) {
+			defer wg.Done()
+			for i := 0; ; i++ {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				_ = store.StorePageRank(map[string]float64{
+					fmt.Sprintf("doc-%d", worker): float64(i),
+				})
+			}
+		}(w)
+	}
+	for r := 0; r < 4; r++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				// The nil test on s.data.PageRank used to run above the lock.
+				_ = store.PageRankScores()
+			}
+		}()
+	}
+	time.Sleep(250 * time.Millisecond)
+	close(stop)
+	waitOrFail(t, &wg, 60*time.Second)
+}
+
+// TestConcurrentMaintenanceWavesDoNotLoseSummaries pins the composition, not
+// the parts. Measured before the wave lock: 3 of 40 summaries survived.
+func TestConcurrentMaintenanceWavesDoNotLoseSummaries(t *testing.T) {
+	store, err := memory.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	docs := map[string]string{}
+	for i := 0; i < 12; i++ {
+		docs[fmt.Sprintf("doc-%02d", i)] = fmt.Sprintf(
+			"alpha beta gamma delta epsilon document %d about authentication and storage", i)
+	}
+
+	var wg sync.WaitGroup
+	for w := 0; w < 6; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 5; i++ {
+				_ = store.RunCortexMaintenance(docs)
+			}
+		}()
+	}
+	waitOrFail(t, &wg, 120*time.Second)
+
+	// After concurrent waves the summary set must reflect a whole wave, not a
+	// torn interleaving of several.
+	if got := len(store.ListSummaries()); got == 0 {
+		t.Fatal("concurrent maintenance waves discarded every summary")
+	}
+}

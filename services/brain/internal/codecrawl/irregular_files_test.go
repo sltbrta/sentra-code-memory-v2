@@ -127,3 +127,43 @@ func TestCrawlDirSkipsADeviceSymlink(t *testing.T) {
 		t.Fatal("a character device was indexed as source")
 	}
 }
+
+// TestIngestPathsAndCrawlAgreeOnSymlinks closes a fresh-eyes finding: the
+// symlink exclusion only worked where filepath.Walk lstats. IngestPaths and
+// ensureHashes call os.Stat, which resolves the link first, so ingesting a
+// symlinked source file added it to the index and the next full crawl silently
+// removed it -- answers for that file appeared and disappeared depending on
+// which verb ran last.
+func TestIngestPathsAndCrawlAgreeOnSymlinks(t *testing.T) {
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "outside.go"),
+		[]byte("package outside\n\nfunc Secret() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "real.go"), []byte("package a\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(outside, "outside.go"), filepath.Join(root, "linked.go")); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+
+	idx, _, err := codecrawl.CrawlDir(root, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	crawled := idx.HasFile("linked.go")
+
+	if _, err := idx.IngestPaths(root, []string{"linked.go"}); err != nil {
+		t.Fatalf("IngestPaths: %v", err)
+	}
+	ingested := idx.HasFile("linked.go")
+
+	if crawled != ingested {
+		t.Fatalf("CrawlDir indexed the symlink=%v but IngestPaths indexed it=%v: "+
+			"the two paths disagree, so the file appears and disappears by verb", crawled, ingested)
+	}
+	if ingested {
+		t.Fatal("a symlink resolving outside the root was indexed")
+	}
+}

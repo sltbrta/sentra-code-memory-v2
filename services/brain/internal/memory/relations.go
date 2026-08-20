@@ -174,11 +174,11 @@ func (s *Store) admitRelationLocked(rel TemporalRelation) (TemporalRelation, []T
 
 // SupersedeRelation marks oldID superseded by a new relation (non-lossy).
 func (s *Store) SupersedeRelation(oldID string, neu TemporalRelation) (TemporalRelation, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s == nil {
 		return TemporalRelation{}, fmt.Errorf("memory: nil store")
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	found := false
 	for i := range s.data.Relations {
 		if s.data.Relations[i].ID == oldID {

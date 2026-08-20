@@ -1,6 +1,9 @@
 package memory
 
-import "math"
+import (
+	"math"
+	"sort"
+)
 
 // GlobalPageRank computes classic PageRank over an undirected/directed graph
 // (power iteration). This is an optional offline authority prior — not the
@@ -39,27 +42,36 @@ func GlobalPageRank(edges map[string][]string, iterations int) map[string]float6
 	// on a large graph and burned full passes on a small one, with no way to
 	// tell which had happened.
 	const convergenceTolerance = 1e-9
+	// Fixed iteration order: see ppr.go. Map-order float accumulation made the
+	// stored vector, and therefore memory.json, differ across identical runs.
+	ordered := make([]string, 0, len(nodes))
+	for n := range nodes {
+		ordered = append(ordered, n)
+	}
+	sort.Strings(ordered)
+
 	for it := 0; it < iterations; it++ {
 		next := map[string]float64{}
 		// Base teleport.
 		base := (1 - damping) / nCount
-		for n := range nodes {
+		for _, n := range ordered {
 			next[n] = base
 		}
 		// Dangling mass redistributed uniformly.
 		dangling := 0.0
-		for n := range nodes {
+		for _, n := range ordered {
 			if deg[n] == 0 {
 				dangling += rank[n]
 			}
 		}
 		if dangling > 0 {
 			share := damping * dangling / nCount
-			for n := range nodes {
+			for _, n := range ordered {
 				next[n] += share
 			}
 		}
-		for n, nbrs := range edges {
+		for _, n := range ordered {
+			nbrs := edges[n]
 			if len(nbrs) == 0 {
 				continue
 			}
@@ -69,7 +81,7 @@ func GlobalPageRank(edges map[string][]string, iterations int) map[string]float6
 			}
 		}
 		delta := 0.0
-		for n := range nodes {
+		for _, n := range ordered {
 			delta += math.Abs(next[n] - rank[n])
 		}
 		rank = next
@@ -82,11 +94,11 @@ func GlobalPageRank(edges map[string][]string, iterations int) map[string]float6
 
 // StorePageRank persists global PageRank scores into the cortex projection.
 func (s *Store) StorePageRank(scores map[string]float64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.data.PageRank == nil {
 		s.data.PageRank = map[string]float64{}
 	}
@@ -103,11 +115,19 @@ func (s *Store) StorePageRank(scores map[string]float64) error {
 
 // PageRankScores returns a copy of stored global PR scores.
 func (s *Store) PageRankScores() map[string]float64 {
-	if s == nil || s.data.PageRank == nil {
+	// The nil-receiver test may run before the lock; the s.data test may not.
+	// This read `s.data.PageRank == nil` above the Lock, which is an
+	// unsynchronised read of a map header against StorePageRank's write of the
+	// same field -- a data race introduced by the commit that was removing data
+	// races, and caught by a fresh-eyes review rather than by the suite.
+	if s == nil {
 		return map[string]float64{}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.data.PageRank == nil {
+		return map[string]float64{}
+	}
 	out := make(map[string]float64, len(s.data.PageRank))
 	for k, v := range s.data.PageRank {
 		out[k] = v

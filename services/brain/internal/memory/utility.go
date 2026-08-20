@@ -30,11 +30,11 @@ func (s *Store) GetUtility(docID string) float64 {
 
 // SetUtility sets absolute utility.
 func (s *Store) SetUtility(docID string, score float64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.data.Utility == nil {
 		s.data.Utility = map[string]UtilityRecord{}
 	}
@@ -49,11 +49,11 @@ func (s *Store) SetUtility(docID string, score float64) error {
 // Prefer DecayUtilityHalfLife for Lattice E4 time-based decay.
 // Returns updated scores. This is the write half of the closed loop.
 func (s *Store) DecayUtility(factor float64) map[string]float64 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if factor <= 0 || factor > 1 {
 		factor = 0.95
 	}
@@ -83,11 +83,11 @@ func (s *Store) DecayUtility(factor float64) map[string]float64 {
 // If LastDecay is zero, sets LastDecay=now and skips decay on first call
 // (establishes the decay clock). Returns updated scores.
 func (s *Store) DecayUtilityHalfLife(now time.Time) map[string]float64 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s == nil {
 		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
@@ -133,11 +133,11 @@ func (s *Store) DecayUtilityHalfLife(now time.Time) map[string]float64 {
 
 // ReinforceUtility boosts cited documents (retrieval reinforcement C3).
 func (s *Store) ReinforceUtility(docIDs []string, boost float64) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s == nil || len(docIDs) == 0 {
 		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if boost <= 0 {
 		boost = 0.1
 	}
@@ -198,11 +198,11 @@ func (s *Store) RankDocumentsByUtility(docIDs []string) []string {
 
 // EnsureUtility seeds score 1.0 for docs missing utility.
 func (s *Store) EnsureUtility(docIDs []string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s == nil {
 		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.data.Utility == nil {
 		s.data.Utility = map[string]UtilityRecord{}
 	}
