@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/durablefile"
 )
 
 // dataFile is the durable projection under a product brain dir.
@@ -106,12 +108,18 @@ func (s *Store) persist() error {
 }
 
 // persistLocked writes memory.json. Caller must hold s.mu.
+// persistLocked writes the whole cortex. It used os.WriteFile, which truncates
+// the live file in place: a crash, SIGKILL or ENOSPC part-way through left a
+// truncated memory.json that fails json.Unmarshal at Open, taking every claim,
+// temporal relation, episode, PageIndex tree, PageRank vector and agent-memory
+// tier with it. There was no temp file and no backup generation, and every
+// mutator takes this path -- thousands of times per gardener wave.
 func (s *Store) persistLocked() error {
 	raw, err := json.MarshalIndent(s.data, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(s.dir, dataFile), raw, 0o600)
+	return durablefile.Write(filepath.Join(s.dir, dataFile), raw, 0o600)
 }
 
 // invalidateContestedLocked drops the ContestedGroups index so the next read

@@ -275,6 +275,15 @@ func (h *HotLex) maybeCompactLocked() {
 		return
 	}
 	// Rebuild via bulk add of live docs.
+	//
+	// This only works while the docs still carry their text: addChunk returns
+	// early on empty text, and StripStoredText -- the index-only serving shape
+	// -- clears it on every doc. Replaying it there dropped every live
+	// document and left N=0, so the whole lexical index went silently empty
+	// once tombstones crossed the threshold.
+	//
+	// A stripped index keeps its tombstones instead. They cost a little space
+	// and are filtered at query time; an empty index costs every answer.
 	type snap struct {
 		chunkID, dsid, text, uri string
 		hasText                  bool
@@ -283,6 +292,9 @@ func (h *HotLex) maybeCompactLocked() {
 	for _, d := range h.docs {
 		if d.ChunkID == "" {
 			continue
+		}
+		if !d.HasText {
+			return
 		}
 		keep = append(keep, snap{d.ChunkID, d.DSID, d.Text, d.SourceURI, d.HasText})
 	}
