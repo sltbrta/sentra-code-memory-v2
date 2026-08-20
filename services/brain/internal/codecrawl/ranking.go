@@ -283,12 +283,26 @@ func resolveEdgeTarget(graph *Graph, source string, e Edge) string {
 		}
 		// EdgesByImportPath is keyed on Provenance.File in rebuildGraphFromFiles;
 		// for the live graph we use the import path lower-case match.
+		// Go randomises map iteration, so returning "whatever matched first"
+		// made the adjacency feeding PageRank differ between processes: the
+		// same corpus and query returned a different top hit run to run, in a
+		// package that advertises deterministic personalised PageRank.
+		//
+		// Choose deterministically instead: the shortest matching key, breaking
+		// ties lexicographically. Shortest favours the most specific match --
+		// "auth" over "authservice_helpers" -- and the lexicographic tiebreak
+		// makes the remainder total.
 		stem := strings.ToLower(pathStem(e.To))
+		best := ""
 		for k := range graph.EdgesByImportPath {
-			if strings.Contains(strings.ToLower(k), stem) {
-				return k
+			if !strings.Contains(strings.ToLower(k), stem) {
+				continue
+			}
+			if best == "" || len(k) < len(best) || (len(k) == len(best) && k < best) {
+				best = k
 			}
 		}
+		return best
 	}
 	return ""
 }

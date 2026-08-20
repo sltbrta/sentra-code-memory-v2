@@ -284,7 +284,7 @@ func (s *Store) BuildBipartitePhraseEdges(maxPhrases int) map[string][]string {
 		ranked = ranked[:maxPhrases]
 	}
 	for _, r := range ranked {
-		pid := "phrase:" + r.p
+		pid := PhraseNodeID(r.p)
 		for d := range phraseDocs[r.p] {
 			out[pid] = appendUnique(out[pid], d)
 			out[d] = appendUnique(out[d], pid)
@@ -413,4 +413,24 @@ func BuildCommunitySummaries(docs map[string]string, edges map[string][]string, 
 		})
 	}
 	return nodes
+}
+
+// PhraseNodeID builds the graph node id for a phrase.
+//
+// Two producers built these ids independently and disagreed:
+// SeedPhrasePassageEdgesFromClaims replaced spaces with underscores and cut at
+// 48 bytes, while BuildBipartitePhraseEdges used the raw phrase. The same
+// phrase therefore became two disconnected nodes, so seeded edges contributed
+// nothing to the graph the query path actually builds -- the comment claiming
+// the prefixes matched was simply wrong.
+//
+// Truncation is by rune, not byte: cutting mid-rune produced invalid UTF-8 ids
+// and could collide distinct long phrases.
+func PhraseNodeID(phrase string) string {
+	normalized := strings.ReplaceAll(strings.TrimSpace(phrase), " ", "_")
+	const maxPhraseRunes = 40
+	if runes := []rune(normalized); len(runes) > maxPhraseRunes {
+		normalized = string(runes[:maxPhraseRunes])
+	}
+	return "phrase:" + normalized
 }

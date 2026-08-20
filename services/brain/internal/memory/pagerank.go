@@ -34,6 +34,11 @@ func GlobalPageRank(edges map[string][]string, iterations int) map[string]float6
 	for n := range nodes {
 		deg[n] = float64(len(edges[n]))
 	}
+	// Iterate to convergence within the iteration budget rather than always
+	// running the full count. A fixed 20 passes returned an unconverged prior
+	// on a large graph and burned full passes on a small one, with no way to
+	// tell which had happened.
+	const convergenceTolerance = 1e-9
 	for it := 0; it < iterations; it++ {
 		next := map[string]float64{}
 		// Base teleport.
@@ -63,7 +68,14 @@ func GlobalPageRank(edges map[string][]string, iterations int) map[string]float6
 				next[m] += share
 			}
 		}
+		delta := 0.0
+		for n := range nodes {
+			delta += math.Abs(next[n] - rank[n])
+		}
 		rank = next
+		if delta < convergenceTolerance {
+			break
+		}
 	}
 	return rank
 }

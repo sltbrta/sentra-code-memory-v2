@@ -69,17 +69,31 @@ func PersonalizedPageRank(seedScores map[string]float64, edges map[string][]stri
 		for n := range nodes {
 			next[n] = (1 - damping) * pers[n]
 		}
-		for n, nbrs := range edges {
+		// Dangling mass is accumulated across every node and redistributed in
+		// one pass.
+		//
+		// Previously only nodes that were *keys* of `edges` redistributed. A
+		// seed contributed by seedScores but absent from the adjacency -- the
+		// common case for a retrieved document with no co-occurrence edges --
+		// kept its rank and never propagated it, so damping*rank vanished each
+		// iteration and every score was deflated in a query-dependent way.
+		// The old form was also O(V) per empty-neighbour node inside the node
+		// loop, making an iteration O(V^2) on the answer path.
+		dangling := 0.0
+		for n := range nodes {
+			nbrs := edges[n]
 			if len(nbrs) == 0 {
-				// redistribute dangling as personalization
-				for m := range nodes {
-					next[m] += damping * rank[n] * pers[m]
-				}
+				dangling += rank[n]
 				continue
 			}
 			share := damping * rank[n] / float64(len(nbrs))
 			for _, m := range nbrs {
 				next[m] += share
+			}
+		}
+		if dangling > 0 {
+			for m := range nodes {
+				next[m] += damping * dangling * pers[m]
 			}
 		}
 		rank = next
