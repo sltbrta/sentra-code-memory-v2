@@ -96,6 +96,22 @@ func findTrustRequired(t *testing.T, resp codeserve.Response) map[string]any {
 // callMCPTool drives the MCP stdio loop for one tools/call and returns the
 // inner codeserve response so we can assert on the same envelope the
 // HTTP path returns.
+// callMCPToolTrusted drives a tools/call with the process-level operator grant
+// installed by `mcp --operator-trust`.
+func callMCPToolTrusted(t *testing.T, name string, arguments map[string]any) codeserve.Response {
+	t.Helper()
+	params, _ := json.Marshal(map[string]any{"name": name, "arguments": arguments})
+	reqLine, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+		"params": json.RawMessage(params),
+	})
+	lines := serveMCPTrusted(t, string(reqLine))
+	if len(lines) != 1 {
+		t.Fatalf("mcp dispatch: want 1 response, got %d (%q)", len(lines), lines)
+	}
+	return mustToolCallInner(t, lines[0])
+}
+
 func callMCPTool(t *testing.T, name string, arguments map[string]any) codeserve.Response {
 	t.Helper()
 	params, _ := json.Marshal(map[string]any{"name": name, "arguments": arguments})
@@ -283,26 +299,19 @@ func TestHTTPNonGatedVerbIgnoresOperatorTrustOptIn(t *testing.T) {
 // learn the rule by introspection rather than trial and error. Advertise
 // + refuse is intentional: status is available and a model can still see
 // "the verb exists but mutating calls require opt-in."
-func TestMCPToolsListAdvertisesHooksLocalWithTrustNote(t *testing.T) {
+func TestMCPToolsListDoesNotAdvertiseAnOptInField(t *testing.T) {
 	t.Parallel()
+	// Changed deliberately from the previous contract, which advertised an
+	// "_operator_trust" boolean on every gated tool. On this surface the
+	// arguments are authored by a model, so a flag the model can set is not a
+	// gate -- advertising it documented a bypass. Trust is now granted at
+	// process start and cannot be reached from tools/call at all.
 	for _, tool := range adapters.MCPTools() {
-		if tool.Name != "hooks_local" {
-			continue
-		}
-		if !strings.Contains(tool.Description, "_operator_trust") {
-			t.Fatalf("hooks_local description must mention the gate: %q", tool.Description)
-		}
 		props, _ := tool.InputSchema["properties"].(map[string]any)
-		field, _ := props["_operator_trust"].(map[string]any)
-		if field == nil {
-			t.Fatalf("hooks_local schema missing _operator_trust: %+v", props)
+		if _, found := props["_operator_trust"]; found {
+			t.Fatalf("tool %q still advertises _operator_trust: %+v", tool.Name, props)
 		}
-		if field["type"] != "boolean" {
-			t.Fatalf("_operator_trust schema must be boolean, got %v", field["type"])
-		}
-		return
 	}
-	t.Fatalf("hooks_local missing from MCPTools()")
 }
 
 // TestMCPToolsListDensityAndReadVerbsAreUnchanged locks the negative
@@ -401,76 +410,82 @@ func TestMCPHooksLocalStatusAlwaysAdmitted(t *testing.T) {
 	}
 }
 
-// TestMCPHooksLocalInstallAdmittedWithOperatorTrustOptIn proves the
-// explicit MCP opt-in path: passing arguments._operator_trust=true
-// admits the call and lifecycle.Install actually runs, mirroring the
-// HTTP header/query opt-in symmetrically. After install we assert via
-// status (also MCP) that the manifest is on disk: that catches any
-// regression where the gate was bypassed but the underlying dispatch
-// was somehow short-circuited.
-func TestMCPHooksLocalInstallAdmittedWithOperatorTrustOptIn(t *testing.T) {
+// TestMCPHooksLocalInstallAdmittedWhenTheProcessCarriesOperatorTrust replaces
+// the previous argument-based opt-in test. The grant now comes from the
+// process (mcp --operator-trust), so the same install succeeds without the
+// caller supplying anything.
+func TestMCPHooksLocalInstallAdmittedWhenTheProcessCarriesOperatorTrust(t *testing.T) {
 	root := operatorTrustGitRepo(t)
-	install := callMCPTool(t, "hooks_local", map[string]any{
+	install := callMCPToolTrusted(t, "hooks_local", map[string]any{
 		"verb": "hooks_local", "action": "install",
 		"root": root, "strategy": "repo-hooks",
-		"_operator_trust": true,
 	})
 	if install["ok"] != true {
-		t.Fatalf("opt-in install must succeed, got %+v", install)
+		t.Fatalf("process-trusted install must succeed, got %+v", install)
 	}
-	status := callMCPTool(t, "hooks_local", map[string]any{
+	status := callMCPToolTrusted(t, "hooks_local", map[string]any{
 		"verb": "hooks_local", "action": "status", "root": root,
 	})
 	installed, _ := status["installed"].([]any)
 	if len(installed) == 0 {
-		t.Fatalf("MCP opt-in install did not register any hooks: %+v", status)
+		t.Fatalf("process-trusted install did not register any hooks: %+v", status)
 	}
 }
 
-// TestMCPHooksLocalInstallRejectsTruthyStringOptIn is the MCP analogue
-// of the HTTP strict-value check: the gate accepts the strict bool
-// form (true) only; a string "true" or 1 must be refused so a caller
-// cannot smuggle in an opt-in via JSON coercion.
-func TestMCPHooksLocalInstallRejectsTruthyStringOptIn(t *testing.T) {
+// TestMCPRejectsAnyAttemptToGrantTrustThroughArguments is the inverted form of
+// the old strict-value test. Previously the bool true was honored and other
+// shapes refused; now no shape is honored, because the caller supplying the
+// value is the party the gate exists to constrain. The attempt is refused
+// loudly rather than ignored, so a client that believes it granted a
+// permission is told otherwise.
+func TestMCPRejectsAnyAttemptToGrantTrustThroughArguments(t *testing.T) {
 	t.Parallel()
 	root := operatorTrustGitRepo(t)
-	for _, fake := range []any{"true", "1", 1, "yes"} {
-		inner := callMCPTool(t, "hooks_local", map[string]any{
-			"verb": "hooks_local", "action": "install",
-			"root": root, "_operator_trust": fake,
+	for _, claimed := range []any{true, "true", "1", 1, "yes", false, nil} {
+		params, _ := json.Marshal(map[string]any{
+			"name": "hooks_local",
+			"arguments": map[string]any{
+				"verb": "hooks_local", "action": "install",
+				"root": root, "_operator_trust": claimed,
+			},
 		})
-		if inner["ok"] != false {
-			t.Fatalf("opt-in value %v (%T) must be refused, got %+v", fake, fake, inner)
+		reqLine, _ := json.Marshal(map[string]any{
+			"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+			"params": json.RawMessage(params),
+		})
+		// Even a process that DOES carry trust must refuse the field, so a
+		// client never learns that sending it appears to work.
+		lines := serveMCPTrusted(t, string(reqLine))
+		if len(lines) != 1 {
+			t.Fatalf("want 1 response, got %d", len(lines))
 		}
-		if got, _ := inner["error_code"].(string); got != string(codeserve.ErrOperatorTrust) {
-			t.Fatalf("want error_code=%q, got %q", codeserve.ErrOperatorTrust, got)
+		var parsed rpcResp
+		if err := json.Unmarshal([]byte(lines[0]), &parsed); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if parsed.Error == nil {
+			t.Fatalf("_operator_trust=%v (%T) must be refused as invalid params, got %s", claimed, claimed, lines[0])
+		}
+		if !strings.Contains(parsed.Error.Message, "_operator_trust") {
+			t.Fatalf("refusal must name the field, got %q", parsed.Error.Message)
 		}
 	}
 }
 
-// TestMCPOptInFieldNeverReachesCodeserve is a transport-truthfulness
-// check: the adapter strips "_operator_trust" from the request map
-// before codeserve sees it. If codeserve were ever to start honoring
-// the field, the install path would silently admit a request that
-// codeserve should never have authority over, so the adapter removes
-// the field unconditionally. We prove it via status: codeserve reports
-// only the verb's canonical keys in the response envelope and the
-// raw map after install contains no "_operator_trust" key when read
-// back through codeserve.
+// TestMCPOptInFieldNeverReachesCodeserve keeps the transport-truthfulness
+// check: whatever else happens, the field must not be forwarded into a
+// codeserve request, where a future handler might start reading it.
 func TestMCPOptInFieldNeverReachesCodeserve(t *testing.T) {
 	root := operatorTrustGitRepo(t)
-	install := callMCPTool(t, "hooks_local", map[string]any{
+	install := callMCPToolTrusted(t, "hooks_local", map[string]any{
 		"verb": "hooks_local", "action": "install",
 		"root": root, "strategy": "repo-hooks",
-		"_operator_trust":                         true,
 		"surprise_key_attempting_to_inject_state": "noop",
 	})
 	if install["ok"] != true {
-		t.Fatalf("opt-in install must succeed with oddball keys: %+v", install)
+		t.Fatalf("install must succeed with oddball keys: %+v", install)
 	}
-	// The status response should not carry the opt-in field; codeserve does
-	// not return arbitrary echoed arguments on status.
-	status := callMCPTool(t, "hooks_local", map[string]any{
+	status := callMCPToolTrusted(t, "hooks_local", map[string]any{
 		"verb": "hooks_local", "action": "status", "root": root,
 	})
 	if v, ok := status["_operator_trust"]; ok {
@@ -478,50 +493,29 @@ func TestMCPOptInFieldNeverReachesCodeserve(t *testing.T) {
 	}
 }
 
-// TestCLIRemainsUnaffected is the parity check that the direct CLI path
-// bypasses the operator-trust gate entirely: codeserve.Handle is invoked
-// from runHooks without going through adapters, so an explicit CLI
-// invocation continues to install/verify/uninstall across the same
-// fixture. We run this test only when git is available; on bare
-// environments it is skipped.
-func TestCLIRemainsUnaffected(t *testing.T) {
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git unavailable")
+// TestDirectCLIPathCarriesTheOperatorGrant replaces TestCLIRemainsUnaffected,
+// which asserted that codeserve.Handle applied no gate at all. That property
+// was the vulnerability: the JSONL `serve` loop calls Handle directly, so
+// "no gate at codeserve level" meant no gate on the surface coding agents use.
+//
+// The contract is now: Handle refuses a gated verb unless the context carries
+// the grant, and the direct CLI path supplies it because the operator ran the
+// binary themselves.
+func TestDirectCLIPathCarriesTheOperatorGrant(t *testing.T) {
+	root := operatorTrustGitRepo(t)
+	req := codeserve.Request{
+		"verb": "hooks_local", "action": "install",
+		"root": root, "strategy": "repo-hooks",
 	}
-	root := t.TempDir()
-	env := []string{
-		"HOME=" + root, "LANG=C",
-		"PATH=" + os.Getenv("PATH"),
-		"GIT_CONFIG_GLOBAL=" + filepath.Join(root, "gitconfig"),
-		"GIT_CONFIG_SYSTEM=/dev/null",
-	}
-	init := exec.Command("git", "init", "-b", "main", root)
-	init.Env = env
-	if out, err := init.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v (%s)", err, out)
-	}
-	_ = os.WriteFile(filepath.Join(root, "README.md"), []byte("hi"), 0o644)
-	add := exec.Command("git", "-C", root, "-c", "user.email=test@example.invalid",
-		"-c", "user.name=test", "add", ".")
-	add.Env = env
-	_ = add.Run()
-	commit := exec.Command("git", "-C", root, "-c", "user.email=test@example.invalid",
-		"-c", "user.name=test", "commit", "-m", "init")
-	commit.Env = env
-	_ = commit.Run()
 
-	if resp := dispatch(t, context.Background(),
-		codeserve.Request{"verb": "hooks_local", "action": "install",
-			"root": root, "strategy": "repo-hooks"}); resp["ok"] != true {
-		t.Fatalf("direct codeserve install must succeed (no gate at codeserve level): %+v", resp)
+	refused := codeserve.Handle(context.Background(), req)
+	if got, _ := refused["error_code"].(string); got != string(codeserve.ErrOperatorTrust) {
+		t.Fatalf("ungranted dispatch must be refused, got %+v", refused)
 	}
-	if resp := dispatch(t, context.Background(),
-		codeserve.Request{"verb": "hooks_local", "action": "status", "root": root}); resp["ok"] != true {
-		t.Fatalf("direct codeserve status must succeed: %+v", resp)
-	}
-	if resp := dispatch(t, context.Background(),
-		codeserve.Request{"verb": "hooks_local", "action": "uninstall", "root": root}); resp["ok"] != true {
-		t.Fatalf("direct codeserve uninstall must succeed (no gate): %+v", resp)
+
+	granted := codeserve.Handle(codeserve.WithOperatorTrust(context.Background()), req)
+	if granted["ok"] != true {
+		t.Fatalf("direct CLI path must install, got %+v", granted)
 	}
 }
 
@@ -606,19 +600,18 @@ func TestMCPApplyChangeSetRefusedWithoutOperatorTrust(t *testing.T) {
 	}
 }
 
-// TestMCPApplyChangeSetAdmittedWithOperatorTrustOptIn proves the MCP
-// opt-in forwards to codeserve (its fail-closed validation answers with
-// changeset_rejected, never operator_trust_required).
-func TestMCPApplyChangeSetAdmittedWithOperatorTrustOptIn(t *testing.T) {
+// TestMCPApplyChangeSetAdmittedWhenTheProcessCarriesOperatorTrust proves the
+// gate is passable by the operator: codeserve's own fail-closed validation
+// answers, never operator_trust_required.
+func TestMCPApplyChangeSetAdmittedWhenTheProcessCarriesOperatorTrust(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
-	inner := callMCPTool(t, "code_apply_changeset", map[string]any{
-		"root":            root,
-		"changeset":       map[string]any{"base": "deadbeef", "edits": []any{}},
-		"_operator_trust": true,
+	inner := callMCPToolTrusted(t, "code_apply_changeset", map[string]any{
+		"root":      root,
+		"changeset": map[string]any{"base": "deadbeef", "edits": []any{}},
 	})
 	if got, _ := inner["error_code"].(string); got == string(codeserve.ErrOperatorTrust) {
-		t.Fatalf("opt-in request must not be trust-refused: %+v", inner)
+		t.Fatalf("trusted process must not be trust-refused: %+v", inner)
 	}
 	if got, _ := inner["error_code"].(string); got != string(codeserve.ErrChangeSetRejected) {
 		t.Fatalf("want codeserve's own changeset_rejected after the gate, got %q (%+v)", got, inner)
@@ -629,23 +622,26 @@ func TestMCPApplyChangeSetAdmittedWithOperatorTrustOptIn(t *testing.T) {
 // hooks_local catalog test: the gated verb must advertise the
 // _operator_trust property so MCP clients learn the gate by
 // introspection.
-func TestMCPToolsListAdvertisesApplyChangeSetWithTrustNote(t *testing.T) {
+func TestMCPToolsListStillNamesTheGateInGatedToolDescriptions(t *testing.T) {
 	t.Parallel()
+	// The gate must remain discoverable by introspection even though the opt-in
+	// field is gone: a client should learn that mutating calls need an operator,
+	// just not be handed a lever it can pull itself.
+	want := map[string]bool{"hooks_local": false, "code_apply_changeset": false}
 	for _, tool := range adapters.MCPTools() {
-		if tool.Name != "code_apply_changeset" {
+		if _, gated := want[tool.Name]; !gated {
 			continue
 		}
-		if !strings.Contains(tool.Description, "_operator_trust") {
-			t.Fatalf("code_apply_changeset description must mention the gate: %q", tool.Description)
+		if !strings.Contains(strings.ToLower(tool.Description), "operator") {
+			t.Fatalf("%s description must name the operator gate: %q", tool.Name, tool.Description)
 		}
-		props, _ := tool.InputSchema["properties"].(map[string]any)
-		field, _ := props["_operator_trust"].(map[string]any)
-		if field == nil || field["type"] != "boolean" {
-			t.Fatalf("code_apply_changeset schema missing boolean _operator_trust: %+v", props)
-		}
-		return
+		want[tool.Name] = true
 	}
-	t.Fatalf("code_apply_changeset missing from MCPTools()")
+	for name, seen := range want {
+		if !seen {
+			t.Fatalf("%s missing from MCPTools()", name)
+		}
+	}
 }
 
 // TestHTTPApplyChangeSetRefusedWithIgnoredActionField locks the F3
@@ -808,19 +804,18 @@ func TestHTTPApplyChangeSetIgnoredActionStillAdmitsWithOptIn(t *testing.T) {
 	}
 }
 
-// TestMCPApplyChangeSetIgnoredActionStillAdmitsWithOptIn is the MCP
-// parallel of the opt-in path.
-func TestMCPApplyChangeSetIgnoredActionStillAdmitsWithOptIn(t *testing.T) {
+// TestMCPApplyChangeSetIgnoredActionStillAdmitsWhenTrusted keeps the
+// whole-verb gate honest: an irrelevant action field changes nothing.
+func TestMCPApplyChangeSetIgnoredActionStillAdmitsWhenTrusted(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
-	inner := callMCPTool(t, "code_apply_changeset", map[string]any{
-		"root":            root,
-		"action":          "ignored",
-		"changeset":       map[string]any{"base": "deadbeef", "edits": []any{}},
-		"_operator_trust": true,
+	inner := callMCPToolTrusted(t, "code_apply_changeset", map[string]any{
+		"root":      root,
+		"action":    "ignored",
+		"changeset": map[string]any{"base": "deadbeef", "edits": []any{}},
 	})
 	if got, _ := inner["error_code"].(string); got == string(codeserve.ErrOperatorTrust) {
-		t.Fatalf("opt-in request must not be trust-refused: %+v", inner)
+		t.Fatalf("trusted process must not be trust-refused: %+v", inner)
 	}
 	if got, _ := inner["error_code"].(string); got != string(codeserve.ErrChangeSetRejected) {
 		t.Fatalf("want codeserve's own changeset_rejected after the gate, got %q (%+v)", got, inner)

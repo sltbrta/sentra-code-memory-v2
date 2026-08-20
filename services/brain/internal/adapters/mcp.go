@@ -29,11 +29,17 @@ const (
 // MCP-level operator opt-in field name. When a verb carries
 // VerbSpec.RequiresOperatorTrust (issue #63), its mutating actions
 // (hooks install/uninstall/run, changeset apply) are refused at
-// tools/call dispatch unless the
-// JSON arguments carry "_operator_trust": true. codeserve will neither
-// recognize nor forward this field because codeserve.Handle only reads
-// the verb-defined keys; the adapter owns the gating decision so the
-// surface stays self-documenting for an MCP client.
+// tools/call dispatch.
+//
+// The opt-in is deliberately NOT readable from the tool arguments. On this
+// surface the arguments are authored by a model, so a flag the model can set
+// is not a trust boundary -- it is a formality that a prompt injection clears
+// on its own. Trust arrives on the context instead, granted by the operator at
+// process start (`sentra-code-memory mcp --operator-trust`, or
+// SENTRA_CODE_MEMORY_OPERATOR_TRUST=1), and is enforced in codeserve.Handle.
+//
+// The constant is retained only so the field can be explicitly stripped from
+// forwarded arguments and rejected if a client sends it.
 const operatorTrustOptInArgKey = "_operator_trust"
 
 // rpcRequest is a JSON-RPC 2.0 request/notification.
@@ -121,12 +127,10 @@ func MCPTools() []MCPTool {
 		for _, f := range s.Optional {
 			props[f] = mcpFieldSchema(f)
 		}
-		if s.RequiresOperatorTrust {
-			props[operatorTrustOptInArgKey] = map[string]any{
-				"type":        "boolean",
-				"description": "explicit operator opt-in (issue #63) required to dispatch this verb's mutating actions; read-only actions are always admitted.",
-			}
-		}
+		// Deliberately not advertising an opt-in field: this verb's mutating
+		// actions require an operator grant made at process start, which no
+		// tool argument can supply. Advertising a flag the model can set would
+		// document a bypass rather than a gate.
 		schema := map[string]any{
 			"type":                 "object",
 			"properties":           props,
@@ -357,8 +361,19 @@ func dispatchMCPToolCall(ctx context.Context, params json.RawMessage) (any, *rpc
 	if v, ok := p.Arguments["verb"].(string); ok && strings.TrimSpace(v) != "" {
 		verb = strings.TrimSpace(v)
 	}
+	if mcpArgumentsClaimOperatorTrust(p.Arguments) {
+		// Refuse loudly rather than ignoring it. A client that sends this field
+		// believes it is granting a permission; letting the call proceed as if
+		// nothing happened would leave that belief intact.
+		return nil, &rpcError{
+			Code: codeInvalidParams,
+			Message: operatorTrustOptInArgKey + " is not honored on this surface: " +
+				"operator trust is granted at process start (--operator-trust or " +
+				"SENTRA_CODE_MEMORY_OPERATOR_TRUST=1), not by tool arguments",
+		}
+	}
 	if codeserve.IsOperatorTrustAction(verb, mcpActionString(p.Arguments["action"])) {
-		if !mcpOperatorTrustOptedIn(p.Arguments) {
+		if !codeserve.HasOperatorTrust(ctx) {
 			body, _ := json.Marshal(codeserve.OperatorTrustError(verb, mcpActionString(p.Arguments["action"]), "mcp"))
 			return mcpCallResult{
 				Content: []mcpTextContent{{Type: "text", Text: string(body)}},
@@ -395,16 +410,10 @@ func mcpActionString(v any) string {
 	return strings.TrimSpace(s)
 }
 
-// mcpOperatorTrustOptedIn reports whether the JSON arguments map carries
-// "_operator_trust": true. Accepting the bool form keeps it
-// self-documenting in tools/list descriptions; other shapes (string "1",
-// string "true") are intentionally not honored so the opt-in is explicit
-// and hard to inject accidentally through JSON schema coercion.
-func mcpOperatorTrustOptedIn(args map[string]any) bool {
-	v, ok := args[operatorTrustOptInArgKey]
-	if !ok {
-		return false
-	}
-	b, ok := v.(bool)
-	return ok && b
+// mcpArgumentsClaimOperatorTrust reports whether the caller tried to grant
+// itself trust through the tool arguments. It exists so that attempt can be
+// observed and refused rather than silently ignored.
+func mcpArgumentsClaimOperatorTrust(args map[string]any) bool {
+	_, ok := args[operatorTrustOptInArgKey]
+	return ok
 }

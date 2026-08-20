@@ -51,9 +51,22 @@ func postDispatch(t *testing.T, h http.Handler, body string) (codeserve.Response
 // non-empty JSON-RPC response lines.
 func serveMCP(t *testing.T, lines ...string) []string {
 	t.Helper()
+	return serveMCPCtx(t, context.Background(), lines...)
+}
+
+// serveMCPTrusted drives the MCP loop with the process-level operator grant
+// the `mcp --operator-trust` flag installs. Trust lives on the context because
+// tool arguments on this surface are authored by a model.
+func serveMCPTrusted(t *testing.T, lines ...string) []string {
+	t.Helper()
+	return serveMCPCtx(t, codeserve.WithOperatorTrust(context.Background()), lines...)
+}
+
+func serveMCPCtx(t *testing.T, ctx context.Context, lines ...string) []string {
+	t.Helper()
 	in := strings.NewReader(strings.Join(lines, "\n") + "\n")
 	var out, errOut bytes.Buffer
-	if err := adapters.ServeMCP(context.Background(), in, &out, &errOut); err != nil {
+	if err := adapters.ServeMCP(ctx, in, &out, &errOut); err != nil {
 		t.Fatalf("ServeMCP: %v (stderr=%s)", err, errOut.String())
 	}
 	var resp []string

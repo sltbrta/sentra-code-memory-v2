@@ -45,13 +45,18 @@ const (
 	ErrChangeSetRejected ErrorCode = "changeset_rejected"
 	// ErrDeferred: an explicitly deferred/non-goal capability.
 	ErrDeferred ErrorCode = "deferred"
-	// ErrOperatorTrust: a model-facing adapter refused a mutating action
-	// because the request did not carry the explicit operator opt-in
-	// required by VerbSpec.RequiresOperatorTrust. codeserve.Handle itself
-	// never returns this code; adapters translate their trust gate into
-	// it. Distinct from ErrUnauthorized (HTTP 401 / bearer-token) so
-	// callers can branch on the failure class without parsing prose.
+	// ErrOperatorTrust: a mutating action was refused because the dispatch
+	// context did not carry the explicit operator opt-in required by
+	// VerbSpec.RequiresOperatorTrust. Returned by codeserve.Handle itself so
+	// no surface can dispatch past the gate by forgetting to check; adapters
+	// may also refuse earlier to set a transport status code. Distinct from
+	// ErrUnauthorized (HTTP 401 / bearer-token) so callers can branch on the
+	// failure class without parsing prose.
 	ErrOperatorTrust ErrorCode = "operator_trust_required"
+	// ErrRootNotPermitted: the request named a root outside the subtree the
+	// serving process was pinned to. Distinct from ErrPathDenied, which is
+	// about a path within an admitted root.
+	ErrRootNotPermitted ErrorCode = "root_not_permitted"
 )
 
 // ErrorResponse is the canonical failure envelope. OK is always false.

@@ -36,6 +36,25 @@ func Handle(ctx context.Context, req Request) Response {
 	}
 	verb, _ := req["verb"].(string)
 	verb = strings.TrimSpace(verb)
+	// The operator-trust gate lives here, at the single dispatch point, rather
+	// than in each adapter. It previously lived only in the HTTP and MCP
+	// adapters, so the JSONL `serve` loop -- which calls Handle directly, and is
+	// the surface the README tells coding agents to keep warm -- applied no gate
+	// at all: code_apply_changeset reached an external command and hooks_local
+	// installed executables into the caller's repository.
+	//
+	// Trust is read from the context, never from req: a permission the caller
+	// can write into its own request is not a boundary.
+	if action := str(req, "action"); IsOperatorTrustAction(verb, action) && !HasOperatorTrust(ctx) {
+		return OperatorTrustError(verb, action, "dispatch")
+	}
+	// Root pin: a surface may declare which subtree it serves. Enforced here
+	// for the same reason as the trust gate -- every rooted verb confined its
+	// work inside the root it was handed, but nothing constrained which root a
+	// model-authored request could name, so `{"root":"/"}` read the host.
+	if !rootWithinPin(ctx, str(req, "root")) {
+		return rootPinError(verb)
+	}
 	switch Verb(verb) {
 	case VerbPing:
 		return okResp(verb, map[string]any{"product_owned": true})

@@ -23,7 +23,11 @@ func TestApplyChangeSetPromotesCompleteCandidate(t *testing.T) {
 	cs := workflow.ChangeSet{Base: "tree-1", BaseDigests: map[string]string{"a.txt": base}, Edits: []workflow.CandidateEdit{{
 		Path: "a.txt", Range: workflow.EditRange{Start: 6, End: 10}, Replacement: "BETA",
 		BaseDigest: base, PredictedDigest: workflow.Digest(after),
-	}}, VerificationCommands: []string{"test \"$(cat a.txt)\" = \"alpha BETA\""}}
+		// Changed deliberately: the previous form used shell command
+		// substitution, which the verification gate no longer provides. This
+		// argv form asserts the same thing -- the verifier sees the post-edit
+		// content in the staged tree.
+	}}, VerificationCommands: []string{"grep -q \"alpha BETA\" a.txt"}}
 	receipt, err := workflow.ApplyChangeSet(context.Background(), root, cs, workflow.ApplyOptions{})
 	if err != nil || !receipt.Applied {
 		t.Fatalf("apply: err=%v receipt=%+v", err, receipt)

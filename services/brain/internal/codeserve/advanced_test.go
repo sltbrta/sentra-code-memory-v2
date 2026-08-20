@@ -55,7 +55,9 @@ func TestApplyChangeSetSurface(t *testing.T) {
 	base := workflow.Digest(before)
 	after := []byte("package demo\nfunc Beta() {}\n")
 	cs := workflow.ChangeSet{Base: "tree", BaseDigests: map[string]string{"demo.go": base}, Edits: []workflow.CandidateEdit{{Path: "demo.go", Range: workflow.EditRange{Start: 18, End: 23}, Replacement: "Beta", BaseDigest: base, PredictedDigest: workflow.Digest(after)}}}
-	got := codeserve.Handle(context.Background(), codeserve.Request{"verb": "code_apply_changeset", "root": root, "changeset": cs})
+	// code_apply_changeset is operator-trust gated at the dispatch point, so the
+	// surface test grants trust the way the direct CLI does.
+	got := codeserve.Handle(codeserve.WithOperatorTrust(context.Background()), codeserve.Request{"verb": "code_apply_changeset", "root": root, "changeset": cs})
 	if got["ok"] != true || got["reindexed"] != true || got["index_matches"] != true {
 		t.Fatalf("apply surface: %+v", got)
 	}

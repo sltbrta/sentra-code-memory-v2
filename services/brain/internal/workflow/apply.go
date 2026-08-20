@@ -471,10 +471,28 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 }
 func runVerification(ctx context.Context, dir, command string) CommandReceipt {
 	buf := &cappedBuffer{limit: applyOutputBytes}
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", command)
+	argv, parseErr := parseVerificationCommand(command)
+	if parseErr != nil {
+		// A refused command is a failed verification, not a crash: the receipt
+		// carries the reason so the caller can see which command and why.
+		buf.Write([]byte(parseErr.Error()))
+		sum := sha256.Sum256(buf.Bytes())
+		return CommandReceipt{
+			Command: command, Passed: false, ExitCode: -1,
+			OutputDigest: "sha256:" + hex.EncodeToString(sum[:16]),
+		}
+	}
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = dir
+	cmd.Env = verificationEnv(dir)
 	cmd.Stdout = buf
 	cmd.Stderr = buf
+	// Run the verifier in its own process group and signal the group on
+	// timeout. exec.CommandContext kills only the direct child, so a verifier
+	// that spawns workers (every test runner does) would leave them running
+	// after the deadline, holding the stage directory open.
+	configureProcessGroup(cmd)
+	cmd.Cancel = func() error { return killProcessGroup(cmd) }
 	err := cmd.Run()
 	exit := 0
 	if err != nil {
