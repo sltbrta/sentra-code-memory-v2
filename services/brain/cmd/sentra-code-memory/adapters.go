@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -61,21 +62,45 @@ func runHTTP(args []string, out, errOut io.Writer) int {
 		RootPin:       pin,
 	})
 	server := &http.Server{
-		Addr:              listenAddr,
-		Handler:           handler,
+		Addr:    listenAddr,
+		Handler: handler,
+		// Only ReadHeaderTimeout was set. MaxBytesReader bounds a body's size
+		// but not the time taken to send it, so a client trickling a body held
+		// a connection and its goroutine indefinitely.
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    64 << 10,
 	}
+
+	// Bind before announcing. ListenAndServe was called inside a goroutine
+	// *after* the "listening on ..." line was printed, so a failed bind printed
+	// a success banner, wrote the error, and still exited 0 -- which defeats
+	// supervisor restart policies and any script grepping for that line.
+	listener, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		fmt.Fprintf(errOut, "http: listen %s: %v\n", listenAddr, err)
+		return 1
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	serveErr := make(chan error, 1)
 	go func() {
-		fmt.Fprintf(out, "sentra-code-memory http listening on %s (health=/health dispatch=/dispatch)\n", listenAddr)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintf(errOut, "http: %v\n", err)
-			stop()
-		}
+		serveErr <- server.Serve(listener)
 	}()
-	<-ctx.Done()
-	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	fmt.Fprintf(out, "sentra-code-memory http listening on %s (health=/health dispatch=/dispatch)\n", listenAddr)
+
+	select {
+	case <-ctx.Done():
+	case err := <-serveErr:
+		if err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(errOut, "http: %v\n", err)
+			return 1
+		}
+	}
+	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = server.Shutdown(shutCtx)
 	return 0

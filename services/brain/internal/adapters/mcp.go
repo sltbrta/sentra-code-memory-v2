@@ -189,8 +189,40 @@ func mcpFieldSchema(field string) map[string]any {
 func ServeMCP(ctx context.Context, in io.Reader, out, errOut io.Writer) error {
 	reader := bufio.NewReader(in)
 	enc := json.NewEncoder(out)
+
+	// Reads run on their own goroutine so cancellation is observable while the
+	// loop is blocked on stdin.
+	//
+	// This used to call readMCPLine inline and only check ctx *after* a full
+	// line had been handled, so an idle server never noticed. signal.NotifyContext
+	// also disables Go's default die-on-SIGINT, so the process could not be
+	// stopped by Ctrl-C or SIGTERM at all -- verified during the audit, where
+	// only SIGKILL ended it. An MCP host that stops a server with SIGTERM was
+	// leaving an orphan holding stdin and stdout.
+	type readResult struct {
+		line    []byte
+		tooLong bool
+		err     error
+	}
+	lines := make(chan readResult, 1)
+	go func() {
+		for {
+			line, tooLong, err := readMCPLine(reader)
+			lines <- readResult{line: line, tooLong: tooLong, err: err}
+			if err != nil {
+				return
+			}
+		}
+	}()
+
 	for {
-		line, tooLong, readErr := readMCPLine(reader)
+		var next readResult
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case next = <-lines:
+		}
+		line, tooLong, readErr := next.line, next.tooLong, next.err
 		if tooLong {
 			responses := []*rpcResponse{{JSONRPC: jsonRPCVersion, Error: &rpcError{
 				Code: codeParseError, Message: "parse error: request line exceeds maximum size",

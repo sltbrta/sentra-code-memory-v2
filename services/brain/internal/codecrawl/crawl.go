@@ -22,6 +22,23 @@ var extOK = map[string]struct{}{
 
 const maxWorkers = 256
 
+// MaxIndexableFileBytes bounds one source file.
+//
+// Nothing bounded a read: os.ReadFile plus string(raw) put two full copies of
+// every file in memory, across up to maxWorkers goroutines at once, and
+// extractHeuristicSymbols then allocated a line slice over another copy. One
+// multi-gigabyte generated bundle in a tree was enough to OOM the indexer, the
+// warm serve loop, the HTTP server and the watch daemon alike.
+//
+// A source file a human wrote is far below this; anything above it is
+// generated or binary, and indexing it degrades ranking as well as memory.
+const MaxIndexableFileBytes = 4 << 20
+
+// MaxIndexableFiles bounds one crawl. codeindex already has a two-tier
+// default/hard-cap design for exactly this; codecrawl had nothing, so both the
+// path slice and the equally sized channel grew with the tree.
+const MaxIndexableFiles = 200_000
+
 func normalizeWorkers(workers int) int {
 	if workers < 1 {
 		return 1
@@ -337,5 +354,5 @@ func CrawlDir(root string, workers int) (*Index, Stats, error) {
 // becomes searchable. The durable cache goes to real trouble to canonicalise
 // its root; the crawl should not undo that.
 func indexableFile(info os.FileInfo) bool {
-	return info != nil && info.Mode().IsRegular()
+	return info != nil && info.Mode().IsRegular() && info.Size() <= MaxIndexableFileBytes
 }
