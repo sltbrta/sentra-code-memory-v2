@@ -1,0 +1,114 @@
+name: ci
+
+# The gate this repository did not have. Every check below was previously a manual
+# `just` invocation; several (govulncheck, the generated-contract drift check, -race)
+# were never run at all, which is why they were red at a clean HEAD.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# go.work pins `toolchain go1.26.6`; leaving GOTOOLCHAIN at its default (auto)
+# lets the go command fetch it when the runner ships an older patch release.
+# The stdlib CVEs this repo was exposed to are only fixed in 1.26.6.
+
+jobs:
+  go:
+    name: go build / vet / race tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: services/go.mod
+          check-latest: true
+          cache-dependency-path: |
+            services/go.sum
+            packages/contracts/go.sum
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l services packages)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt found unformatted files:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: build
+        run: cd services && go build ./...
+
+      - name: vet
+        run: |
+          cd services && go vet ./...
+          cd ../packages/contracts && go vet ./...
+
+      # -count=1 defeats the test cache: a cached PASS cannot be evidence for a
+      # change made after it was recorded. -race is the point of this job.
+      - name: test (race)
+        run: cd services && go test -count=1 -race ./...
+
+      - name: test contracts
+        run: cd packages/contracts && go test -count=1 ./...
+
+  vuln:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: services/go.mod
+          check-latest: true
+      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run: cd services && govulncheck ./...
+
+  contracts:
+    name: generated-contract drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+      # Digest-only check: deliberately does not invoke credentialed remote buf
+      # plugins, so it runs offline. See packages/contracts/tools/generated-manifest.rb.
+      - run: cd packages/contracts && ruby tools/generated-manifest.rb check
+
+  rust:
+    name: cargo
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: workers/code-index
+      - run: cargo fmt --manifest-path workers/code-index/Cargo.toml --check
+      - run: cargo clippy --locked --manifest-path workers/code-index/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --locked --manifest-path workers/code-index/Cargo.toml
+
+  bench:
+    name: retrieval quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: services/go.mod
+          check-latest: true
+          cache-dependency-path: services/go.sum
+      # Deterministic, offline, threshold-gated. Fails on a ranking regression.
+      - run: go run ./services/brain/cmd/bench-code
