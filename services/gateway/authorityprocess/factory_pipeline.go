@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"sort"
@@ -325,11 +326,21 @@ func (adapter *factoryKernelAdapter) recordFactoryGate(
 	return nil
 }
 
-// evaluateFactoryGate runs one deterministic gate over the sealed leaf traces:
-// BUILD requires every leaf's candidate applied atomically, TEST requires
-// every touched Go file parses, DOCS requires every touched Go file to carry
-// its documentation comment, and SECURITY requires zero brokered-effect
-// denials and every edit inside its leaf scope.
+// evaluateFactoryGate runs one deterministic gate over the sealed leaf traces.
+//
+// What each gate actually proves, stated plainly because the previous comment
+// overstated it and callers read FACTORY_GATE_STATUS_PASSED as an assurance:
+//
+//   - BUILD: every leaf's candidate applied atomically. It does NOT compile
+//     anything; see HARDENING.md for the overlay-based design that would.
+//   - TEST: every touched Go file parses. It does NOT run tests; same entry.
+//   - DOCS: every exported declaration in every touched Go file carries a doc
+//     comment. This one now checks what its name says.
+//   - SECURITY: zero brokered-effect denials and every edit inside its leaf
+//     scope.
+//
+// Non-Go edits are skipped by BUILD, TEST and DOCS, so a TypeScript or Python
+// change set passes those three having been checked by nothing.
 func evaluateFactoryGate(kind contractsv1.FactoryGateKind, outcomes []factoryLeafOutcome) bool {
 	switch kind {
 	case contractsv1.FactoryGateKind_FACTORY_GATE_KIND_BUILD:
@@ -357,7 +368,7 @@ func evaluateFactoryGate(kind contractsv1.FactoryGateKind, outcomes []factoryLea
 				if edit.Language != "go" || len(edit.AfterBytes) == 0 {
 					continue
 				}
-				if !strings.Contains(string(edit.AfterBytes), "//") {
+				if !exportedDeclarationsAreDocumented(edit.Path, edit.AfterBytes) {
 					return false
 				}
 			}
@@ -838,4 +849,56 @@ func factoryFindingEvidence(evidence []*contractsv1.EvidenceRef) []*contractsv1.
 		EvidenceId:       evidence[0].GetEvidenceId(),
 		SourceRevisionId: evidence[0].GetSourceRevisionId(),
 	}}
+}
+
+// exportedDeclarationsAreDocumented reports whether every exported declaration
+// in a Go source file carries a doc comment.
+//
+// The DOCS gate previously asked whether the file contained the two characters
+// "//" anywhere, which any file with a single inline comment satisfies -- so a
+// change set could be promoted to VERIFIED with "documentation" proven by a
+// `// TODO` on line 40. This checks what the gate's name claims.
+//
+// Files that do not parse are left to the TEST gate rather than double-reported
+// here, and a file with no exported declarations passes vacuously, which is
+// correct: there is nothing it was required to document.
+func exportedDeclarationsAreDocumented(path string, source []byte) bool {
+	file, err := parser.ParseFile(token.NewFileSet(), path, source, parser.ParseComments)
+	if err != nil {
+		return true
+	}
+	for _, decl := range file.Decls {
+		switch node := decl.(type) {
+		case *ast.FuncDecl:
+			if node.Name.IsExported() && node.Doc == nil {
+				return false
+			}
+		case *ast.GenDecl:
+			if node.Tok != token.TYPE && node.Tok != token.CONST && node.Tok != token.VAR {
+				continue
+			}
+			// A grouped declaration may carry one doc comment for the group.
+			if node.Doc != nil {
+				continue
+			}
+			for _, spec := range node.Specs {
+				switch spec := spec.(type) {
+				case *ast.TypeSpec:
+					if spec.Name.IsExported() && spec.Doc == nil {
+						return false
+					}
+				case *ast.ValueSpec:
+					if spec.Doc != nil {
+						continue
+					}
+					for _, name := range spec.Names {
+						if name.IsExported() {
+							return false
+						}
+					}
+				}
+			}
+		}
+	}
+	return true
 }

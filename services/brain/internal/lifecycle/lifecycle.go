@@ -36,6 +36,9 @@ import (
 	"sync"
 	"time"
 
+	"context"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/sessionlog"
 	"github.com/sltbrta/sentra-code-memory-v2/services/internal/pathguard"
 )
 
@@ -1364,13 +1367,24 @@ func samePath(a, b string) bool {
 	return ar == br
 }
 
-// RunHook is the entry point installed scripts call. It is a no-op currently
-// — it exists so the hook can forward events to the CLI without the CLI
-// having to embed bash logic — and it is a future extension point for
-// agents wanting lifecycle event delivery. Network use is forbidden here;
-// keep events local.
+// RunHook is the entry point installed scripts call. It records the git
+// lifecycle event in the repository's session log.
+//
+// This used to return nil without doing anything, behind roughly 1,400 lines of
+// installer that writes executables into a user's repository and rewrites their
+// core.hooksPath: all of the risk and none of the benefit. Separately,
+// sessionlog.Append had no non-test caller at all, so session_continuation and
+// session_recall always answered from an empty log. The two gaps fit together
+// -- git lifecycle events are exactly the durable, locally-observable facts the
+// session log was built to hold -- so wiring them closes both.
+//
+// Failure is never propagated to git. A hook that exits non-zero blocks the
+// user's commit or push, and no amount of session bookkeeping justifies that;
+// the installed script also guards with `|| true`, but relying on the caller
+// for this would be careless. Network use remains forbidden: events stay local.
 func RunHook(event, root string) error {
-	if err := validateKind(HookKind(event)); err != nil {
+	kind := HookKind(event)
+	if err := validateKind(kind); err != nil {
 		// Unknown hook kinds are not installer failures; they belong to
 		// other tools. Return nil so the calling git workflow is undisturbed.
 		return nil
@@ -1385,11 +1399,62 @@ func RunHook(event, root string) error {
 	if !IsGitRepo(root) {
 		return nil
 	}
-	// The hook intentionally does not perform any action beyond exiting 0.
-	// Sentra lifecycle events are observable through the watch/refresh
-	// pipeline, so duplicating them here would be redundant. The CLI
-	// subcommand exists so installed scripts have a stable command line.
+	recordHookEvent(kind, root)
 	return nil
+}
+
+// hookEventKind maps a git hook to the session-log class it represents.
+//
+// A checkout or merge changes the working tree under the agent, which is a
+// refresh of everything it believed; a commit or push is the agent's own work
+// reaching a durable point.
+func hookEventKind(kind HookKind) sessionlog.Kind {
+	switch kind {
+	case HookPostCheckout, HookPostMerge:
+		return sessionlog.KindRefresh
+	case HookPostCommit, HookPrePush:
+		return sessionlog.KindCompletion
+	default:
+		return sessionlog.KindRefresh
+	}
+}
+
+// recordHookEvent appends one event, swallowing every failure.
+//
+// Errors are deliberately dropped rather than returned: this runs inside the
+// user's git command, and a session log that cannot be written is not a reason
+// to fail their commit. The alternative -- surfacing the error -- would make a
+// full disk or a read-only checkout break git itself.
+func recordHookEvent(kind HookKind, root string) {
+	writer, err := sessionlog.Open(filepath.Join(root, ".sentra", "sessions"))
+	if err != nil {
+		return
+	}
+	head := gitHeadForHook(root)
+	_, _ = writer.Append(sessionlog.Event{
+		Kind:      hookEventKind(kind),
+		Verb:      "hooks_local:" + string(kind),
+		Freshness: sessionlog.FreshnessAsOf,
+		Provenance: sessionlog.Provenance{
+			Repository: "local",
+			Tree:       head,
+		},
+	})
+}
+
+// gitHeadForHook resolves HEAD for provenance. An empty result is fine: a
+// repository with no commits yet still emits events.
+func gitHeadForHook(root string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "-C", root,
+		"-c", "core.hooksPath=/dev/null", "rev-parse", "HEAD")
+	cmd.Env = []string{"HOME=/nonexistent", "LANG=C", "PATH=" + os.Getenv("PATH")}
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // nowUTC returns the canonical RFC3339 UTC timestamp used in the manifest.
