@@ -254,6 +254,9 @@ func CrawlDir(root string, workers int) (*Index, Stats, error) {
 		if info.IsDir() {
 			return nil
 		}
+		if !indexableFile(info) {
+			return nil
+		}
 		if _, ok := extOK[strings.ToLower(filepath.Ext(path))]; !ok {
 			return nil
 		}
@@ -279,7 +282,7 @@ func CrawlDir(root string, workers int) (*Index, Stats, error) {
 			defer wg.Done()
 			for path := range ch {
 				info, err := os.Stat(path)
-				if err != nil {
+				if err != nil || !indexableFile(info) {
 					atomic.AddInt64(&errCount, 1)
 					continue
 				}
@@ -318,4 +321,21 @@ func CrawlDir(root string, workers int) (*Index, Stats, error) {
 		Errors:       int(errCount),
 	}
 	return idx, st, nil
+}
+
+// indexableFile reports whether a directory entry is safe to read as source.
+//
+// Only regular files qualify. os.Stat succeeds on a FIFO, a character device
+// and a socket, and os.ReadFile on any of them either blocks until a writer
+// appears (FIFO, socket) or never ends (/dev/zero, /dev/random) -- so a single
+// `mkfifo pipe.go` in a workspace wedged a crawl worker forever, and because
+// nothing on this path takes a context the hang was unkillable.
+//
+// Symlinks are excluded for a second reason: filepath.Walk lstats, so a
+// symlink reaches this check unresolved, and following one lets a workspace
+// pull content from outside its own root into the shared index, where it
+// becomes searchable. The durable cache goes to real trouble to canonicalise
+// its root; the crawl should not undo that.
+func indexableFile(info os.FileInfo) bool {
+	return info != nil && info.Mode().IsRegular()
 }

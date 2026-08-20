@@ -2,6 +2,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -52,19 +54,50 @@ Comparison: docs/specs/product/STAGE-VS-PRODUCT.md`)
 func runServe(args []string) {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	_ = fs.Parse(args)
-	dec := json.NewDecoder(os.Stdin)
-	enc := json.NewEncoder(os.Stdout)
-	ctx := context.Background()
-	for {
+	serveJSONL(context.Background(), os.Stdin, os.Stdout)
+}
+
+// serveJSONLMaxLine bounds one request line. It matches the sibling
+// sentra-code-memory binary so the two JSONL surfaces agree.
+const serveJSONLMaxLine = 8 << 20
+
+// serveJSONL reads one JSON object per line and writes one response per line.
+//
+// It used to drive a json.Decoder in a loop and `continue` on error. A
+// json.Decoder latches a syntax error and returns it from every subsequent
+// Decode, so a single malformed byte turned this into an infinite hot loop
+// writing an error line per iteration: measured at 3.7 million lines in three
+// seconds, one core pegged, until the disk or the pipe consumer gave out.
+//
+// Line framing is what the documented contract already said ("one JSON object
+// per stdin line"), and it resynchronises naturally: a bad line produces one
+// error and the next line is parsed independently.
+func serveJSONL(ctx context.Context, in io.Reader, out io.Writer) {
+	scanner := bufio.NewScanner(in)
+	scanner.Buffer(make([]byte, 64<<10), serveJSONLMaxLine)
+	enc := json.NewEncoder(out)
+	for scanner.Scan() {
+		line := bytes.TrimSpace(scanner.Bytes())
+		if len(line) == 0 {
+			continue
+		}
 		var req map[string]any
-		if err := dec.Decode(&req); err != nil {
-			if err == io.EOF {
-				return
-			}
-			_ = enc.Encode(map[string]any{"ok": false, "error": err.Error()})
+		if err := json.Unmarshal(line, &req); err != nil {
+			_ = enc.Encode(map[string]any{
+				"ok": false, "error": "invalid JSON: " + err.Error(),
+				"error_code": "invalid_request",
+			})
 			continue
 		}
 		_ = enc.Encode(codeserve.Handle(ctx, codeserve.Request(req)))
+	}
+	if err := scanner.Err(); err != nil {
+		// A line past the bound cannot be answered, but the caller is owed a
+		// framed response rather than silence.
+		_ = enc.Encode(map[string]any{
+			"ok": false, "error": "read request: " + err.Error(),
+			"error_code": "invalid_request",
+		})
 	}
 }
 

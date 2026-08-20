@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -717,11 +718,28 @@ func (c *Client) startAutoGardener() {
 	c.autoGardenerCancel = cancel
 	go func() {
 		// Prefer RunGardenerWave loop so cortex maintenance runs post-wave.
+		//
+		// A panic in this goroutine has no caller to recover it and would take
+		// the host process down. Maintenance failing is not a reason to lose
+		// the service it maintains.
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "hosted: auto-gardener panicked, maintenance stopped: %v\n%s\n",
+					r, debug.Stack())
+			}
+		}()
 		for {
 			if ctx.Err() != nil {
 				return
 			}
-			_, _ = c.RunGardenerWave(ctx)
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Fprintf(os.Stderr, "hosted: auto-gardener wave panicked: %v\n", r)
+					}
+				}()
+				_, _ = c.RunGardenerWave(ctx)
+			}()
 			select {
 			case <-ctx.Done():
 				return

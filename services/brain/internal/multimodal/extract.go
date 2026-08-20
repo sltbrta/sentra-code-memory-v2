@@ -384,11 +384,21 @@ func extractWAV(payload []byte, sourceRevisionID string) (extractResult, error) 
 		return extractResult{}, ErrMalformed
 	}
 	_ = byteRate
-	bytesPerSample := uint32(bitsPerSample/8) * uint32(channels)
+	// Widen before multiplying. sampleRate is read straight from the payload
+	// and was only checked non-zero, so `sampleRate * bytesPerSample` in uint32
+	// wrapped to exactly 0 for a crafted header (2^30 Hz, stereo, 16-bit) and
+	// the division below panicked -- reachable from Kernel.Admit on
+	// caller-supplied bytes, with no recover on the path and the kernel mutex
+	// held.
+	bytesPerSample := uint64(bitsPerSample/8) * uint64(channels)
 	if bytesPerSample == 0 {
 		return extractResult{}, ErrMalformed
 	}
-	durationMs := uint64(dataSize) * 1000 / uint64(sampleRate*bytesPerSample)
+	frameRate := uint64(sampleRate) * bytesPerSample
+	if frameRate == 0 {
+		return extractResult{}, ErrMalformed
+	}
+	durationMs := uint64(dataSize) * 1000 / frameRate
 	if durationMs == 0 {
 		durationMs = 1
 	}

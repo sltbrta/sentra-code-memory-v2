@@ -59,6 +59,9 @@ func CrawlDeltaFrom(root string, workers int, prevHashes map[string]string, prev
 		if info.IsDir() {
 			return nil
 		}
+		if !indexableFile(info) {
+			return nil
+		}
 		if _, ok := extOK[strings.ToLower(filepath.Ext(path))]; !ok {
 			return nil
 		}

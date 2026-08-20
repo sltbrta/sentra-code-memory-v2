@@ -838,6 +838,9 @@ func (idx *Index) IngestPaths(root string, rels []string) (changed int, err erro
 		if info.IsDir() || ignores.Ignored(rel, false) {
 			continue
 		}
+		if !indexableFile(info) {
+			continue
+		}
 		if _, ok := extOK[strings.ToLower(filepath.Ext(abs))]; !ok {
 			continue
 		}

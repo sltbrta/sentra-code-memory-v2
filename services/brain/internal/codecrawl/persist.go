@@ -438,6 +438,9 @@ func ensureHashes(idx *Index, root string) {
 		if err != nil {
 			continue
 		}
+		if !indexableFile(info) {
+			continue
+		}
 		idx.fileStamps[rel] = FileStamp{Size: info.Size(), MtimeNs: info.ModTime().UnixNano()}
 		if _, ok := idx.fileHashes[rel]; ok {
 			continue
