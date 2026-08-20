@@ -48,7 +48,17 @@ func (adapter factoryPolicyAdapter) Check(
 	if adapter.broker == nil || ctx == nil {
 		return shared.PolicyDecision{}, nil
 	}
-	decision, err := adapter.broker.AuthorizeSource(ctx, mapped, request.Action, adapter.brain)
+	// The requested resource decides, not a fixed brain identifier.
+	//
+	// This discarded request.Resource and always authorised against
+	// adapter.brain, which made the broker's containsResource check a
+	// tautology: policy was evaluated per-tenant rather than per-resource, so a
+	// grant for one resource authorised every resource in the tenant.
+	resource := adapter.brain
+	if request.Resource.Value != "" {
+		resource = broker.Identifier(request.Resource)
+	}
+	decision, err := adapter.broker.AuthorizeSource(ctx, mapped, request.Action, resource)
 	if err != nil {
 		return shared.PolicyDecision{RevocationEpoch: decision.RevocationEpoch}, nil
 	}

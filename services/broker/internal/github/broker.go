@@ -158,11 +158,17 @@ func (b *Broker) ensureBranch(ctx context.Context, request PublishRequest, headR
 	baseRef := normalizeRef(request.Tuple.BaseRef)
 
 	// Stale-base check: provider base must still equal approved base OID.
+	//
+	// An absent base ref is a stale base, not a pass. Gating the comparison on
+	// `ok` meant a deleted, renamed or misspelled base branch skipped the
+	// approved-base binding entirely and publication proceeded -- the check
+	// existing to guarantee "provider base still equals approved base" was
+	// bypassed by the base simply not being there.
 	baseSHA, ok, err := b.api.GetRef(ctx, owner, repo, baseRef)
 	if err != nil {
 		return err
 	}
-	if ok && baseSHA != request.Tuple.BaseCommitOID {
+	if !ok || baseSHA != request.Tuple.BaseCommitOID {
 		b.markConflict(tupleKey)
 		return &Denial{Reason: ReasonStaleBase}
 	}
@@ -234,7 +240,8 @@ func (b *Broker) ensureDraftPR(
 	if err != nil {
 		return Receipt{}, err
 	}
-	if ok && baseSHA != request.Tuple.BaseCommitOID {
+	// As above: a missing base ref denies rather than passing.
+	if !ok || baseSHA != request.Tuple.BaseCommitOID {
 		b.markConflict(tupleKey)
 		return Receipt{}, &Denial{Reason: ReasonStaleBase}
 	}
