@@ -87,27 +87,40 @@ func TestConcurrentIngestAndFlushDoNotRace(t *testing.T) {
 	}
 }
 
-// TestFlushDoesNotAliasTheLiveChunkMap pins the defect shape directly.
+// TestFlushDoesNotAliasTheLiveChunkMap drives the real flush against the real
+// writer.
 //
-// The end-to-end test above is a robustness check: it exercises ingest and
-// flush together, but whether it enters flush's iteration window depends on
-// which branch the flush takes, so it did not reliably reproduce the race.
-// This one reproduces it deterministically by performing exactly what flush
-// used to do -- take the map reference under inner.mu, release the lock, then
-// iterate -- while a writer mutates the same map under that lock.
+// The first version of this test was worthless and a fresh-eyes review caught
+// it: it never constructed a durableStore and never called flush, it
+// reimplemented the *fixed* logic inline and asserted that copy did not race.
+// Gutting flush() to `return nil` left it green. The ledger cited it as proof
+// of a race it could not observe.
 //
-// Run under -race this fails against the aliasing form and passes against the
-// snapshot form, which is the property being protected.
+// The reachable pairing is specific: durableStore.UpsertChunks calls
+// d.inner.UpsertChunks BEFORE taking d.mu, so the inner maps are written under
+// inner.mu while flush holds only d.mu. Contending on d.mu -- which the other
+// test in this file does -- establishes happens-before and hides the window, so
+// the writer here goes at the inner store directly, exactly as the production
+// path does for the duration of that call.
 func TestFlushDoesNotAliasTheLiveChunkMap(t *testing.T) {
-	inner := NewMemoryChunkStore()
+	dir := t.TempDir()
+	store := &durableStore{
+		inner: NewMemoryChunkStore(), dir: dir, brainID: "b",
+		dirty: map[string]struct{}{}, dirtySidecars: map[string]struct{}{},
+		forceFullFlush: true, hotDirty: true,
+	}
+	store.gen.Store("gen-0")
 	ctx := context.Background()
-	if err := inner.UpsertChunks(ctx, "b", []ChunkWrite{{ChunkID: "c0", DocumentID: "d", Text: "x"}}); err != nil {
+	if err := store.inner.UpsertChunks(ctx, "b", []ChunkWrite{
+		{ChunkID: "c0", DocumentID: "d", Text: "seed"},
+	}); err != nil {
 		t.Fatal(err)
 	}
 
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 
+	// Writer: the inner store, without d.mu, as UpsertChunks does.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -117,12 +130,13 @@ func TestFlushDoesNotAliasTheLiveChunkMap(t *testing.T) {
 				return
 			default:
 			}
-			_ = inner.UpsertChunks(ctx, "b", []ChunkWrite{
+			_ = store.inner.UpsertChunks(ctx, "b", []ChunkWrite{
 				{ChunkID: fmt.Sprintf("c%d", i), DocumentID: "d", Text: "x"},
 			})
 		}
 	}()
 
+	// Flusher: forced onto the full-corpus branch so it actually iterates.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -132,20 +146,21 @@ func TestFlushDoesNotAliasTheLiveChunkMap(t *testing.T) {
 				return
 			default:
 			}
-			// The snapshot flush now takes: copy under the lock, iterate the copy.
-			inner.mu.RLock()
-			live := inner.chunks["b"]
-			snapshot := make(map[string]memChunk, len(live))
-			for id, chunk := range live {
-				snapshot[id] = chunk
-			}
-			inner.mu.RUnlock()
-			for range snapshot {
-			}
+			store.mu.Lock()
+			store.forceFullFlush = true
+			store.mu.Unlock()
+			_ = store.flush()
 		}
 	}()
 
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	close(stop)
-	wg.Wait()
+
+	finished := make(chan struct{})
+	go func() { wg.Wait(); close(finished) }()
+	select {
+	case <-finished:
+	case <-time.After(30 * time.Second):
+		t.Fatal("writer and flusher deadlocked")
+	}
 }

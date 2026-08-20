@@ -7,6 +7,41 @@ Schema per entry: date, wave, trigger, why deferred, what would satisfy it.
 
 ## Open
 
+### 2026-08-21 — sixteen fixes have no executable check
+
+- **Wave:** W3
+- **Trigger:** a fresh-eyes audit of the triage ledger reverted each fix and
+  re-ran the suite. Sixteen rows marked `CONFIRMED` stayed green with their fix
+  removed: D-003 (`endBatch` error), D-004 (atomic cortex write), D-006
+  (`countJSONLLines` bound), D-007 (0600 permissions), D-008 (sorted rewrites),
+  N-004 (unified `PhraseNodeID`), N-005 (companydoc tiebreak), N-007
+  (sorted receipt), N-008 (PageRank convergence), C-009 (`Queue.Complete`
+  error), A-003 (`Authorize` honours `action`), A-009 (policy resource), A-010
+  (stale-base `!ok`), L-002 (bind-before-announce), L-003 (HTTP timeouts).
+  They are relabelled `FIXED-UNPROVEN` in the ledger rather than left claiming
+  evidence they do not have.
+- **Why deferred:** the fixes themselves are correct and were verified by
+  reading; what is missing is the regression guard. Writing sixteen tests well
+  is a batch of its own, and writing them badly is how the two fabricated red
+  proofs got in.
+- **What would satisfy it:** one test per row that fails against the reverted
+  fix. The cheapest and most valuable first: A-003 (no test references
+  `ActionGrants` at all), A-009, A-010 and D-003, which are the P0/P1 rows.
+  D-007 and D-008 are one `os.Stat` and one byte-comparison each.
+
+### 2026-08-21 — `product-brain serve` has no root pin
+
+- **Wave:** W3
+- **Trigger:** the root pin was added to `sentra-code-memory`'s `serve`, `http`
+  and `mcp`. `product-brain serve` is a second JSONL dispatch surface over the
+  same `codeserve.Handle` and takes no `--root`, so T-004's fix does not reach
+  it.
+- **Why deferred:** it needs the same flag and default treatment, and it lands
+  after a branch that has already changed this surface's contract twice.
+- **What would satisfy it:** a `--root` flag defaulting to the working
+  directory, and the wiring tests that now cover `sentra-code-memory serve`
+  extended to it.
+
 ### 2026-08-21 — factory BUILD and TEST gates do not build or test
 
 - **Wave:** W3

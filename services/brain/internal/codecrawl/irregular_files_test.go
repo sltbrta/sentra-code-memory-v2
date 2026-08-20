@@ -90,9 +90,20 @@ func TestOpenOrRefreshSkipsAFifoInsteadOfBlocking(t *testing.T) {
 func TestIngestPathsSkipsAFifoInsteadOfBlocking(t *testing.T) {
 	root := fifoWorkspace(t)
 	cache := filepath.Join(t.TempDir(), "code-index.gob")
-	idx, _, err := codecrawl.CrawlDir(root, 2)
-	if err != nil {
-		t.Fatal(err)
+	var idx *codecrawl.Index
+	// This setup crawl was outside withDeadline, so a regression hung the
+	// binary to the package timeout instead of failing -- and took the sibling
+	// test with it, which never ran at all. Every call that touches the FIFO
+	// carries the deadline.
+	withDeadline(t, "CrawlDir (setup)", 15*time.Second, func() {
+		var err error
+		idx, _, err = codecrawl.CrawlDir(root, 2)
+		if err != nil {
+			t.Errorf("CrawlDir: %v", err)
+		}
+	})
+	if idx == nil {
+		t.Fatal("setup crawl produced no index")
 	}
 	if err := idx.Save(cache, root); err != nil {
 		t.Fatal(err)
@@ -112,7 +123,10 @@ func TestCrawlDirSkipsADeviceSymlink(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "real.go"), []byte("package a\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink("/dev/zero", filepath.Join(root, "zero.go")); err != nil {
+	// /dev/null rather than /dev/zero: both are character devices and exercise
+	// the same check, but a regression on /dev/zero grows the buffer until the
+	// runner OOMs -- measured at 9 GB RSS -- which loses the failure message.
+	if err := os.Symlink(os.DevNull, filepath.Join(root, "zero.go")); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
 	}
 	var idx *codecrawl.Index

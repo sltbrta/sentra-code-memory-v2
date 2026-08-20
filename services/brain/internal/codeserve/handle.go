@@ -24,6 +24,10 @@ import (
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/sessionlog"
 )
 
+// panicVerbHook is a test-only injection point for the panic boundary. It is
+// nil outside tests and is never assigned by production code.
+var panicVerbHook func()
+
 // Request is one JSON-line protocol request.
 type Request map[string]any
 
@@ -83,6 +87,13 @@ func Handle(ctx context.Context, req Request) (resp Response) {
 	}
 	switch Verb(verb) {
 	case VerbPing:
+		// Test-only seam. Nil in every build; the panic-boundary test installs
+		// a handler here because a recover cannot be tested without inducing a
+		// panic, and the first attempt at that test asserted only that hostile
+		// input still returned a map -- which it does with no recover at all.
+		if panicVerbHook != nil {
+			panicVerbHook()
+		}
 		return okResp(verb, map[string]any{"product_owned": true})
 	case VerbCatalog, "":
 		if verb == "" {
