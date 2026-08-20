@@ -12,6 +12,9 @@ check:
     cd services && go vet ./...
     cd services && go test -count=1 ./...
     gofmt -l services packages | (! grep .) || (echo "gofmt: files above are unformatted" && exit 1)
+    # The repository's pre-commit hook enforces goimports grouping, so the gate
+    # checks the same thing rather than letting CI and the hook disagree.
+    command -v goimports >/dev/null && (goimports -l services packages | (! grep .) || (echo "goimports: files above need grouping" && exit 1)) || echo "goimports not installed; skipping"
 
 # The concurrency gate. The suite passed -race from the day it was written
 # because nothing exercised concurrency; the hammer tests added in the 2026-08

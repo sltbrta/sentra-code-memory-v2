@@ -43,6 +43,14 @@ jobs:
             echo "::error::gofmt found unformatted files:"; echo "$unformatted"; exit 1
           fi
 
+      - name: goimports
+        run: |
+          go install golang.org/x/tools/cmd/goimports@latest
+          ungrouped="$(goimports -l services packages)"
+          if [ -n "$ungrouped" ]; then
+            echo "::error::goimports found ungrouped imports:"; echo "$ungrouped"; exit 1
+          fi
+
       - name: build
         run: cd services && go build ./...
 
