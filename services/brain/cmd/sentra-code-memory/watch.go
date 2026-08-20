@@ -23,7 +23,7 @@ func runWatch(args []string, out, errOut io.Writer) int {
 	root := fs.String("root", ".", "source root (default: current working directory)")
 	cache := fs.String("index-cache", "", "index directory or code-index.gob path")
 	workers := fs.Int("workers", 4, "refresh worker count")
-	interval := fs.Duration("interval", time.Second, "poll interval when --poll is selected")
+	interval := fs.Duration("interval", time.Second, "poll interval when --fsnotify=false")
 	debounce := fs.Duration("debounce", 300*time.Millisecond, "quiet period after edits")
 	queueSize := fs.Int("queue-size", 4096, "coalesced event queue capacity")
 	retryInitial := fs.Duration("retry-initial", 100*time.Millisecond, "first refresh retry delay")

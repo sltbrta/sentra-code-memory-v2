@@ -28,7 +28,9 @@ company-scale target matrix.
 
 ## Acceptance
 
-`just modal-smoke` is the stable bounded execution entry point. Stage 01 proves
+`just modal-smoke` is the intended bounded execution entry point. It is **not
+present in this extraction** -- no such recipe exists in the justfile -- in the
+same way `performance-targets.yaml` is not checked in here. Stage 01 proves
 only a pure local/Modal logical-receipt parity target. Each later performance or
 benchmark stage must self-register its representative shard, pin its manifest,
 retain quality/latency/cost/cleanup evidence, and obtain independent review

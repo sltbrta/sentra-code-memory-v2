@@ -81,7 +81,10 @@ session events ────► sessionlog JSONL ──► replay, continuation, 
   agent artifacts: action envelopes with budget/freshness/expansion handles,
   evidence reports with reproducible digests, and fail-closed candidate
   ChangeSet validation (stale base, path escape, overlap, partial failure).
-  It is pure logic with no file I/O.
+  Note that `ApplyChangeSet` is not pure: it stages a git worktree beside the
+  repository, runs the change set's declared verification commands as an argv
+  vector against a fixed allowlist, and promotes files into the working tree
+  with rollback. Treat it as a mutating surface when reasoning about trust.
 
 ## Request flow
 
