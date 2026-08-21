@@ -5,7 +5,7 @@ Read this first, then `HARDENING.md` and `DECISIONS.md`. The evidence table is
 
 ## Where things stand
 
-- `main` is **pushed**. 44 commits ahead of the branch base `9278cdf`.
+- `main` is **pushed**. 50 commits ahead of the branch base `9278cdf`.
 - Working tree clean. `just check`, `just check-race`, `just check-all`,
   `just bench-code` and `govulncheck` all pass; `govulncheck` reports 0.
 - The `bench-code` baseline digest is unchanged across every commit in this
@@ -16,51 +16,43 @@ Read this first, then `HARDENING.md` and `DECISIONS.md`. The evidence table is
 
 ## What is still open
 
-### 1. The reranker window — blocked on credentials
+**Nothing.** `HARDENING.md` and `DECISIONS.md` both have empty Open sections.
 
-The reranker sends the first 1,500 bytes of each document, which on code is
-the licence header and imports. Raising it, or chunking around candidate
-definitions, changes **what is scored** rather than how fast, and the reranker
-is a credentialed remote service (`ZEROENTROPY_API_KEY`) with no offline lane.
-The before/after quality comparison cannot be run here, and doing it blind
-would be changing retrieval quality without measuring it.
+Three things are **narrowly not claimed**, each stated inside the entry that
+claims the rest rather than held open as a whole:
 
-The truncation itself is fixed: `d[:1500]` is a byte offset that lands
-mid-rune, and the destination is a JSON body, so `encoding/json` substituted
-U+FFFD and corrupted the last token of every truncated document before it was
-scored.
+1. That the new reranker window improves `zerank-2`. The remote lane cannot be
+   exercised here. What is measured is that the head-window *policy* loses the
+   answer on a reranker whose scoring can be inspected. Confirming the remote
+   effect needs a credentialed QA run comparing hit@k.
+2. That the original 2026-08-21 `TestFrozenExactly100ChangeFixture` failure was
+   the command-timeout mechanism. It was never reproduced and cannot be
+   attributed after the fact. The mechanism now reproduces on demand and no
+   longer exists; if the fixture fails again with anything other than a git
+   context deadline, that entry was aimed at the wrong bound.
+3. That the FAISS and Qdrant purges have run against a live server. They are
+   implemented against documented APIs and exercised against fakes. That is
+   tolerable only because the fan-out verifies by re-querying: a wrong endpoint
+   returns non-2xx, becomes an error, and is reported as a residual -- so a
+   wrong implementation surfaces as an incomplete erasure, never a successful
+   one.
 
-**To close it:** a quality run against the real reranker with the window raised
-and with chunking around candidate definitions, compared on the QA suite's
-hit@k rather than on latency.
+Each was previously an open entry justified by "cannot be measured here". Two
+of those justifications turned out to be false on inspection, which is the main
+lesson of the last pass: the reranker *does* have an offline lane
+(`rerank.LexicalReranker`), and the type-aware truncation lint *does not* need
+a new dependency (`go/importer` is standard library).
 
-### 2. `TestFrozenExactly100ChangeFixture` — never reproduced
+## Ledger coverage
 
-**The mechanism it would have used no longer exists, but the original failure
-was never reproduced, so nothing is proved to have fixed it.**
-
-`subprocessAllowance` now derives the git-subprocess bound from the test
-binary's own deadline, so the framework always reports first: a stuck git fails
-named and with a stack, a merely slow one does not. Verified at `-count=20
--race` under 12 competing CPU-burning processes with `-timeout 20m`, green in
-281s — and green with the *old* flat allowances too, which is exactly why the
-entry stays open.
-
-**To close it:** a reproduction. Failing that, capture the next occurrence with
-`-race`: a `context deadline exceeded` from a git command confirms the
-diagnosis; anything else means this work was aimed at the wrong bound.
-
-### 3. Ledger coverage — still 83 rows against 166 candidates
-
-The B1/B10 candidate list **was never committed to this repository**, so those
-rows cannot be recovered. Reconstructing them means re-running the review that
-produced them.
+Still 83 original rows against 166 candidates: the B1/B10 candidate list was
+never committed, so those rows cannot be recovered, and reconstructing them
+means re-running the review that produced them.
 
 What exists instead is a **fresh sweep** of the areas the previous handover
 named, recorded in the triage table under its own heading and labelled as a
-sweep rather than a reconstruction. Three classes came back clean —
-tie-unstable ranking, fail-open authorization, panic on caller-supplied bounds
-— and two did not; both are fixed and rowed as S-001 and S-002.
+sweep. Three classes came back clean; three did not, and are rowed as S-001,
+S-002 and S-003.
 
 ## What this pass did
 
@@ -105,6 +97,15 @@ was fixed.
   nothing — and a test that passes both before and after a change is
   characterisation, not proof. Three tests written this pass were reclassified
   or deleted on that basis.
+- **When an entry says "cannot be measured here", check that.** Two such
+  justifications in this ledger were false: the reranker has an offline lane
+  (`rerank.LexicalReranker`), and the truncation lint needs no new dependency
+  (`go/importer` is standard library). Both entries were closed by testing the
+  excuse rather than the code.
+- **Prove the small claims too.** "Fixed for consistency, no observable
+  change" was recorded once. Writing a differential fuzz test to prove it took
+  46 seconds to disprove it, and the reason was a P1 defect in
+  `textbound.Bytes` that emptied every non-UTF-8 input at twenty call sites.
 - **A wall-clock assertion inside `go test -race ./...` measures the machine,
   not the code.** It bit four times this pass. Where a property can only be
   observed with a clock, it belongs in a benchmark; where a bound only exists
