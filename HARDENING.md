@@ -72,18 +72,36 @@ Schema per entry: date, wave, trigger, why deferred, what would satisfy it.
 
 ### 2026-08-21 — `TestFrozenExactly100ChangeFixture` is load-sensitive
 
+**Still open: the failure has not been reproduced, so nothing here is proved.**
+
 - **Wave:** W3
 - **Trigger:** failed once during a full `go test ./...` run, passed on two
   subsequent full runs and on seven isolated runs of its own package, both at
   this branch and at the base revision. Not caused by the trust-gate change,
   which does not touch `ingestion`.
-- **Why deferred:** unreproducible on demand. Chasing it now would spend the
-  batch's repair budget on a symptom rather than the finding.
-- **What would satisfy it:** the package's fixture helper uses a blocking git
-  wrapper polled by `waitForFile` with a fixed 5s deadline
-  (`ingestion/test_helpers_test.go`). Replace the wall-clock deadline with a
-  synchronising channel, or raise it under `-race`/parallel load, then run
-  `go test -count=20 ./brain/internal/ingestion/` under CPU contention.
+- **Why deferred:** unreproducible on demand.
+- **Work done (2026-08-21):** the mechanism was located but not confirmed. The
+  original entry pointed at `waitForFile`'s fixed 5s deadline, which this test
+  does not call. The bound that expires first is `testConfig`'s
+  `CommandTimeout: 10 * time.Second`, which bounds every git subprocess the
+  authority spawns; a reconcile over the frozen 100-change fixture runs many,
+  and the failure would surface as a context deadline in production code
+  rather than as an obviously test-shaped timeout. Both allowances now scale
+  through `testAllowance`, ×8 under the race detector and ×2 otherwise, and
+  `waitForFile` additionally never waits past the test binary's own budget so
+  a hang reports the filename instead of a goroutine dump.
+- **Why it is not drained:** an attempt to reproduce failed. The package was
+  run at `-count=20 -race` under 12 competing CPU-burning processes, twice --
+  once with the scaled allowances and once with the original flat ones -- and
+  both passed (222s and 263s). The scaled allowances are therefore a defensive
+  change with no red proof behind them, which is not evidence that the
+  original failure is fixed. Draining this entry would be the same
+  overclaiming the branch exists to remove.
+- **What would satisfy it:** a reproduction. Failing that, the next occurrence
+  should be captured with `-race` and the failing output kept: if it is a
+  `context deadline exceeded` from a git command the diagnosis above is
+  confirmed and the entry can close; if it is anything else, this work was
+  aimed at the wrong bound.
 
 ## Drained
 
