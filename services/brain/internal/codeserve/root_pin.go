@@ -68,53 +68,78 @@ func RootPin(ctx context.Context) string {
 // path-bearing field to a verb is a decision someone has to make here.
 var pinnedPathFields = []string{"root", "dir", "index_cache", "scip"}
 
-// requestWithinPin reports whether every path-bearing field of req stays inside
-// the pinned subtree.
+// requestWithinPin reports whether every path-bearing field of req stays
+// inside the pinned subtree, and rewrites each admitted field to the resolved
+// path it was admitted on.
+//
+// The rewrite narrows a time-of-check/time-of-use gap. The check resolves a
+// path through its symlinks and asks whether the result is inside the pin;
+// the handler then opened the caller's *original* string and resolved it
+// again. Two resolutions of the same string need not agree: a symlink
+// component the caller controls can be repointed between them, so the path
+// that was admitted and the path that was opened were only ever assumed to be
+// the same file. Substituting the resolved path means the handler acts on
+// exactly what was checked.
+//
+// This does not make the sequence atomic, and nothing here claims it does. A
+// component of the resolved path can still be replaced between this check and
+// the handler's open; closing that needs openat-style resolution against a
+// directory descriptor held across the operation, which is a change to every
+// path-taking verb rather than to this gate. What it removes is the larger
+// and more reachable half: the caller no longer gets to hand the handler a
+// string that resolves differently than it did a moment ago.
 func requestWithinPin(ctx context.Context, req Request) bool {
 	if RootPin(ctx) == "" {
 		return true
 	}
-	named := 0
 	for _, field := range pinnedPathFields {
 		value := str(req, field)
 		if value == "" {
 			continue
 		}
-		named++
-		if !rootWithinPin(ctx, value) {
+		resolved, ok := resolveWithinPin(ctx, value)
+		if !ok {
 			return false
 		}
+		req[field] = resolved
 	}
 	// A pinned surface refuses a request that names no location at all only if
 	// the verb needs one; verbs like ping and catalog legitimately name none,
 	// and they touch no filesystem.
-	_ = named
 	return true
 }
 
 // rootWithinPin reports whether candidate is the pinned root or below it.
 // An unpinned context admits everything: the direct CLI names its own paths.
 func rootWithinPin(ctx context.Context, candidate string) bool {
+	_, ok := resolveWithinPin(ctx, candidate)
+	return ok
+}
+
+// resolveWithinPin resolves candidate and reports whether the result is the
+// pinned root or below it, returning the resolved path so the caller can use
+// the value that was actually checked.
+func resolveWithinPin(ctx context.Context, candidate string) (string, bool) {
 	pin := RootPin(ctx)
-	if pin == "" {
-		return true
-	}
 	candidate = strings.TrimSpace(candidate)
-	if candidate == "" {
-		return true
+	if pin == "" || candidate == "" {
+		return candidate, true
 	}
 	resolved, err := resolveRootForPin(candidate)
 	if err != nil {
-		return false
+		return "", false
 	}
 	rel, err := filepath.Rel(pin, resolved)
 	if err != nil {
-		return false
+		return "", false
 	}
 	// filepath.Rel is used rather than a string prefix so that a sibling
 	// directory sharing a name prefix ("/srv/repo-backup" against a
 	// "/srv/repo" pin) is not mistaken for a descendant.
-	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
+	if rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))) {
+		return resolved, true
+	}
+	return "", false
 }
 
 // rootPinError is the refusal envelope. It deliberately does not echo the
