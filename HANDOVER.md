@@ -5,161 +5,121 @@ Read this first, then `HARDENING.md` and `DECISIONS.md`. The evidence table is
 
 ## Where things stand
 
-- Branch `harden/audit-166` is **merged into local `main`** (merge commit
-  `7f5a425`), 20 commits ahead of `origin/main`, base `9278cdf`.
-- Working tree is clean. `just check`, `just check-race`, `just bench-code` and
-  `govulncheck` all pass on `main` as it stands.
-- **Nothing is pushed.** See the blocker below.
+- `main` is **pushed**. 38 commits ahead of the branch base `9278cdf`.
+- Working tree clean. `just check`, `just check-race`, `just check-all`,
+  `just bench-code` and `govulncheck` all pass.
+- The `bench-code` baseline digest is unchanged across every commit in this
+  pass, so nothing here moved a served answer.
+- **`DECISIONS.md` has no open entries.** The lane can close.
+- `HARDENING.md` has **two** open entries, both blocked on something this
+  session could not obtain rather than on effort. They are the first thing
+  below.
 
-## Start here: the push is blocked
+The previous handover's push blocker is gone: the detector's synthetic vendor
+fixtures are assembled from split prefixes at run time, so no scannable literal
+exists in the source or in history, and the local gitleaks allowlist that only
+ever covered the pre-commit hook is gone with it.
 
-`git push origin main` is rejected by GitHub push protection:
+## What is still open
 
-```text
-- Push cannot contain secrets
-  —— Slack API Token ——
-   locations:
-     - commit: 9107f17bc08e6733d0ea9c47eaa82bcca1968278
-```
+### 1. The reranker window (`HARDENING.md`)
 
-The hit is a **synthetic** fixture in
-`services/brain/internal/contentprivacy/detector_coverage_test.go:24`:
+The reranker sends the first 1,500 bytes of each document, which on code is the
+licence header and imports. Raising it, or chunking around candidate
+definitions, changes **what is scored** rather than how fast — and the reranker
+is a credentialed remote service (`ZEROENTROPY_API_KEY`) with no offline lane,
+so the before/after quality comparison cannot be run here. Doing it blind would
+be changing retrieval quality without measuring it.
 
-```go
-"Slack bot": "xox" + "b-1234567890-abcdefghijklmno",
-```
+What was fixed is the truncation itself: `d[:1500]` is a byte offset that lands
+mid-rune, and the destination is a JSON body, so `encoding/json` substituted
+U+FFFD and corrupted the last token of every truncated document before it was
+scored. The repository-wide pass that replaced a dozen of these with
+`textbound` had missed this one.
 
-It exists to prove the secret detector catches Slack tokens — the detector
-previously missed every vendor prefix in common use. A local `.gitleaks.toml`
-allowlist covers the pre-commit hook; GitHub's server-side scanner does not read
-it.
+### 2. `TestFrozenExactly100ChangeFixture` (`HARDENING.md`)
 
-**Do not use the unblock URL.** Allowlisting a "secret" server-side to ship a
-test is the wrong habit, and the fixture does not need to be a literal.
+**Not reproduced, so nothing about it is proved.** The original entry pointed
+at `waitForFile`'s 5s deadline, which this test does not call. The bound that
+expires first is `testConfig`'s `CommandTimeout: 10s`, which bounds every git
+subprocess a reconcile spawns — so the failure would surface as a context
+deadline inside production code rather than as an obviously test-shaped
+timeout. Both allowances now scale under the race detector.
 
-The fix is to build the fixtures at runtime so no scannable literal appears in
-the source, which exercises the same regexes:
+The entry stays open because an attempt to reproduce failed: the package ran at
+`-count=20 -race` under 12 competing CPU-burning processes, once with the
+scaled allowances and once with the original flat ones, and both passed. That
+makes the change defensive, not proven. The entry records where to look when it
+next occurs.
 
-```go
-"Slack bot": "xox" + "b-1234567890-abcdefghijklmno",
-```
+### 3. Dense-store erasure (`DECISIONS.md`, recorded as done-with-a-gap)
 
-Apply that to every vendor-prefixed fixture in that file (Slack was flagged
-first; GitHub may flag others once it is gone), confirm
-`go test ./brain/internal/contentprivacy/ -run TestDetector -count=1` still
-passes, and then **rewrite `9107f17`** — the literal is in history, so a
-follow-up commit will not clear the block. Nothing is pushed, so a rewrite is
-free:
+`deletion.Purge` reaches the corpus, the lexical index, the memory cortex and
+the query log. It does **not** reach the dense vectors: there are five
+implementations behind `denseBackend` — SQLite, Postgres, FAISS, HNSW, Qdrant —
+and none exposes a delete. Adding one to each without being able to exercise
+Postgres or Qdrant would ship an erasure path that has never run.
 
-```sh
-git filter-branch -f --tree-filter '
-  f=services/brain/internal/contentprivacy/detector_coverage_test.go
-  if [ -f "$f" ]; then
-    perl -pi -e "s/\"xox" + "b-/\"xox\" . \"b-/" "$f"
-  fi
-  true
-' 9278cdf..HEAD
-```
+The receipt names `vectors` as skipped and refuses `VerifiedComplete`, so a
+purge that reached three of four substrates cannot read as a deletion. Closing
+this is now bounded: one method per backend against a port that exists and is
+tested.
 
-Then re-run `just check`, re-run `bin/local-preflight --base 9278cdf` (the
-existing receipt is bound to the old HEAD and will be stale), and push.
+### 4. Ledger coverage is still partial — be honest about this
 
-## What was done
+`docs/findings/2026-08-21-audit-166-triage.md` holds **83 rows against 166
+candidates**. Batches B1 and B10 — mostly P2/P3 findings in `hosted`,
+`query`/`rerank`, `gateway` and `broker` — were never given rows. They are not
+fixed and not falsified: they are untriaged, and **the candidate list itself
+was never committed to this repository**, so they cannot be recovered from
+here. Reconstructing them means re-running the review that produced them.
 
-All 18 P0s from the audit are closed with a red proof each. Highlights:
+The section heading previously read "Populated during triage. Each row carries
+the red-proof command and its output." over an empty section. It now says what
+is true.
 
-- Remote code execution through a JSON field on the `serve` surface — proven
-  live before, refused after.
-- Six process-killers: `top_k` panic, a `.gitignore` line that panicked the
-  indexer, a 1.25 GB/5s spin, an unkillable FIFO hang, a WAV divide-by-zero, a
-  gardener worker panic.
-- Three durable stores that truncated in place, discarded every write error and
-  then deleted the surviving copy.
-- 21 unsynchronised methods on a store shared between a 500 ms background
-  goroutine and the answer path.
-- Eight ranking paths whose output depended on Go's randomised map order.
-- An allow-everything policy in front of real GitHub writes.
-- CI created; `govulncheck` 11 → 0; the contract drift gate green for the first
-  time in this repository's history.
+## What this pass did
 
-Three fresh-eyes reviewers found **nine blockers**, all resolved. Every blocker
-this branch *introduced* — three root-pin gaps, an unpinned `serve`, a data race
-added by the commit removing data races, a torn maintenance composition, and two
-red proofs that had been recorded but never happened — was found by a reviewer,
-not by me and not by the suite.
+Every fix below was run against its own reverted state and observed to fail
+before being recorded. That discipline is the point: two red proofs in the
+previous branch had been written, recorded as evidence, and never actually run.
 
-## What is left
+**The fifteen unproven fixes now have guards.** A fresh-eyes review had
+reverted each one and found the suite still green. Writing the guards turned up
+four defects the original fixes had missed:
 
-### 1. Ledger coverage is partial — be honest about this
+- D-007 tightened the corpus, sidecars and metadata to 0600 and left
+  `hotlex.gob` (which carries document text), `gardener.db` and its WAL, and
+  the query log at 0644. The guard is a property of the whole brain directory
+  rather than a list of filenames, which is why it found them.
+- C-009 recorded a lost receipt in `Output` only when `Output` was empty —
+  exactly when the job had succeeded — so a successful job whose completion was
+  never persisted returned `OK=false` with no reason anywhere.
+- `flush` cleared `forceFullFlush` before the sidecar writer read it, so
+  `DeleteDocuments` never rewrote the sidecar base and a deleted document's
+  derived text stayed on disk.
+- A wall-clock ANN assertion that does not survive a parallel `-race` run.
 
-The triage table holds **83 rows against 166 candidates**: 59 `CONFIRMED`, 15
-`FIXED-UNPROVEN`, 3 `FALSIFIED`, 3 `DEFERRED`, 3 `DECISION`. The remaining ~83
-candidates — mostly P2/P3 findings in `hosted`, `query`/`rerank`, `gateway` and
-`broker` — were never given individual rows. They are not fixed and not
-falsified; they are untriaged. The `## B1, B10` section at the foot of the
-ledger still claims to carry rows and is empty.
+**Five `HARDENING.md` entries drained.** The factory BUILD and TEST gates now
+build and test, through a `go build -overlay` against the real module: every
+red case is syntactically valid Go, so the old gates passed all of them.
+`product-brain serve` is pinned. The warm index path is reachable again (it was
+structurally unreachable in any repository with an ignore rule; 210ms → 138ms
+here). Savings figures are named as estimates and the ledger has a producer.
+Three of four performance findings are fixed with measurements: `code_search`
+136ms → 73ms, `code_exact` 384ms → 146ms, HNSW load of 40k vectors 1.83s →
+0.81s.
 
-Do not read the ledger as covering the audit. It covers what it lists.
+**All six reviewer follow-ups closed**, including a `durablefile` leak of one
+fd and one temp file per panicking write, and `?operator_trust=1` — which
+granted operator trust over the query string, contradicting the README, the ops
+runbook and the refusal message itself.
 
-### 2. Fifteen fixes have no executable check
-
-Relabelled `FIXED-UNPROVEN` after a reviewer reverted each one and found the
-suite still green. The fixes are correct; the regression guard is missing.
-Cheapest and most valuable first, all listed in `HARDENING.md`:
-
-- `A-003` — no test references `ActionGrants` at all.
-- `A-009` (policy honours `request.Resource`), `A-010` (stale-base `!ok`),
-  `D-003` (`endBatch` error) — the P0/P1 rows.
-- `D-007` (0600 permissions) and `D-008` (byte-identical rewrites) are one
-  `os.Stat` and one comparison each.
-
-### 3. `HARDENING.md` — seven open entries
-
-Each names its trigger, why it was deferred, and what would close it:
-
-1. The fifteen missing checks above.
-2. `product-brain serve` has no root pin — a second JSONL surface the fix does
-   not reach.
-3. Factory `BUILD`/`TEST` gates do not build or test. The `go build -overlay`
-   design is written up; it needs a repository root and a runner threaded into
-   `evaluateFactoryGate`.
-4. `savings` reports bytes÷4 estimates as measurements, over a strawman
-   baseline, with no producer in the product.
-5. Performance findings untouched: `code_exact` re-parses the repository per
-   query, no in-process index cache, O(n²) HNSW upsert, reranker sees 1,500
-   bytes.
-6. `stAllStampsMatch` ignores the ignore policy, so the warm fast path can never
-   fire. The README claim was corrected; the code was not.
-7. `TestFrozenExactly100ChangeFixture` is load-sensitive.
-
-### 4. `DECISIONS.md` — five open, and they block lane close
-
-These are product calls, not defects. Each has a recommendation:
-
-1. Wire `contentprivacy` into the hosted ingest path? It is the only PII and
-   secret redaction and runs nowhere. Recommended yes — but it changes indexed
-   text and therefore ranking, so it needs its own before/after quality run.
-2. Persist `contentprivacy` tombstones and receipts (a Go map today).
-3. Wire `orgscope.Erase`, or implement the purge fan-out in `deletion`.
-4. Delete the Rust `workers/code-index` stub? Touches the justfile, CI and 95
-   Bazel files.
-5. Wire or remove `llmadapter`.
-
-### 5. Reviewer follow-ups not yet acted on
-
-From the three review reports, still open and worth a pass:
-
-- `durablefile.WriteFunc` leaks the temp file and fd if `emit` panics, and
-  replaces symlinked targets rather than writing through them.
-- `memChunk.tokens` is still aliased by the flush snapshot (safe today, nothing
-  documents the invariant).
-- `forceFullFlush` is consumed before the sidecars read it, so `DeleteDocuments`
-  never triggers the sidecar rewrite — pre-existing, inside a rewritten function.
-- CI installs `goimports@latest` and `govulncheck@latest` unpinned, so the
-  gate's verdict can change without a commit.
-- `?operator_trust=1` on the HTTP query string contradicts the "no request field
-  can supply it" wording.
-- TOCTOU between the pin's resolve and each handler's re-resolve.
+**All five decisions settled and implemented.** Redaction is wired into ingest
+with a measured quality run (hit@1 and hit@3 unchanged at 1.00) and durable
+tombstones. Deletion actually deletes. The dormant Rust crate is gone.
+`llmadapter` is wired behind an off-by-default opt-in, after its prompt
+framing was fixed — not after wiring it.
 
 ## Conventions worth knowing before you touch anything
 
@@ -170,5 +130,10 @@ From the three review reports, still open and worth a pass:
 - Markdown is linted at 80 columns with tables excluded; delimiter rows need
   `| --- |` spacing.
 - Red proof is required from W2 up. A test that has never been red proves
-  nothing — two in this branch were written, recorded as evidence, and only
-  caught as fabricated because a reviewer reverted the fixes and re-ran them.
+  nothing.
+- **A wall-clock assertion inside `go test -race ./...` measures the machine,
+  not the code.** Three separate ones bit this pass. Where a property can only
+  be observed with a clock, it belongs in a benchmark, and the deterministic
+  half belongs in the test.
+- The Rust toolchain is no longer a prerequisite: `check-all` and CI dropped the
+  `cargo` lane with the crate.
