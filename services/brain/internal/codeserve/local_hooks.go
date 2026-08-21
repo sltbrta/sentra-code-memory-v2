@@ -241,7 +241,7 @@ func OperatorTrustError(verb, action, surface string) Response {
 		"ok": false, "verb": verb, "action": action,
 		"error": "operator trust required for " + verb + " action=" + action +
 			" on " + surface + "; grant it out of band -- HTTP " +
-			"X-Sentra-Operator-Trust: 1 header or ?operator_trust=1 query, or " +
+			"X-Sentra-Operator-Trust: 1 header, or " +
 			"start the process with --operator-trust (env " +
 			"SENTRA_CODE_MEMORY_OPERATOR_TRUST=1), or run the direct CLI. " +
 			"No request or tool argument can grant it.",

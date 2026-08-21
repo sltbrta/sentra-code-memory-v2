@@ -49,7 +49,17 @@ func WriteFunc(path string, mode os.FileMode, emit func(io.Writer) error) (retEr
 	if mode == 0 {
 		mode = DefaultMode
 	}
-	dir := filepath.Dir(path)
+	// Write through a symlink rather than over it.
+	//
+	// Renaming onto the link path replaces the link with a regular file, so a
+	// deliberate layout -- a corpus linked onto another volume, a config
+	// linked into place -- is silently dissolved by the first write. The
+	// callers here were migrated from os.WriteFile, which writes through, so
+	// replacing was also a change of contract none of them asked for.
+	path, dir, err := resolveTarget(path)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("durablefile: create %s: %w", dir, err)
 	}
@@ -59,11 +69,16 @@ func WriteFunc(path string, mode os.FileMode, emit func(io.Writer) error) (retEr
 		return fmt.Errorf("durablefile: temp file in %s: %w", dir, err)
 	}
 	name := tmp.Name()
-	// Every failure path below removes the temp file. A crashed writer leaves
-	// one behind, which is why the name is unique rather than fixed: a stale
-	// temp must never collide with a live write.
+	// The temp file is removed unless the rename succeeded.
+	//
+	// This was conditioned on retErr != nil, which is nil while a panic is
+	// unwinding -- so a panic inside emit left the descriptor open and the
+	// temp file on disk, once per call. emit is caller-supplied (a JSON
+	// encoder, a gob stream), so a panic in it is not hypothetical, and a
+	// long-lived service leaks an fd and a file every time.
+	renamed := false
 	defer func() {
-		if retErr != nil {
+		if !renamed {
 			_ = tmp.Close()
 			_ = os.Remove(name)
 		}
@@ -90,7 +105,36 @@ func WriteFunc(path string, mode os.FileMode, emit func(io.Writer) error) (retEr
 	if err := os.Rename(name, path); err != nil {
 		return fmt.Errorf("durablefile: rename into %s: %w", path, err)
 	}
+	renamed = true
 	return SyncDir(dir)
+}
+
+// resolveTarget returns the path the write should land on and its directory.
+//
+// When path names a symlink, the write follows it to its final target so the
+// link survives and the temp file is created on the target's filesystem --
+// renaming across filesystems fails, so creating the temp beside the link
+// would break the write as well as the layout. A broken link, or any other
+// path, is used as given.
+func resolveTarget(path string) (string, string, error) {
+	info, err := os.Lstat(path)
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		return path, filepath.Dir(path), nil
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		// A dangling link: nothing to write through to. Replacing it is the
+		// only option left, and is what the caller asked for by naming it.
+		return path, filepath.Dir(path), nil
+	}
+	if !filepath.IsAbs(resolved) {
+		abs, absErr := filepath.Abs(resolved)
+		if absErr != nil {
+			return "", "", fmt.Errorf("durablefile: resolve %s: %w", path, absErr)
+		}
+		resolved = abs
+	}
+	return resolved, filepath.Dir(resolved), nil
 }
 
 // SyncDir fsyncs a directory so a rename into it is durable.

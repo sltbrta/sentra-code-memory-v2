@@ -21,6 +21,24 @@ concurrency:
 # lets the go command fetch it when the runner ships an older patch release.
 # The stdlib CVEs this repo was exposed to are only fixed in 1.26.6.
 
+# Gate tools are pinned.
+#
+# Both were installed at @latest, so the verdict of a gate could change with no
+# commit to this repository: a goimports release with a new grouping rule turns
+# the tree red, and a govulncheck release with a new analysis turns it red or
+# green, in both cases on a rerun of an unchanged commit. A gate whose result
+# is not a function of the revision under test cannot be used to decide whether
+# that revision is good.
+#
+# govulncheck's *database* is still fetched at run time and is meant to be:
+# pinning the tool freezes the analysis, not the set of known vulnerabilities,
+# so a newly disclosed CVE still turns the gate red. That is the intended
+# asymmetry -- the verdict moves when the world changes, not when a tool
+# release does.
+env:
+  GOIMPORTS_VERSION: v0.49.0
+  GOVULNCHECK_VERSION: v1.7.0
+
 jobs:
   go:
     name: go build / vet / race tests
@@ -45,7 +63,7 @@ jobs:
 
       - name: goimports
         run: |
-          go install golang.org/x/tools/cmd/goimports@latest
+          go install golang.org/x/tools/cmd/goimports@"${GOIMPORTS_VERSION}"
           ungrouped="$(goimports -l services packages)"
           if [ -n "$ungrouped" ]; then
             echo "::error::goimports found ungrouped imports:"; echo "$ungrouped"; exit 1
@@ -77,7 +95,7 @@ jobs:
         with:
           go-version-file: services/go.mod
           check-latest: true
-      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run: go install golang.org/x/vuln/cmd/govulncheck@"${GOVULNCHECK_VERSION}"
       - run: cd services && govulncheck ./...
 
   contracts:

@@ -30,7 +30,23 @@ type memChunk struct {
 	dsid      string
 	text      string
 	sourceURI string
-	tokens    map[string]int
+	// tokens is immutable once the memChunk is constructed.
+	//
+	// memChunk is copied by value -- into the flush snapshot, and into every
+	// read that pulls a chunk out of the bag -- and a by-value copy of a
+	// struct shares its maps. So every copy in the process aliases this one
+	// map. That is safe only because it is built once by memTokenFreq and
+	// never written again: an upsert replaces the whole memChunk rather than
+	// editing the map in place.
+	//
+	// Mutating it -- a `ch.tokens[t]++` anywhere -- would be a write to a map
+	// the flush goroutine may be ranging over at that moment, under a
+	// different mutex, which Go reports as a fatal error that no recover
+	// catches. The invariant held before this comment existed; nothing said
+	// so, and nothing tested it.
+	//
+	// TestTokenMapsAreNeverMutatedAfterConstruction is the check.
+	tokens map[string]int
 }
 
 // NewMemoryChunkStore returns an empty product-owned memory store.

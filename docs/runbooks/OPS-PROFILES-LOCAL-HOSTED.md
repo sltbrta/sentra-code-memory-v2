@@ -13,8 +13,11 @@ non-goals here (see `docs/roadmap/DEFERRED-AND-NON-GOALS.md`).
   subtree: `--root` defaults to the working directory, and `--root=/` is the
   explicit opt-out. Mutating verbs additionally require an out-of-band operator
   grant (`--operator-trust`, `SENTRA_CODE_MEMORY_OPERATOR_TRUST=1`, or the
-  `X-Sentra-Operator-Trust: 1` header); no request field or tool argument can
-  supply it.
+  `X-Sentra-Operator-Trust: 1` header); no request field, query parameter or
+  tool argument can supply it. A second form, `?operator_trust=1`, was
+  accepted until 2026-08-21 and contradicted that sentence: a query parameter
+  is part of the request line the caller composes, and it put the grant into
+  every access log the URL reached.
 - All state is on the local filesystem: the durable `code-index.gob`, the
   repo-local `sessionlog`, the memory projection, and the savings ledger.
 - Credentials are optional and only for the local/hosted model clients used by

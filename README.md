@@ -25,7 +25,8 @@ cd /path/to/repo && ./sentra-code-memory watch --workers 8  # watches cwd by def
 ```
 
 Mutating verbs (`code_apply_changeset`, `hooks install|uninstall|run`) require
-an explicit operator grant that no request field or tool argument can supply.
+an explicit operator grant that no request field, query parameter or tool
+argument can supply.
 The direct CLI carries it because you ran the binary; the long-running server
 surfaces need `--operator-trust` (or `SENTRA_CODE_MEMORY_OPERATOR_TRUST=1`).
 All three long-running surfaces (`serve`, `http`, `mcp`) confine every request

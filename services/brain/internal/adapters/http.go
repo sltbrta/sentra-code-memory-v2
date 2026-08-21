@@ -39,7 +39,6 @@ type HTTPConfig struct {
 // and the direct CLI path.
 const (
 	operatorTrustHeaderName = "X-Sentra-Operator-Trust"
-	operatorTrustQueryKey   = "operator_trust"
 	operatorTrustOptInValue = "1"
 )
 
@@ -59,20 +58,23 @@ func NewHTTP(cfg HTTPConfig) http.Handler {
 	return bounded(TrustPolicy{Token: cfg.Token}.wrap(mux))
 }
 
-// requestHasOperatorTrustOptIn reports whether the HTTP request carries
-// the explicit operator opt-in via header (X-Sentra-Operator-Trust: 1)
-// or query parameter (?operator_trust=1). It returns true the moment it
-// finds either signal; both forms exist because some caller shells and
-// some MCP-to-HTTP bridges can only set one of them. The value must be
-// exactly "1" to keep the signal explicit and grep-friendly.
+// requestHasOperatorTrustOptIn reports whether the HTTP request carries the
+// explicit operator opt-in header (X-Sentra-Operator-Trust: 1). The value must
+// be exactly "1" to keep the signal explicit and grep-friendly.
+//
+// A second form, ?operator_trust=1, was also accepted. It has been removed.
+// The contract this repository documents is that mutating verbs need a grant
+// "no request field or tool argument can supply", and a query parameter is
+// part of the request line the caller composes -- the same category as the
+// `_operator_trust` tool argument that was removed from the MCP surface for
+// exactly this reason. It was also the form that ends up in access logs,
+// shell history and referrers, so the grant leaked wherever the URL did.
+//
+// Nothing is lost by removing it: every HTTP client that can set a query
+// string can set a header, so the two forms were redundant rather than
+// complementary.
 func requestHasOperatorTrustOptIn(r *http.Request) bool {
-	if got := strings.TrimSpace(r.Header.Get(operatorTrustHeaderName)); got == operatorTrustOptInValue {
-		return true
-	}
-	if got := strings.TrimSpace(r.URL.Query().Get(operatorTrustQueryKey)); got == operatorTrustOptInValue {
-		return true
-	}
-	return false
+	return strings.TrimSpace(r.Header.Get(operatorTrustHeaderName)) == operatorTrustOptInValue
 }
 
 // healthHandler reports liveness and the active contract id.

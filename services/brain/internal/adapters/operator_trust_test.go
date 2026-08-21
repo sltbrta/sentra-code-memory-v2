@@ -234,17 +234,44 @@ func TestHTTPHooksLocalInstallAdmittedWithOperatorTrustHeader(t *testing.T) {
 	}
 }
 
-// TestHTTPHooksLocalInstallAdmittedWithOperatorTrustQueryParam covers the
-// second opt-in shape (?operator_trust=1). HTTP bridges that cannot set
-// arbitrary headers rely on the query form, so both must be accepted and
-// equivalent in effect.
-func TestHTTPHooksLocalInstallAdmittedWithOperatorTrustQueryParam(t *testing.T) {
+// TestHTTPHooksLocalInstallRefusesTheOperatorTrustQueryParam.
+//
+// ?operator_trust=1 used to be a second accepted opt-in shape, on the grounds
+// that some bridges cannot set headers. It is refused now. The contract this
+// repository documents -- in the README, the ops runbook and the refusal
+// message itself -- is that mutating verbs need a grant "no request field or
+// tool argument can supply", and a query parameter is part of the request line
+// the caller composes: the same category as the `_operator_trust` tool
+// argument already removed from the MCP surface. It was also the form that
+// ends up in access logs, shell history and referrers, so the grant leaked
+// wherever the URL did.
+//
+// Nothing is lost: every HTTP client that can set a query string can set a
+// header, so the two forms were redundant rather than complementary.
+func TestHTTPHooksLocalInstallRefusesTheOperatorTrustQueryParam(t *testing.T) {
 	h := adapters.NewHTTP(adapters.HTTPConfig{})
 	root := operatorTrustGitRepo(t)
 	body := `{"verb":"hooks_local","action":"install","root":"` + root + `","strategy":"repo-hooks"}`
 	resp, code := dispatchJSON(t, h, body, "", "operator_trust")
+	if code == http.StatusOK || resp["ok"] == true {
+		t.Fatalf("a query parameter granted operator trust, contradicting the "+
+			"documented contract: %d %+v", code, resp)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".sentra", "hooks", "post-commit")); err == nil {
+		t.Fatal("the hook was installed by a request that should have been refused")
+	}
+}
+
+// TestHTTPHooksLocalInstallStillAdmittedWithTheHeader keeps the remaining
+// out-of-band form working, so the change above narrowed the lever rather than
+// removing the capability.
+func TestHTTPHooksLocalInstallStillAdmittedWithTheHeader(t *testing.T) {
+	h := adapters.NewHTTP(adapters.HTTPConfig{})
+	root := operatorTrustGitRepo(t)
+	body := `{"verb":"hooks_local","action":"install","root":"` + root + `","strategy":"repo-hooks"}`
+	resp, code := dispatchJSON(t, h, body, "X-Sentra-Operator-Trust", "")
 	if code != http.StatusOK || resp["ok"] != true {
-		t.Fatalf("query opt-in install must succeed, got %d %+v", code, resp)
+		t.Fatalf("header opt-in install must succeed, got %d %+v", code, resp)
 	}
 	if _, err := os.Stat(filepath.Join(root, ".sentra", "hooks", "post-commit")); err != nil {
 		t.Fatalf("post-commit hook should exist after opt-in install: %v", err)
