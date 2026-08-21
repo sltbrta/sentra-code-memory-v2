@@ -51,11 +51,30 @@ type Guard struct {
 	receipts     []Receipt
 	seq          uint64
 	generation   uint64
+	// state persists the tombstone set and the receipt log. Never nil:
+	// NewWithState installs a MemoryStateStore when none is supplied, whose
+	// guarantee is stated in its name rather than left implicit.
+	state StateStore
 }
 
 // New returns a guard after canonical policy validation. A nil detector uses
 // the local deterministic detector; a nil authorizer makes every reveal deny.
 func New(policy Policy, detector Detector, authorizer RevealAuthorizer, clock func() time.Time) (*Guard, error) {
+	return NewWithState(policy, detector, authorizer, clock, nil)
+}
+
+// NewWithState returns a guard whose tombstones and receipts are persisted
+// through state, restoring anything it already holds.
+//
+// A nil store installs MemoryStateStore, which keeps the previous behaviour --
+// process-lifetime only -- but names it. The distinction matters because
+// Tombstone() is documented as the retained authority that blocks
+// resurrection: with no durable store, a restart drops every tombstone and
+// erased content can be re-ingested immediately.
+func NewWithState(
+	policy Policy, detector Detector, authorizer RevealAuthorizer,
+	clock func() time.Time, state StateStore,
+) (*Guard, error) {
 	digest, err := validateAndDigestPolicy(policy)
 	if err != nil {
 		return nil, ErrInvalid
@@ -66,20 +85,49 @@ func New(policy Policy, detector Detector, authorizer RevealAuthorizer, clock fu
 	if clock == nil {
 		clock = time.Now
 	}
+	if state == nil {
+		state = &MemoryStateStore{}
+	}
 	policy = clonePolicy(policy)
 	g := &Guard{
 		policy: policy, policyDigest: digest, detector: detector,
 		authorizer: authorizer, now: clock, records: make(map[string]storedRecord),
-		tombstones: make(map[string]Tombstone),
+		tombstones: make(map[string]Tombstone), state: state,
+	}
+
+	tombstones, receipts, err := state.LoadState()
+	if err != nil {
+		// A store that cannot be read cannot be shown to hold no tombstones,
+		// and admitting content on that basis is exactly the resurrection this
+		// exists to block.
+		return nil, ErrDenied
 	}
 	g.mu.Lock()
-	g.seq++
-	g.receipts = append(g.receipts, Receipt{
-		Seq: g.seq, Kind: ReceiptPolicyInstall, PolicyID: policy.ID,
-		PolicyVersion: policy.Version, PolicyDigest: digest, At: clock().UTC(),
-	})
+	g.restoreLocked(tombstones, receipts)
+	if len(g.receipts) == 0 {
+		g.seq++
+		install := Receipt{
+			Seq: g.seq, Kind: ReceiptPolicyInstall, PolicyID: policy.ID,
+			PolicyVersion: policy.Version, PolicyDigest: digest, At: clock().UTC(),
+		}
+		g.receipts = append(g.receipts, install)
+		if err := state.AppendReceipt(install); err != nil {
+			g.mu.Unlock()
+			return nil, ErrDenied
+		}
+	}
 	g.mu.Unlock()
 	return g, nil
+}
+
+// persistTombstoneLocked records a tombstone durably as well as in memory.
+//
+// A failure is not swallowed: the caller turns it into a denial, because a
+// tombstone that exists only in this process's memory is the guarantee this
+// package documents and did not provide.
+func (g *Guard) persistTombstoneLocked(key string, stone Tombstone) error {
+	g.tombstones[key] = stone
+	return g.state.AppendTombstone(stone)
 }
 
 // PolicyReceipt returns the immutable installation receipt.
@@ -163,9 +211,11 @@ func (g *Guard) admit(input Input, deferPublish bool) (Decision, *publishAdmissi
 		}
 	case StatusTombstoned:
 		kind = ReceiptContentTombstone
-		g.tombstones[key] = Tombstone{
+		if err := g.persistTombstoneLocked(key, Tombstone{
 			TenantID: input.TenantID, ContentID: input.ID, ScopeKey: input.Scope.Key(),
 			Reason: "policy", At: now,
+		}); err != nil {
+			return Decision{}, nil, ErrDenied
 		}
 	default:
 		return Decision{}, nil, ErrInvalid
@@ -395,9 +445,11 @@ func (g *Guard) Tombstone(tenantID string, scope Scope, contentID, reason string
 	}
 	delete(g.records, key)
 	now := g.now().UTC()
-	g.tombstones[key] = Tombstone{
+	if err := g.persistTombstoneLocked(key, Tombstone{
 		TenantID: tenantID, ContentID: contentID, ScopeKey: scope.Key(),
 		Reason: reason, At: now,
+	}); err != nil {
+		return Receipt{}, ErrDenied
 	}
 	input := Input{TenantID: tenantID, ID: contentID, Scope: scope}
 	return g.appendReceiptLocked(ReceiptManualTombstone, input, StatusTombstoned, nil, now), nil
@@ -433,9 +485,16 @@ func (g *Guard) EnforceRetention(at time.Time) ([]Receipt, error) {
 func (g *Guard) expireLocked(key string, record storedRecord, at time.Time) Receipt {
 	delete(g.records, key)
 	raw := record.raw
-	g.tombstones[key] = Tombstone{
+	// A retention tombstone that is not durable lets expired content return
+	// on the next start, so the in-memory set is left untouched if the write
+	// fails and the record is expired again on the next sweep.
+	if err := g.persistTombstoneLocked(key, Tombstone{
 		TenantID: raw.TenantID, ContentID: raw.ID, ScopeKey: raw.Scope.Key(),
 		Reason: "retention", At: at,
+	}); err != nil {
+		delete(g.tombstones, key)
+		g.records[key] = record
+		return Receipt{}
 	}
 	return g.appendReceiptLocked(ReceiptRetentionTombstone, raw, StatusTombstoned, nil, at)
 }
@@ -480,6 +539,12 @@ func (g *Guard) appendReceiptLocked(kind string, input Input, status Status, cla
 		PolicyDigest: g.policyDigest, At: at.UTC(),
 	}
 	g.receipts = append(g.receipts, receipt)
+	// The receipt log is append-only and is the record of what was erased and
+	// why. A store failure is surfaced through the receipt's own Kind rather
+	// than being dropped: a missing receipt is a gap in an audit trail.
+	if err := g.state.AppendReceipt(receipt); err != nil {
+		receipt.Kind = ReceiptPersistFailed
+	}
 	return cloneReceipt(receipt)
 }
 

@@ -915,6 +915,22 @@ func (c *Client) BurstIngestLocal(ctx context.Context, docs []LocalDocument, wor
 	if c == nil {
 		return IngestResult{}, fmt.Errorf("hosted: nil client")
 	}
+	// Redact before anything is derived from the documents.
+	//
+	// This is above DocumentsToChunks on purpose: a secret split across a
+	// chunk boundary is invisible to a per-chunk detector, and the fan-out
+	// below hands the *documents* to the cortex and the vector store, not the
+	// chunks. Redacting only the chunks would sanitise the corpus and leave
+	// the raw text in the other two.
+	privacy, err := c.redactDocuments(ctx, docs)
+	if err != nil {
+		return IngestResult{}, err
+	}
+	docs = privacy.Admitted
+	if len(docs) == 0 {
+		return IngestResult{Withheld: privacy.Withheld},
+			fmt.Errorf("hosted: every document was withheld by content policy")
+	}
 	chunks := DocumentsToChunks(docs)
 	if len(chunks) == 0 {
 		return IngestResult{}, fmt.Errorf("hosted: empty local burst")
@@ -932,6 +948,8 @@ func (c *Client) BurstIngestLocal(ctx context.Context, docs []LocalDocument, wor
 	}
 	res.ProductOwned = true
 	res.Mode = "burst"
+	res.Withheld = privacy.Withheld
+	res.Redacted = privacy.Redacted
 	// retrieval_ready first; gardener async by default (enqueue) or sync for tests.
 	if er, eerr := c.EnrichAfterIngest(ctx, c.cfg.BrainID, res.GenerationID, docsFromChunks(chunks)); eerr == nil {
 		res.EnrichJobs = er.JobsEnqueued

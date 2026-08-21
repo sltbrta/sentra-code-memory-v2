@@ -55,30 +55,76 @@ Calls taken, each reversible by reverting the named commit:
 
 ## Open
 
-- [ ] **Wire `contentprivacy` into the hosted ingest path?**
-      *Why it matters:* it is the only PII and secret redaction in the product
-      and it currently runs nowhere, so emails, SSNs, cards, bearer tokens and
-      private keys in ingested content are written verbatim to `chunks.jsonl`,
-      the HotLex index and the dense store. The `guard.go` documentation
-      describes guarantees nothing provides.
-      *Options:* (a) route `hosted` ingestion through
-      `ProductionProjectionAdapter.AdmitAndPublish` so cache and index text can
-      only be constructed by `Guard.inspect`; (b) leave it dormant and mark the
-      package non-shipping in its own docs; (c) delete it.
-      *Recommendation:* (a). The detector is now correct, and the alternative is
-      shipping a redaction story that does not redact. It needs its own
-      before-and-after retrieval-quality run, because redaction changes indexed
-      text and therefore ranking — which is why it is not folded into this pass.
+- [x] **Wire `contentprivacy` into the ingest path? — yes, wired
+      (2026-08-21).** It is the only PII and secret redaction in the product
+      and it ran nowhere, so emails, national identifiers, card numbers, bearer
+      tokens and private keys were written verbatim to `chunks.jsonl`, the
+      HotLex index, the dense store and the memory cortex while `guard.go`
+      documented guarantees nothing provided.
 
-- [ ] **Persist `contentprivacy` tombstones and receipts?**
-      *Why it matters:* `Tombstone()` is documented as "the retained
-      non-content authority blocking resurrection", and it is a Go map. A
-      restart drops every tombstone, so deleted content can be re-ingested, and
-      the append-only receipt log vanishes with it.
-      *Options:* back them with the existing `localstate` authority tables, or
-      document the guarantee as process-lifetime only.
-      *Recommendation:* back them with `localstate`, together with (a) above —
-      an erasure guarantee that does not survive a restart is not one.
+      Publication goes through `ProductionProjectionAdapter` rather than
+      calling `Guard.Admit` and using the result, so redacted text can only
+      have come from the validated admission path -- which is what that type
+      exists for.
+
+      **Redaction happens at the document boundary, above
+      `DocumentsToChunks`.** Two reasons, the second decisive: a secret split
+      across a chunk boundary is invisible to a per-chunk detector (the
+      private-key rule already had to be widened because chunking cut the END
+      marker off), and `BurstIngestLocal` fans the *documents* out to
+      `seedMemoryAfterIngest` and `seedDenseAfterIngest`, not the chunks.
+      Redacting only the chunks would have sanitised the corpus and left the
+      raw text in the cortex and the vector store -- which reads as redaction
+      and is not.
+
+      A withheld document is reported by id with its disposition rather than
+      silently dropped, and a client with no guard behaves exactly as before,
+      so redaction is a composition choice rather than something acquired by
+      accident.
+
+      **The quality run this decision required.** Redaction changes indexed
+      text and therefore ranking, so the trade was measured rather than
+      assumed, and the measurement is kept as a test rather than performed
+      once. Over an 18-document corpus of which 3 carry sensitive spans:
+
+      | | hit@1 | hit@3 |
+      | --- | --- | --- |
+      | unguarded | 1.00 | 1.00 |
+      | guarded | 1.00 | 1.00 |
+
+      Redaction removes the sensitive span and leaves the surrounding text, so
+      the documents stay findable by everything that made them findable before.
+      The guard fails if the guarded run redacts nothing, so the comparison
+      cannot pass by being vacuous.
+
+- [x] **Persist `contentprivacy` tombstones and receipts? — yes
+      (2026-08-21).** `Tombstone()` is documented as "the retained non-content
+      authority blocking resurrection" and was a Go map: a restart dropped
+      every tombstone, so erased content could be re-ingested the moment the
+      process came back, and the append-only receipt log vanished with it.
+
+      `Guard` gains a `StateStore` port and `NewWithState`. The package stays
+      persistence-neutral -- a deliberate property -- but a deployment with
+      durable storage can now be held to the guarantee. `MemoryStateStore`
+      keeps the old behaviour and names it, so process-lifetime-only is a
+      choice a composition makes rather than a silent default.
+
+      **Deviation from the recommendation, stated rather than quietly taken:**
+      the entry said to back them with `localstate`. `localstate` is the
+      migration-driven SQL authority store used by the hosted and gateway
+      paths; the brain this is wired into is a filesystem projection
+      (`meta.json`, `chunks.jsonl`, `gardener.db`), and pulling a SQL authority
+      database into it to hold two append-only logs would be the larger change,
+      not the smaller one. `FileStateStore` writes two fsync-per-record JSONL
+      logs at 0600 beside the rest of the brain. The port is what the decision
+      was really about: a `localstate`-backed implementation for the hosted
+      substrate is now a struct with three methods, and nothing else moves.
+
+      Append-only rather than a rewritten snapshot because the failure that
+      matters is losing a tombstone: an interrupted rewrite can lose records
+      that were already durable, while an append that does not survive simply
+      is not there. A tombstone whose durable write fails denies rather than
+      being kept only in memory.
 
 - [x] **Wire `orgscope.Erase`, or fan out in `deletion`? — fan-out in
       `deletion` (2026-08-21).**

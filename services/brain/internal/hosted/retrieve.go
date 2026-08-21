@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/contentprivacy"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/gardener"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/memory"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/productsec"
@@ -120,6 +121,11 @@ type Client struct {
 	Security productsec.Context
 	// Mem is the cohesive memory cortex (claims/episodes/utility/PPR/agent).
 	Mem *memory.Store
+	// privacyGuard redacts PII and secrets before anything derived from a
+	// document is built. Nil leaves the client unguarded, which is what every
+	// deployment was before it existed; see privacy.go.
+	privacyGuard *contentprivacy.Guard
+	privacyScope contentprivacy.Scope
 	// substrates records ADR 0024 module bindings (queue/cortex/chunks/dense/api).
 	substrates SubstrateConfig
 	// localDense is SQLite/Postgres/FAISS dense ANN for residual paths without Qdrant.

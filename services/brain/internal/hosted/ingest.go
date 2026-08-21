@@ -79,6 +79,13 @@ type IngestResult struct {
 	EnrichJobs     int            `json:"enrich_jobs,omitempty"`
 	EnrichSidecars int            `json:"enrich_sidecars,omitempty"`
 	Receipts       []ChunkReceipt `json:"receipts,omitempty"`
+	// Redacted counts documents whose text the content-privacy guard changed.
+	Redacted int `json:"redacted,omitempty"`
+	// Withheld names documents the policy refused to index, by id, with the
+	// disposition that refused them. A withheld document is reported rather
+	// than silently dropped: a caller that believes it ingested something and
+	// did not is the failure this whole path exists to avoid.
+	Withheld map[string]string `json:"withheld,omitempty"`
 }
 
 // ChunkStore is the product-owned write (and offline lexical) surface.

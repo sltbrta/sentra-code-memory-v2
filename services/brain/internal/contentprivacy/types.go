@@ -197,6 +197,11 @@ const (
 	ReceiptRetentionTombstone = "retention.tombstone"
 	ReceiptManualTombstone    = "manual.tombstone"
 	ReceiptAuthorizedReveal   = "content.reveal"
+	// ReceiptPersistFailed replaces a receipt's kind when the durable append
+	// failed. The decision it records still happened; what did not happen is
+	// the record of it surviving a restart, and a caller reading the log needs
+	// to see the gap rather than infer it from a missing sequence number.
+	ReceiptPersistFailed = "receipt.persist_failed"
 )
 
 // RevealRequest is reauthorized for every raw-content reveal.
