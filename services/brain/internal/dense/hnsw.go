@@ -25,8 +25,16 @@ type HNSW struct {
 	M      int // max neighbors per node (default 16)
 	ef     int // search candidate list size
 	ids    []string
-	vecs   [][]float32
-	meta   []HitMetadata
+	// byID maps a vector id to its slot in ids/vecs/meta/graph.
+	//
+	// Upsert used a linear scan over ids to find an existing entry, so loading
+	// n vectors cost O(n^2) comparisons -- the load path calls Upsert once per
+	// vector, and every one of them walked everything inserted before it. The
+	// map makes that a lookup. It is derived state and is rebuilt wherever ids
+	// is assigned, of which there are exactly two places: here and Clone.
+	byID map[string]int
+	vecs [][]float32
+	meta []HitMetadata
 	// graph[i] = neighbor indices of i (at most M)
 	graph [][]int
 }
@@ -147,6 +155,10 @@ func (h *HNSW) Clone() *HNSW {
 		Scope: h.scope, Model: h.model, Dimensions: h.dim, ContentDigest: h.digest,
 	}, h.M, h.ef)
 	out.ids = append([]string(nil), h.ids...)
+	out.byID = make(map[string]int, len(h.ids))
+	for i, id := range out.ids {
+		out.byID[id] = i
+	}
 	out.vecs = make([][]float32, len(h.vecs))
 	for i := range h.vecs {
 		out.vecs[i] = append([]float32(nil), h.vecs[i]...)
@@ -200,16 +212,18 @@ func (h *HNSW) UpsertWithMetadata(id string, vec []float32, metadata HitMetadata
 	v := normalizeCopy(vec)
 	metadata = normalizeHitMetadata(id, metadata)
 	// Replace existing id.
-	for i, existing := range h.ids {
-		if existing == id {
-			h.vecs[i] = v
-			h.meta[i] = metadata
-			h.rewireLocked(i)
-			return nil
-		}
+	if i, ok := h.byID[id]; ok && i < len(h.ids) && h.ids[i] == id {
+		h.vecs[i] = v
+		h.meta[i] = metadata
+		h.rewireLocked(i)
+		return nil
 	}
 	idx := len(h.ids)
 	h.ids = append(h.ids, id)
+	if h.byID == nil {
+		h.byID = make(map[string]int, len(h.ids))
+	}
+	h.byID[id] = idx
 	h.vecs = append(h.vecs, v)
 	h.meta = append(h.meta, metadata)
 	h.graph = append(h.graph, nil)

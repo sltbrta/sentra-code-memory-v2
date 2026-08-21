@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 const (
@@ -22,6 +24,22 @@ const (
 	zeroEntropyMaxDocChars    = 1500
 	zeroEntropyMaxRespBytes   = 8 << 20
 )
+
+// clipRerankDocuments bounds each document to the provider's per-document
+// limit, cut on a rune boundary rather than a byte offset.
+//
+// `d[:n]` lands mid-rune on any non-ASCII input, and this destination is a
+// model provider's JSON body: encoding/json substitutes U+FFFD, so the last
+// token of every truncated document was corrupted before it was scored. The
+// pass that replaced about a dozen of these helpers with textbound did not
+// reach this one.
+func clipRerankDocuments(docs []string) []string {
+	clipped := make([]string, len(docs))
+	for i, d := range docs {
+		clipped[i] = textbound.Bytes(d, zeroEntropyMaxDocChars)
+	}
+	return clipped
+}
 
 // HTTPReranker calls a ZeroEntropy-style POST /models/rerank endpoint.
 type HTTPReranker struct {
@@ -112,14 +130,14 @@ func (r *HTTPReranker) Rerank(ctx context.Context, query string, docs []string, 
 	if len(docs) == 0 {
 		return nil, nil
 	}
-	clipped := make([]string, len(docs))
-	for i, d := range docs {
-		if len(d) > zeroEntropyMaxDocChars {
-			clipped[i] = d[:zeroEntropyMaxDocChars]
-		} else {
-			clipped[i] = d
-		}
-	}
+	// Cut on a rune boundary, not a byte offset.
+	//
+	// `d[:n]` lands mid-rune on any non-ASCII input, and this destination is a
+	// model provider's JSON body: encoding/json substitutes U+FFFD, so the
+	// last token of every truncated document was corrupted before it was
+	// scored. The pass that replaced about a dozen of these helpers with
+	// textbound did not reach this one.
+	clipped := clipRerankDocuments(docs)
 	payloadBody := zeRerankRequest{
 		Model:     r.model,
 		Query:     query,

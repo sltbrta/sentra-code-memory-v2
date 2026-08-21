@@ -1,6 +1,9 @@
 package codecrawl
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 // Index is an in-memory inverted token map over crawled source files.
 // Keys are lowercased alphanumeric tokens; values map relative path → term frequency.
@@ -34,7 +37,14 @@ type Index struct {
 	// graph is the optional typed-edge projection (Phase 2, issue #13).
 	// Built lazily by Graph() to avoid eager reconstruction during delta
 	// reuse; nil until Graph() is called or rebuildGraph runs.
-	graph *Graph
+	//
+	// graphMu guards the lazy build. Graph() assigned this field on a read
+	// path, which was safe only while no two goroutines ever held the same
+	// Index -- an accident of every caller decoding its own copy from disk.
+	// The in-process cache makes one Index serve concurrent requests, so the
+	// build is now synchronised rather than left to that accident.
+	graphMu sync.Mutex
+	graph   *Graph
 }
 
 // FileStamp is a cheap identity probe before content hash.
@@ -110,6 +120,8 @@ func (idx *Index) Graph() *Graph {
 	if idx == nil {
 		return nil
 	}
+	idx.graphMu.Lock()
+	defer idx.graphMu.Unlock()
 	if idx.graph != nil {
 		return idx.graph
 	}

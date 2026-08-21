@@ -144,6 +144,10 @@ func (idx *Index) Save(path string, root string) error {
 	if idx == nil {
 		return fmt.Errorf("codecrawl: save nil index")
 	}
+	// A writer in this process must not leave a reader holding the previous
+	// index. The mtime check in the cache would catch it on the next read, but
+	// only after a window in which this process serves what it just replaced.
+	defer invalidateCachedIndex(path)
 	if strings.TrimSpace(path) == "" {
 		return fmt.Errorf("codecrawl: empty save path")
 	}
@@ -322,7 +326,10 @@ func OpenOrRefresh(root, gobPath string, workers int, forceFull bool) (*Index, S
 	var prev *Index
 	var meta DurableMeta
 	if !forceFull {
-		if p, m, err := Load(gobPath); err == nil {
+		// loadCached, not Load: this decode is the largest single cost of
+		// answering a query, and it re-reads a file this process has usually
+		// read already. See index_cache.go.
+		if p, m, err := loadCached(gobPath); err == nil {
 			// Reject a gob bound to a different workspace (symlink-aware) and
 			// reindex rather than serve a mismatched root/index pair.
 			if bound, berr := canonicalRoot(m.Root); berr != nil || bound == "" {

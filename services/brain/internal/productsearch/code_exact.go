@@ -59,7 +59,10 @@ func searchCodeExact(ctx context.Context, req Request) Result {
 	exactLimits.MaxLines = 500_000
 	exactLimits.MaxColumn = 1 << 20
 	for _, source := range sources {
-		projection, projectErr := codeindex.Project(ctx, source, exactLimits)
+		// Cached on content: the parse is a pure function of the bytes, and
+		// this walk re-reads a repository that has usually not changed. See
+		// projection_cache.go.
+		projection, projectErr := projectCached(ctx, source, exactLimits)
 		if projectErr != nil {
 			return Result{Failure: "productsearch: code_exact project: " + projectErr.Error(), ProductOwned: true}
 		}

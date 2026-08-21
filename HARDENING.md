@@ -7,25 +7,30 @@ Schema per entry: date, wave, trigger, why deferred, what would satisfy it.
 
 ## Open
 
-### 2026-08-21 — performance findings not addressed
+### 2026-08-21 — reranker window not addressed
+
+**Open. Three of the four performance findings are drained below; this is the
+one that is not.**
 
 - **Wave:** W3
-- **Trigger:** the audit found real performance defects that were confirmed by
-  reading but not fixed in this pass: `code_exact` re-reads and re-parses the
-  whole repository per query with no index or cache; there is no in-process
-  index cache, so every verb call gob-decodes the entire index under a file
-  lock; HNSW upsert is a linear id scan making load O(n²) and every batch
-  rewrites the whole file; the reranker sees only the first 1,500 bytes of each
-  document, which on code is the licence header and imports.
-- **Why deferred:** each is a behaviour-preserving optimisation whose risk is a
-  retrieval-quality regression, and the branch already carries a large
-  correctness diff. Mixing them in would make a bisect harder precisely where
-  the quality gate matters.
-- **What would satisfy it:** take them one at a time behind `just bench-code`,
-  with a `benchstat` comparison against the current numbers recorded in the
-  amplification receipt. The reranker window in particular needs a quality run,
-  not just a speed one — chunking around candidate definitions changes what is
-  scored, not only how fast.
+- **Trigger:** the reranker sends only the first 1,500 bytes of each document,
+  which on code is the licence header and imports -- so what is scored is
+  frequently not what the document is about.
+- **What was done:** the truncation itself was a byte offset, `d[:1500]`,
+  which lands mid-rune on any non-ASCII input. The destination is a model
+  provider's JSON body, so `encoding/json` substituted U+FFFD and the last
+  token of every truncated document was corrupted before it was scored. The
+  repository-wide pass that replaced about a dozen of these with `textbound`
+  did not reach this one. Fixed and red-proved.
+- **Why the window itself is still open:** changing it changes what is scored,
+  not how fast it is scored, and the reranker is a credentialed remote service
+  (`ZEROENTROPY_API_KEY`). There is no offline lane for it, so a before/after
+  quality comparison cannot be run here. Raising the window or chunking around
+  candidate definitions without that comparison would be changing retrieval
+  quality blind.
+- **What would satisfy it:** a quality run against the real reranker with the
+  window raised and with chunking around candidate definitions, compared on
+  the QA suite's hit@k, not on latency.
 
 ### 2026-08-21 — `TestFrozenExactly100ChangeFixture` is load-sensitive
 
@@ -61,6 +66,62 @@ Schema per entry: date, wave, trigger, why deferred, what would satisfy it.
   aimed at the wrong bound.
 
 ## Drained
+
+### 2026-08-21 — three performance findings, measured and fixed
+
+- **Wave:** W3
+- **Trigger:** the audit found performance defects confirmed by reading but not
+  fixed: `code_exact` re-reads and re-parses the whole repository per query;
+  every verb call gob-decodes the entire index under a file lock; HNSW upsert
+  is a linear id scan, making load O(n²).
+- **Why deferred:** each is a behaviour-preserving optimisation whose risk is a
+  retrieval-quality regression, and the branch already carried a large
+  correctness diff.
+- **What satisfied it.** Measured on this repository, 1,067 indexed files,
+  before and after:
+
+  | | before | after |
+  | --- | --- | --- |
+  | `code_search` | 136 ms | 73 ms |
+  | `code_exact` | 384 ms | 146 ms |
+  | HNSW load, 40,000 vectors | 1.831 s | 0.809 s |
+
+  - **The index decode** was roughly half the cost of answering a query: 66 ms
+    per call, re-reading a file the process had usually just read.
+    `loadCached` keys the decoded index on the gob's size and modification
+    time, so an external rewrite is picked up rather than served stale, and
+    `Save` invalidates so an in-process writer never leaves a reader holding
+    the previous index. It is deliberately narrow: only `OpenOrRefresh`'s warm
+    read uses it, so every caller that mutates an index still goes through
+    `Load` (a private decode) or the force path (a fresh build).
+
+    Sharing one `Index` between concurrent readers is what turned `Graph()`'s
+    lazy assignment from a latent race into a real one. It is synchronised
+    now; without the mutex the concurrency guard reports five data races.
+
+  - **`code_exact`** cannot early-exit, because its receipt digest covers every
+    file's projection digest. What it can avoid is re-parsing content that has
+    not changed. `codeindex.Project` is a pure function of (content, limits),
+    so the projection is memoised on a hash of exactly those -- not on a file
+    stamp, because the input is bytes already in memory and a hash of what is
+    being parsed cannot be stale. The receipt is unchanged, which has its own
+    test, and an edit changes it, which has another.
+
+  - **HNSW upsert** scanned the id slice to find an existing entry, so the load
+    path -- one Upsert per vector -- walked everything inserted before it. An
+    id index makes that a lookup.
+
+    The growth rate can only be observed with a clock, and this repository
+    already carries an open entry for a wall-clock assertion that fails inside
+    a parallel `-race` run. So the measurement is a benchmark, not a test, and
+    what is asserted deterministically is the replacement semantics the linear
+    scan existed to provide -- including in `Clone`, the second place the id
+    index is built, where omitting the rebuild makes the clone start
+    duplicating ids.
+
+  The `bench-code` baseline digest is unchanged throughout, so no served answer
+  moved.
+
 
 ### 2026-08-21 — savings figures were estimates presented as measurements
 
