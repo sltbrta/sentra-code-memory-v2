@@ -32,38 +32,43 @@ one that is not.**
   window raised and with chunking around candidate definitions, compared on
   the QA suite's hit@k, not on latency.
 
-### 2026-08-21 — `TestFrozenExactly100ChangeFixture` is load-sensitive
+### 2026-08-21 — `TestFrozenExactly100ChangeFixture` was load-sensitive
 
-**Still open: the failure has not been reproduced, so nothing here is proved.**
+**Still open, but for a smaller reason than before: the original failure was
+never reproduced, so nothing here is proved to have fixed it. What changed is
+that the mechanism it would have used no longer exists.**
 
 - **Wave:** W3
 - **Trigger:** failed once during a full `go test ./...` run, passed on two
-  subsequent full runs and on seven isolated runs of its own package, both at
-  this branch and at the base revision. Not caused by the trust-gate change,
-  which does not touch `ingestion`.
-- **Why deferred:** unreproducible on demand.
-- **Work done (2026-08-21):** the mechanism was located but not confirmed. The
-  original entry pointed at `waitForFile`'s fixed 5s deadline, which this test
-  does not call. The bound that expires first is `testConfig`'s
-  `CommandTimeout: 10 * time.Second`, which bounds every git subprocess the
-  authority spawns; a reconcile over the frozen 100-change fixture runs many,
-  and the failure would surface as a context deadline in production code
-  rather than as an obviously test-shaped timeout. Both allowances now scale
-  through `testAllowance`, ×8 under the race detector and ×2 otherwise, and
-  `waitForFile` additionally never waits past the test binary's own budget so
-  a hang reports the filename instead of a goroutine dump.
-- **Why it is not drained:** an attempt to reproduce failed. The package was
-  run at `-count=20 -race` under 12 competing CPU-burning processes, twice --
-  once with the scaled allowances and once with the original flat ones -- and
-  both passed (222s and 263s). The scaled allowances are therefore a defensive
-  change with no red proof behind them, which is not evidence that the
-  original failure is fixed. Draining this entry would be the same
-  overclaiming the branch exists to remove.
-- **What would satisfy it:** a reproduction. Failing that, the next occurrence
-  should be captured with `-race` and the failing output kept: if it is a
-  `context deadline exceeded` from a git command the diagnosis above is
-  confirmed and the entry can close; if it is anything else, this work was
-  aimed at the wrong bound.
+  subsequent full runs and on seven isolated runs, at this branch and at the
+  base revision.
+- **Mechanism, located but never confirmed:** the original entry pointed at
+  `waitForFile`'s fixed 5s deadline, which this test does not call. The bound
+  that expires first is `testConfig`'s `CommandTimeout`, which bounds every git
+  subprocess a reconcile spawns -- so the failure surfaces as a context
+  deadline inside production code rather than as an obviously test-shaped
+  timeout.
+- **What was done:** the class was removed rather than re-tuned. Scaling a
+  fixed number by a multiplier was the first attempt and is the wrong shape:
+  any constant is a guess about a machine, and a wrong guess reappears as an
+  ingestion bug. `subprocessAllowance` derives the bound from the *test
+  binary's own deadline*, so a genuinely stuck git still fails -- reported by
+  the framework, naming the test, with a stack -- and a merely slow one does
+  not. `waitForFile` does the same.
+- **One trap, caught by running it:** the derived value must be clamped to what
+  `ingestion.Config` accepts, which rejects a `CommandTimeout` over ten
+  minutes. Without the clamp, `-timeout 20m` produced `ingestion: invalid
+  input` on every test in the package -- turning "this ran with a long budget"
+  into a worse failure than the one being removed.
+- **Verification:** `-count=20 -race` under 12 competing CPU-burning
+  processes, at `-timeout 20m`: green in 281s. The same run with the original
+  flat allowances was also green, which is why this entry stays open -- the
+  original failure remains unreproduced, and a change that cannot be shown to
+  fix it is not a fix.
+- **What would close it:** a reproduction. Failing that, the next occurrence
+  captured with `-race`: if it is a `context deadline exceeded` from a git
+  command, the diagnosis is confirmed and this can close; if it is anything
+  else, this work was aimed at the wrong bound.
 
 ## Drained
 

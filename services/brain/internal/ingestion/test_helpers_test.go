@@ -101,6 +101,50 @@ func testAllowance(base time.Duration) time.Duration {
 	return base * 2
 }
 
+// subprocessAllowance bounds a git subprocess so that the *test binary's* own
+// deadline is always the one that fires first.
+//
+// Scaling a fixed number was the first attempt and it is the wrong shape. Any
+// constant is a guess about a machine, and when the guess is wrong the failure
+// surfaces as "context deadline exceeded" from inside production code -- which
+// reads as an ingestion bug rather than as a test running on a busy host.
+// TestFrozenExactly100ChangeFixture failed once exactly that way.
+//
+// Deriving it from t.Deadline() removes the class instead of re-tuning it.
+// Under `go test -timeout T` the subprocess bound becomes most of the
+// remaining budget, so a genuinely stuck git still fails -- reported by the
+// test framework, naming the test, with a stack -- and a merely slow one does
+// not. With no deadline set (-timeout 0) the scaled value is used, because
+// something must still bound a hung subprocess.
+func subprocessAllowance(t *testing.T, base time.Duration) time.Duration {
+	t.Helper()
+	scaled := testAllowance(base)
+	deadline, ok := t.Deadline()
+	if !ok {
+		return scaled
+	}
+	// Leave a margin so the framework's timeout wins the race to report, and
+	// never shorten below the scaled value: a very tight -timeout should fail
+	// the test, not silently starve every subprocess it runs.
+	remaining := time.Until(deadline) - 5*time.Second
+	if remaining <= scaled {
+		return scaled
+	}
+	// Clamp to what the config itself accepts. ingestion.Config rejects a
+	// CommandTimeout over ten minutes, so a generous `-timeout` would
+	// otherwise produce a value the validator refuses -- turning "this test
+	// ran with a long budget" into "ingestion: invalid input", which is a
+	// worse failure than the one being removed. Caught by running the package
+	// at -timeout 20m.
+	if remaining > maxSubprocessAllowance {
+		return maxSubprocessAllowance
+	}
+	return remaining
+}
+
+// maxSubprocessAllowance is just inside ingestion.Config's own ceiling.
+const maxSubprocessAllowance = 9 * time.Minute
+
 func commitFiles(t *testing.T, git, root string, files map[string]string) string {
 	t.Helper()
 	writeFiles(t, root, files)
@@ -147,7 +191,8 @@ func gitOutput(t *testing.T, git, root string, args ...string) string {
 	return string(output[:len(output)-1])
 }
 
-func testConfig(root, git string) ingestion.Config {
+func testConfig(t *testing.T, root, git string) ingestion.Config {
+	t.Helper()
 	digest := sha256.Sum256([]byte("bootstrap"))
 	return ingestion.Config{
 		ApprovedRoot:        root,
@@ -160,9 +205,12 @@ func testConfig(root, git string) ingestion.Config {
 			Symlinks: ingestion.RecordWithoutFollow,
 		},
 		// Bounds every git subprocess the authority spawns. A reconcile over
-		// the frozen 100-change fixture runs a lot of them, and this is the
-		// deadline that expires first when the suite is under load.
-		CommandTimeout:        testAllowance(10 * time.Second),
+		// the frozen 100-change fixture runs a lot of them, and this was the
+		// deadline that expired first when the suite was under load -- which
+		// surfaced as a context deadline inside production code rather than as
+		// a test timing out. It is now derived from the test binary's own
+		// deadline, so the framework always reports first.
+		CommandTimeout:        subprocessAllowance(t, 10*time.Second),
 		MaxFiles:              1_000,
 		MaxPathBytes:          4_096,
 		MaxFileBytes:          1 << 20,

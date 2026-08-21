@@ -16,7 +16,7 @@ import (
 
 func TestAdmitCommittedSnapshot(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestAdmitCommittedSnapshot(t *testing.T) {
 func TestAdmitScanDoesNotBlockStatusOrPreAdmissionRevoke(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
 	wrapper, block, started, release := blockingGit(t, git)
-	authority, err := ingestion.New(context.Background(), testConfig(root, wrapper))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, wrapper))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestAdmitScanDoesNotBlockStatusOrPreAdmissionRevoke(t *testing.T) {
 
 func TestAdmissionAndReconcileAreIdempotent(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestAdmissionAndReconcileAreIdempotent(t *testing.T) {
 
 func TestReconcileDetectsExactRename(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"old/name.go": "package renamed\n"})
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestReconcileDetectsExactRename(t *testing.T) {
 
 func TestWatcherHintsNeverDeleteAndMissedEventsAreReconciled(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"kept.go": "package kept\n", "removed.go": "package removed\n"})
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestWatcherHintsNeverDeleteAndMissedEventsAreReconciled(t *testing.T) {
 
 func TestOverflowHintSaturatesCoverageAtHintCapacity(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
-	config := testConfig(root, git)
+	config := testConfig(t, root, git)
 	config.MaxFiles = 1
 	authority, err := ingestion.New(context.Background(), config)
 	if err != nil {
@@ -235,7 +235,7 @@ func TestOverflowHintSaturatesCoverageAtHintCapacity(t *testing.T) {
 
 func TestRejectsStaleGeneration(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package one\n"})
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestRejectsStaleGeneration(t *testing.T) {
 
 func TestConcurrentReconcileAllowsOnePublisher(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package one\n"})
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +304,7 @@ func TestConcurrentReconcileAllowsOnePublisher(t *testing.T) {
 func TestRevokeCommitsWhileReconcileScans(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package one\n"})
 	wrapper, block, started, release := blockingGit(t, git)
-	config := testConfig(root, wrapper)
+	config := testConfig(t, root, wrapper)
 	authority, err := ingestion.New(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)
@@ -353,7 +353,7 @@ func TestRevokeCommitsWhileReconcileScans(t *testing.T) {
 
 func TestReconcileHonorsCancellation(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package one\n"})
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -375,7 +375,7 @@ func TestReconcileHonorsCancellation(t *testing.T) {
 func TestReconcilePropagatesCancellationDuringGitOutputRead(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package one\n"})
 	wrapper, block, started, release := blockingGit(t, git)
-	authority, err := ingestion.New(context.Background(), testConfig(root, wrapper))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, wrapper))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,7 +412,7 @@ func TestReconcilePropagatesCancellationDuringGitOutputRead(t *testing.T) {
 
 func TestRevokeAndTombstone(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"secret-name.go": "package secret\n"})
-	config := testConfig(root, git)
+	config := testConfig(t, root, git)
 	authority, err := ingestion.New(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)
@@ -484,7 +484,7 @@ func TestRevokeAndTombstone(t *testing.T) {
 
 func TestLifecycleOperationsBypassNormalReceiptExhaustion(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
-	config := testConfig(root, git)
+	config := testConfig(t, root, git)
 	config.MaxIdempotencyRecords = 1
 	authority, err := ingestion.New(context.Background(), config)
 	if err != nil {
@@ -509,7 +509,7 @@ func TestLifecycleOperationsBypassNormalReceiptExhaustion(t *testing.T) {
 
 func TestExactGenerationRetriesSurviveTransitionsAndRestart(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package one\n"})
-	config := testConfig(root, git)
+	config := testConfig(t, root, git)
 	authority, err := ingestion.New(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)
@@ -589,7 +589,7 @@ func TestExactGenerationRetriesSurviveTransitionsAndRestart(t *testing.T) {
 func TestUnlockedScanPanicRestoresAuthorityLock(t *testing.T) {
 	t.Run("reconcile", func(t *testing.T) {
 		root, git := newRepository(t, map[string]string{"main.go": "package one\n"})
-		authority, err := ingestion.New(context.Background(), testConfig(root, git))
+		authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -604,7 +604,7 @@ func TestUnlockedScanPanicRestoresAuthorityLock(t *testing.T) {
 	})
 	t.Run("replay", func(t *testing.T) {
 		root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
-		config := testConfig(root, git)
+		config := testConfig(t, root, git)
 		authority, err := ingestion.New(context.Background(), config)
 		if err != nil {
 			t.Fatal(err)
@@ -633,7 +633,7 @@ func TestUnlockedScanPanicRestoresAuthorityLock(t *testing.T) {
 func TestRebuildScanAllowsImmediateRevoke(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
 	wrapper, block, started, release := blockingGit(t, git)
-	authority, err := ingestion.New(context.Background(), testConfig(root, wrapper))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, wrapper))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -676,7 +676,7 @@ func TestRestartAndCleanRebuildEquivalence(t *testing.T) {
 		"main.go":       "package main\n",
 		"src/worker.ts": "export const worker = true;\n",
 	})
-	config := testConfig(root, git)
+	config := testConfig(t, root, git)
 	authority, err := ingestion.New(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)

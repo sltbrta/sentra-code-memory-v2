@@ -15,7 +15,7 @@ import (
 
 func TestRejectsMissingMalformedAndNonRootInputs(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
-	valid := testConfig(root, git)
+	valid := testConfig(t, root, git)
 	tests := []struct {
 		name   string
 		mutate func(*ingestion.Config)
@@ -61,7 +61,7 @@ func TestRejectsMissingMalformedAndNonRootInputs(t *testing.T) {
 
 func TestRejectsOutOfRootWatcherPaths(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestRejectsOutOfRootWatcherPaths(t *testing.T) {
 func TestApprovedRootRejectsPathReplacement(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
 	commit := gitOutput(t, git, root, "rev-parse", "HEAD")
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestRejectsUnsupportedIgnoreRules(t *testing.T) {
 				".gitignore": rule,
 				"main.go":    "package main\n",
 			})
-			config := testConfig(root, git)
+			config := testConfig(t, root, git)
 			config.Policy.UseGitIgnore = true
 			authority, err := ingestion.New(context.Background(), config)
 			if err != nil {
@@ -123,7 +123,7 @@ func TestRejectsNestedIgnoreFileAndSubmodule(t *testing.T) {
 			"nested/.gitignore": "ignored.go\n",
 			"main.go":           "package main\n",
 		})
-		authority, err := ingestion.New(context.Background(), testConfig(root, git))
+		authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -140,7 +140,7 @@ func TestRejectsNestedIgnoreFileAndSubmodule(t *testing.T) {
 		commit := gitOutput(t, git, root, "rev-parse", "HEAD")
 		runGit(t, git, root, "update-index", "--add", "--cacheinfo", "160000,"+commit+",vendor/dependency")
 		runGit(t, git, root, "commit", "-q", "-m", "gitlink")
-		authority, err := ingestion.New(context.Background(), testConfig(root, git))
+		authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -165,7 +165,7 @@ func TestAppliesFrozenIgnoreSubset(t *testing.T) {
 		"private/key.txt":   "ignored\n",
 		"private/other.txt": "kept\n",
 	})
-	config := testConfig(root, git)
+	config := testConfig(t, root, git)
 	config.Policy.UseGitIgnore = true
 	config.Policy.UseOuroborosIgnore = true
 	authority, err := ingestion.New(context.Background(), config)
@@ -201,7 +201,7 @@ func TestRecordsSymlinkWithoutFollowing(t *testing.T) {
 	}
 	runGit(t, git, root, "add", "link")
 	runGit(t, git, root, "commit", "-q", "-m", "symlink")
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +231,7 @@ func TestReadsCommittedBytesUnderHostileEnvironment(t *testing.T) {
 	t.Setenv("GIT_WORK_TREE", hostile)
 	t.Setenv("GIT_INDEX_FILE", filepath.Join(hostile, ".git", "index"))
 	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(hostile, "hostile.gitconfig"))
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}

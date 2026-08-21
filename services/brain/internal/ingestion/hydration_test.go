@@ -19,7 +19,7 @@ func TestHydrateCurrentReadsExactCommittedContentAndReturnsDefensiveCopies(t *te
 		"main.go":  "package committed\n",
 		"note.txt": "committed note\n",
 	})
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestHydrateCurrentValidatesCancellationGenerationAndLimits(t *testing.T) {
 		"main.go":  "package main\n",
 		"note.txt": "bounded\n",
 	})
-	config := testConfig(root, git)
+	config := testConfig(t, root, git)
 	authority, err := ingestion.New(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func TestHydrateCurrentValidatesCancellationGenerationAndLimits(t *testing.T) {
 
 func TestHydrateCurrentPostScanProcessingDoesNotBlockRevoke(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func (c *postScanContext) Err() error {
 
 func TestHydrateCurrentRefusesRevokedAndTombstonedSources(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package main\n"})
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestHydrateCurrentRefusesRevokedAndTombstonedSources(t *testing.T) {
 
 func TestReconciledCheckpointRestoresAndRejectsTampering(t *testing.T) {
 	root, git := newRepository(t, map[string]string{"main.go": "package one\n"})
-	config := testConfig(root, git)
+	config := testConfig(t, root, git)
 	authority, err := ingestion.New(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)

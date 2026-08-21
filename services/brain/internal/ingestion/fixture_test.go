@@ -81,7 +81,7 @@ func TestFrozenExactly100ChangeFixture(t *testing.T) {
 		}
 	}
 	root, git := newRepository(t, baseFiles)
-	authority, err := ingestion.New(context.Background(), testConfig(root, git))
+	authority, err := ingestion.New(context.Background(), testConfig(t, root, git))
 	if err != nil {
 		t.Fatal(err)
 	}
