@@ -271,7 +271,7 @@ func (adapter *factoryKernelAdapter) recordFactoryGates(
 			passed = false
 			continue
 		}
-		verdict := evaluateFactoryGate(kind, outcomes)
+		verdict := evaluateFactoryGate(ctx, adapter.toolchain, kind, outcomes)
 		outcome := contractsv1.FactoryGateStatus_FACTORY_GATE_STATUS_PASSED
 		if !verdict {
 			outcome = contractsv1.FactoryGateStatus_FACTORY_GATE_STATUS_FAILED
@@ -341,16 +341,42 @@ func (adapter *factoryKernelAdapter) recordFactoryGate(
 //
 // Non-Go edits are skipped by BUILD, TEST and DOCS, so a TypeScript or Python
 // change set passes those three having been checked by nothing.
-func evaluateFactoryGate(kind contractsv1.FactoryGateKind, outcomes []factoryLeafOutcome) bool {
+// factoryGateEdits flattens every leaf's applied edits in roster order, which
+// is the order the leaves were executed in, so the overlay a gate compiles is
+// deterministic for a given run.
+func factoryGateEdits(outcomes []factoryLeafOutcome) []broker.FactoryAppliedEdit {
+	var edits []broker.FactoryAppliedEdit
+	for _, leaf := range outcomes {
+		edits = append(edits, leaf.outcome.Edits...)
+	}
+	return edits
+}
+
+func evaluateFactoryGate(
+	ctx context.Context,
+	toolchain factoryToolchain,
+	kind contractsv1.FactoryGateKind,
+	outcomes []factoryLeafOutcome,
+) bool {
 	switch kind {
 	case contractsv1.FactoryGateKind_FACTORY_GATE_KIND_BUILD:
+		// Every leaf reaching COMPLETED is a property of the executor, not of
+		// the code it produced, and it was the whole of this gate. The
+		// candidate is now compiled against the real module through a
+		// `go build -overlay`, so PASSED means what its readers already
+		// believed it meant.
 		for _, leaf := range outcomes {
 			if leaf.outcome.State != "COMPLETED" {
 				return false
 			}
 		}
-		return true
+		return toolchain.Build(ctx, factoryGateEdits(outcomes)) == nil
 	case contractsv1.FactoryGateKind_FACTORY_GATE_KIND_TEST:
+		// Parsing is strictly weaker than compiling, and this gate did no more
+		// than parse: an undefined symbol, a type error, a wrong signature and
+		// a missing import all parse cleanly. A change set touching no Go file
+		// skipped the loop entirely and passed having been checked by nothing.
+		// It now runs the module's tests.
 		for _, leaf := range outcomes {
 			for _, edit := range leaf.outcome.Edits {
 				if edit.Language != "go" || len(edit.AfterBytes) == 0 {
@@ -361,7 +387,7 @@ func evaluateFactoryGate(kind contractsv1.FactoryGateKind, outcomes []factoryLea
 				}
 			}
 		}
-		return true
+		return toolchain.Test(ctx, factoryGateEdits(outcomes)) == nil
 	case contractsv1.FactoryGateKind_FACTORY_GATE_KIND_DOCS:
 		for _, leaf := range outcomes {
 			for _, edit := range leaf.outcome.Edits {

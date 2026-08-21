@@ -7,30 +7,6 @@ Schema per entry: date, wave, trigger, why deferred, what would satisfy it.
 
 ## Open
 
-### 2026-08-21 — factory BUILD and TEST gates do not build or test
-
-- **Wave:** W3
-- **Trigger:** the gates named `FACTORY_GATE_KIND_BUILD` and
-  `FACTORY_GATE_KIND_TEST` check that a leaf reached `COMPLETED` and that
-  touched Go files parse. Callers read `FACTORY_GATE_STATUS_PASSED` as an
-  assurance that a change set builds and its tests pass. Non-Go edits skip both
-  gates entirely and pass having been checked by nothing.
-- **Why deferred:** not a bodge away, a design gap. `evaluateFactoryGate`
-  receives `leaf.outcome.Edits` -- in-memory post-image bytes -- and has neither
-  the repository root nor an execution sandbox. A package does not compile in
-  isolation from its module, so there is nothing to run `go build` against.
-  Implementing it inside the current signature would mean compiling a fragment
-  and calling the result a build, which is the same overclaiming in a new form.
-- **What would satisfy it:** materialise the edits as a `go build -overlay`
-  overlay file against the real repository root, and run `go build ./...` and
-  `go test ./...` through it under `exec.CommandContext` with a timeout, a
-  scrubbed environment and a process-group kill -- the same discipline the
-  change-set verification gate now uses (`workflow/verification_command.go`).
-  That requires threading the repository root and a runner port into the
-  pipeline. The DOCS gate was in reach and is now real: it checks that every
-  exported declaration in every touched Go file carries a doc comment, rather
-  than asking whether the file contains the characters `//`.
-
 ### 2026-08-21 — savings figures are estimates presented as measurements
 
 - **Wave:** W3
@@ -104,6 +80,49 @@ Schema per entry: date, wave, trigger, why deferred, what would satisfy it.
   aimed at the wrong bound.
 
 ## Drained
+
+### 2026-08-21 — factory BUILD and TEST gates did not build or test
+
+- **Wave:** W3
+- **Trigger:** the gates named `FACTORY_GATE_KIND_BUILD` and
+  `FACTORY_GATE_KIND_TEST` checked that a leaf reached `COMPLETED` and that
+  touched Go files parse. Callers read `FACTORY_GATE_STATUS_PASSED` as an
+  assurance that a change set builds and its tests pass. Non-Go edits skipped
+  both gates entirely and passed having been checked by nothing.
+- **Why deferred:** a design gap. `evaluateFactoryGate` received
+  `leaf.outcome.Edits` -- in-memory post-image bytes -- and had neither the
+  repository root nor an execution sandbox.
+- **What satisfied it:** `factoryToolchain` materialises the edits as a
+  `go build -overlay` overlay against the approved source root and runs
+  `go build ./...` and `go test -count=1 ./...` through it, under the same
+  discipline as the change-set verification gate: fixed argv, no shell,
+  scrubbed offline environment, deadline, process-group kill. The repository is
+  never written to; a rejected candidate leaves nothing behind, which has its
+  own test.
+
+  Every red case in `factory_toolchain_test.go` is syntactically valid Go, so
+  the old gates passed all of them: an undefined symbol, a type error, a
+  missing import, a signature its callers no longer match, a passing build
+  whose tests fail, and a change set that deletes an embedded asset while
+  touching no Go source at all. With no repository root configured both gates
+  now fail rather than reporting a pass they did not earn.
+
+- **Two limits, measured rather than assumed, and recorded in the code:**
+  - An edit to `go.mod` is not seen. The module is loaded before the overlay
+    is consulted, so a candidate that changes requirements is compiled against
+    the module as it is on disk. A change set editing `go.mod` is gated on
+    everything except the thing it changed.
+  - `go build` does not compile test files, so a package left holding only its
+    tests builds cleanly. BUILD is therefore not a superset of TEST, and both
+    are run.
+  - Writing this found a third trap worth naming: overlay keys are matched
+    against paths the go command has itself resolved. An unresolved root --
+    every temporary directory on darwin is under a symlink -- matches nothing,
+    the overlay is silently ignored, and the gate compiles the original tree
+    while reporting on the candidate. That is the exact failure being removed,
+    reintroduced by the fix; the root is canonicalised, and the first run of
+    these tests caught it.
+
 
 ### 2026-08-21 — `product-brain serve` had no root pin
 

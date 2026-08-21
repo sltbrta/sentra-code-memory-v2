@@ -219,34 +219,41 @@ func TestFactoryGateEvaluation(t *testing.T) {
 		Op: "add", Path: "src/go/add-00.go", Language: "go",
 		AfterBytes: []byte("package main\n\nfunc Exported() string { return \"x\" }\n"),
 	}
-	if !evaluateFactoryGate(contractsv1.FactoryGateKind_FACTORY_GATE_KIND_BUILD, completed(validGo, nil)) {
-		t.Fatal("BUILD failed on completed leaf")
+	ctx := context.Background()
+	// DOCS and SECURITY are decided from the leaf trace alone and need no
+	// toolchain. BUILD and TEST now compile and run the candidate, so they are
+	// covered against a real module in factory_toolchain_test.go; here they
+	// pin the fail-closed default, which is the property that keeps an
+	// unconfigured deployment from reporting a pass it did not earn.
+	none := factoryToolchain{}
+	if evaluateFactoryGate(ctx, none, contractsv1.FactoryGateKind_FACTORY_GATE_KIND_BUILD, completed(validGo, nil)) {
+		t.Fatal("BUILD passed with no toolchain configured: nothing was compiled")
 	}
-	if evaluateFactoryGate(contractsv1.FactoryGateKind_FACTORY_GATE_KIND_BUILD,
+	if evaluateFactoryGate(ctx, none, contractsv1.FactoryGateKind_FACTORY_GATE_KIND_BUILD,
 		[]factoryLeafOutcome{{node: node, outcome: broker.FactoryLeafOutcome{State: "FAILED"}}}) {
 		t.Fatal("BUILD passed on failed leaf")
 	}
-	if !evaluateFactoryGate(contractsv1.FactoryGateKind_FACTORY_GATE_KIND_TEST, completed(validGo, nil)) {
-		t.Fatal("TEST failed on parseable Go")
+	if evaluateFactoryGate(ctx, none, contractsv1.FactoryGateKind_FACTORY_GATE_KIND_TEST, completed(validGo, nil)) {
+		t.Fatal("TEST passed with no toolchain configured: nothing was run")
 	}
-	if evaluateFactoryGate(contractsv1.FactoryGateKind_FACTORY_GATE_KIND_TEST, completed(brokenGo, nil)) {
+	if evaluateFactoryGate(ctx, none, contractsv1.FactoryGateKind_FACTORY_GATE_KIND_TEST, completed(brokenGo, nil)) {
 		t.Fatal("TEST passed on unparseable Go")
 	}
-	if !evaluateFactoryGate(contractsv1.FactoryGateKind_FACTORY_GATE_KIND_DOCS, completed(validGo, nil)) {
+	if !evaluateFactoryGate(ctx, none, contractsv1.FactoryGateKind_FACTORY_GATE_KIND_DOCS, completed(validGo, nil)) {
 		t.Fatal("DOCS failed on documented Go")
 	}
-	if evaluateFactoryGate(contractsv1.FactoryGateKind_FACTORY_GATE_KIND_DOCS, completed(undocGo, nil)) {
+	if evaluateFactoryGate(ctx, none, contractsv1.FactoryGateKind_FACTORY_GATE_KIND_DOCS, completed(undocGo, nil)) {
 		t.Fatal("DOCS passed on undocumented Go")
 	}
-	if !evaluateFactoryGate(contractsv1.FactoryGateKind_FACTORY_GATE_KIND_SECURITY, completed(validGo, nil)) {
+	if !evaluateFactoryGate(ctx, none, contractsv1.FactoryGateKind_FACTORY_GATE_KIND_SECURITY, completed(validGo, nil)) {
 		t.Fatal("SECURITY failed on clean leaf")
 	}
-	if evaluateFactoryGate(contractsv1.FactoryGateKind_FACTORY_GATE_KIND_SECURITY,
+	if evaluateFactoryGate(ctx, none, contractsv1.FactoryGateKind_FACTORY_GATE_KIND_SECURITY,
 		completed(validGo, []broker.FactoryDenial{{Action: "file.write", ReasonCode: "escape_path_scope"}})) {
 		t.Fatal("SECURITY passed with a denial recorded")
 	}
 	escaped := broker.FactoryAppliedEdit{Op: "modify", Path: "src/typescript/modify-00.ts", Language: "typescript"}
-	if evaluateFactoryGate(contractsv1.FactoryGateKind_FACTORY_GATE_KIND_SECURITY, completed(escaped, nil)) {
+	if evaluateFactoryGate(ctx, none, contractsv1.FactoryGateKind_FACTORY_GATE_KIND_SECURITY, completed(escaped, nil)) {
 		t.Fatal("SECURITY passed with an out-of-scope edit")
 	}
 }

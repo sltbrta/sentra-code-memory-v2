@@ -220,6 +220,11 @@ func composeFactoryAuthority(
 			kernel: surface.Kernel(), runner: factoryRunner, runtime: deps.runtime,
 			broker: deps.broker, config: config, identity: identity, keyEpoch: config.KeyEpoch(),
 			now: time.Now, fences: fences, configHex: config.ConfigurationDigest(),
+			// The approved source root is the module the candidate edits
+			// belong to, and is what the BUILD and TEST gates compile the
+			// candidate against through a go build overlay. Without it those
+			// two gates fail closed rather than passing unchecked.
+			toolchain: factoryToolchain{repoRoot: config.ApprovedSourceRoot()},
 		},
 		Clock:               queryClock{},
 		ConfigurationDigest: shared.Digest{Algorithm: "sha256", Hex: config.ConfigurationDigest()},

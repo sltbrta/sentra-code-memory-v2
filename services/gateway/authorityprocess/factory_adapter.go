@@ -131,6 +131,11 @@ type factoryKernelAdapter struct {
 	now       func() time.Time
 	fences    *factoryFenceRegistry
 	configHex string
+	// toolchain compiles and tests a candidate change set against the real
+	// module for the BUILD and TEST gates. A zero value cannot run anything,
+	// and those two gates then fail rather than reporting a pass they did not
+	// earn -- which is the state the whole surface was in before it existed.
+	toolchain factoryToolchain
 }
 
 var _ factoryapi.Kernel = (*factoryKernelAdapter)(nil)
