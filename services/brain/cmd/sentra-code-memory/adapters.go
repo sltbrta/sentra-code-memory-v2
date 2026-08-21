@@ -111,6 +111,7 @@ func runHTTP(args []string, out, errOut io.Writer) int {
 	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = server.Shutdown(shutCtx)
+	codeserve.FlushPendingSavings()
 	return 0
 }
 
@@ -146,8 +147,11 @@ func runMCP(args []string, in io.Reader, out, errOut io.Writer) int {
 		return code
 	}
 	ctx = codeserve.WithRootPin(ctx, pin)
-	if err := adapters.ServeMCP(ctx, in, out, errOut); err != nil {
-		fmt.Fprintf(errOut, "mcp: %v\n", err)
+	serveErr := adapters.ServeMCP(ctx, in, out, errOut)
+	// A graceful exit must not lose the queued savings steps.
+	codeserve.FlushPendingSavings()
+	if serveErr != nil {
+		fmt.Fprintf(errOut, "mcp: %v\n", serveErr)
 		return 1
 	}
 	return 0

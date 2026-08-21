@@ -179,6 +179,10 @@ func serve(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintf(errOut, "read JSONL: %v\n", err)
 		return 2
 	}
+	// A graceful exit must not lose the queued savings steps. Without this a
+	// short-lived process that answered thirty queries recorded none of them,
+	// which looks exactly like the no-producer bug the ledger producer fixed.
+	codeserve.FlushPendingSavings()
 	return 0
 }
 

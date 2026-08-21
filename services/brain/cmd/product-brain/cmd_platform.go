@@ -69,6 +69,9 @@ func runServe(args []string) {
 	}
 	ctx := codeserve.WithRootPin(context.Background(), pin)
 	serveJSONL(ctx, os.Stdin, os.Stdout)
+	// A graceful exit must not lose the queued savings steps; the sibling
+	// binary's serve, http and mcp do the same.
+	codeserve.FlushPendingSavings()
 }
 
 // serveJSONLMaxLine bounds one request line. It matches the sibling

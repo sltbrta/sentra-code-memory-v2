@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
@@ -189,4 +190,29 @@ func openSavingsLedgerForRead(dir string) (*savings.Ledger, error) {
 	}
 	flushSavingsSteps(resolved)
 	return savings.Open(resolved)
+}
+
+// FlushPendingSavings writes every queued step for every ledger directory.
+//
+// Steps are queued and written every savingsFlushEvery, which bounds what a
+// crash loses to that many entries of a derived counter. A *graceful* exit
+// should lose nothing at all, and without this it lost whatever had
+// accumulated since the last flush -- so a short-lived process that answered
+// thirty queries recorded none of them, which looks exactly like the
+// no-producer bug this replaced.
+//
+// A hard kill still loses up to savingsFlushEvery entries. That is the
+// accepted trade and is why the ledger is a metrics counter rather than an
+// authority: nothing reads it to make a decision.
+func FlushPendingSavings() {
+	pendingSteps.mu.Lock()
+	dirs := make([]string, 0, len(pendingSteps.steps))
+	for dir := range pendingSteps.steps {
+		dirs = append(dirs, dir)
+	}
+	pendingSteps.mu.Unlock()
+	sort.Strings(dirs)
+	for _, dir := range dirs {
+		flushSavingsSteps(dir)
+	}
 }
