@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // GraphRAGLLMEnabled is true when OUROBOROS_BRAIN_GRAPHRAG_LLM=1.
@@ -70,9 +72,7 @@ func GraphRAGMapReduceOpts(
 	for _, m := range maps {
 		out = append(out, m.n)
 		snip := m.n.Text
-		if len(snip) > 240 {
-			snip = snip[:240]
-		}
+		snip = textbound.Bytes(snip, 240)
 		reduceParts = append(reduceParts, snip)
 	}
 	if len(reduceParts) == 0 {
@@ -88,9 +88,7 @@ Keep concrete names, numbers, and IDs. Max 6 sentences. No markdown.`
 			raw = strings.TrimSpace(raw)
 			if len(raw) > 40 {
 				reduceText = raw
-				if len(reduceText) > 2000 {
-					reduceText = reduceText[:2000]
-				}
+				reduceText = textbound.Bytes(reduceText, 2000)
 			}
 		}
 	}

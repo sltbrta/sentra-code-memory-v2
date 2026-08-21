@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/memory"
 )
 
@@ -30,9 +32,7 @@ func (c *Client) pageIndexLLMChooser(ctx context.Context, question string, candi
 		if snip == "" {
 			snip = strings.TrimSpace(n.Text)
 		}
-		if len(snip) > 120 {
-			snip = snip[:120]
-		}
+		snip = textbound.Bytes(snip, 120)
 		if snip != "" {
 			b.WriteString(" summary=")
 			b.WriteString(snip)
@@ -237,9 +237,7 @@ func (c *Client) applyMemoryRanking(passages []Passage, diag map[string]any, que
 	for _, o := range order {
 		for _, p := range byDoc[o.id] {
 			snip := p.Text
-			if len(snip) > 20 {
-				snip = snip[:20]
-			}
+			snip = textbound.Bytes(snip, 20)
 			key := p.DocumentID + "|" + p.ChunkID + "|" + snip
 			if _, ok := seen[key]; ok {
 				continue
@@ -360,9 +358,7 @@ func agentMemQueryFromPassages(ps []Passage) string {
 		if t == "" {
 			continue
 		}
-		if len(t) > 80 {
-			t = t[:80]
-		}
+		t = textbound.Bytes(t, 80)
 		if b.Len() > 0 {
 			b.WriteByte(' ')
 		}

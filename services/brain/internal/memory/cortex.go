@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // CortexMaintenanceResult summarizes a heavy offline cortex build wave.
@@ -407,9 +409,7 @@ func BuildCommunitySummaries(docs map[string]string, edges map[string][]string, 
 				break
 			}
 			snip := docs[id]
-			if len(snip) > 80 {
-				snip = snip[:80]
-			}
+			snip = textbound.Bytes(snip, 80)
 			fmt.Fprintf(&b, "[%s] %s; ", id, strings.TrimSpace(snip))
 		}
 		nodes = append(nodes, SummaryNode{

@@ -4,6 +4,8 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // structureExpander is implemented by MemoryChunkStore and durableStore.
@@ -408,9 +410,7 @@ func extractFactSentences(text string, maxN int) []string {
 		if len(s) < 12 {
 			continue
 		}
-		if len(s) > 280 {
-			s = s[:280]
-		}
+		s = textbound.Bytes(s, 280)
 		if !structureHasDigit(s) && len(extractStructureIdentifiers(s)) == 0 {
 			continue
 		}

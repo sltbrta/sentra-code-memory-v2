@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // DeterministicContextHeaderWorker emits a short header artifact without LLM.
@@ -25,8 +27,8 @@ func (DeterministicContextHeaderWorker) Run(_ context.Context, job Job, _ Budget
 	header := text
 	if i := strings.Index(text, "\n"); i > 0 && i < 200 {
 		header = strings.TrimSpace(text[:i])
-	} else if len(header) > 200 {
-		header = header[:200]
+	} else {
+		header = textbound.Bytes(header, 200)
 	}
 	return Receipt{
 		JobID: job.ID, Kind: job.Kind, GenerationID: job.GenerationID,

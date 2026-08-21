@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // Type-aware exhaustive slot filling + strict unsupported-extra rejection
@@ -269,7 +271,7 @@ func quoteAround(text, value string) string {
 		}
 	}
 	if len(span) > 120 {
-		span = strings.TrimSpace(span[:120])
+		span = strings.TrimSpace(textbound.Bytes(span, 120))
 	}
 	return span
 }

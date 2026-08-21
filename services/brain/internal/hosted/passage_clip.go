@@ -1,6 +1,10 @@
 package hosted
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+)
 
 // storagePassageChars is the in-memory/hydrate budget for passage bodies.
 // Larger than the LLM prompt clip so ground/temporal rebind still sees
@@ -76,9 +80,7 @@ func clipPassageText(text string, maxChars int) string {
 			return
 		}
 		key := w
-		if len(key) > 40 {
-			key = key[:40]
-		}
+		key = textbound.Bytes(key, 40)
 		if _, ok := seen[key]; ok {
 			return
 		}

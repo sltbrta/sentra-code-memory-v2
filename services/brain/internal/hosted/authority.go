@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // Source authority weights for conflict-aware soft ranking (ported from
@@ -71,9 +73,7 @@ func passageTime(p Passage) (time.Time, bool) {
 		}
 	}
 	scan := p.Text
-	if len(scan) > 4000 {
-		scan = scan[:4000]
-	}
+	scan = textbound.Bytes(scan, 4000)
 	if m := isoDateLooseRE.FindAllStringSubmatch(scan, -1); len(m) > 0 {
 		var best time.Time
 		found := false
@@ -147,9 +147,7 @@ func currencyScore(text string) float64 {
 		return 0.5
 	}
 	scan := text
-	if len(scan) > 2500 {
-		scan = scan[:2500]
-	}
+	scan = textbound.Bytes(scan, 2500)
 	pos := len(currencyPosRE.FindAllString(scan, -1))
 	neg := len(currencyNegRE.FindAllString(scan, -1))
 	// Map to [0,1] around 0.5.

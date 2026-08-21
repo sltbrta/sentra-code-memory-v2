@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -120,9 +122,7 @@ func lexicalSearchLimited(ctx context.Context, db *sql.DB, cfg Config, question 
 		}
 		// Fallback: websearch with truncated question (avoid multi-KB prompts).
 		q := question
-		if len(q) > 400 {
-			q = q[:400]
-		}
+		q = textbound.Bytes(q, 400)
 		rows, err = db.QueryContext(ctx, lexicalWebSQL, cfg.BrainID, q, limit)
 	}
 	if err != nil {

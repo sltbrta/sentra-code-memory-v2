@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 var (
@@ -41,9 +43,7 @@ func (s *Store) AutoSegmentCompanyLife(docs map[string]string) int {
 func classifyLifeDoc(id, text string) (kind, title string) {
 	blob := id + "\n" + text
 	head := blob
-	if len(head) > 400 {
-		head = head[:400]
-	}
+	head = textbound.Bytes(head, 400)
 	switch {
 	case reMeeting.MatchString(head):
 		return "meeting", firstLineSummary(text, 80)

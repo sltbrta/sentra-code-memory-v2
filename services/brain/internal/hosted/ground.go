@@ -155,9 +155,7 @@ func recoverQuoteFromEvidence(claimText, preferDoc string, evidence map[string]s
 		if len(span) < 8 {
 			return "", false
 		}
-		if len(span) > 240 {
-			span = span[:240]
-		}
+		span = textbound.Bytes(span, 240)
 		return span, true
 	}
 	if preferDoc != "" {
@@ -291,9 +289,7 @@ func groundCompletion(
 				doc = matched
 			}
 			text = textbound.Bytes(text, 500)
-			if len(quote) > 500 {
-				quote = quote[:500]
-			}
+			quote = textbound.Bytes(quote, 500)
 			// Bind the leaf locator only from the passage whose text contains
 			// the final verbatim quote (strict contiguous match). Fuzzy or
 			// paraphrased recovery yields Locator{} — a page is never invented

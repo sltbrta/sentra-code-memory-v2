@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // RejectReason is a stable machine-readable ChangeSet rejection class.
@@ -302,10 +304,11 @@ func resultDigest(res ValidationResult) string {
 }
 
 func shortDigest(d string) string {
-	if len(d) <= 8 {
-		return d
-	}
-	return d[:8]
+	// textbound rather than d[:8] even though a digest is hex by construction:
+	// the parameter is a bare string, so nothing here enforces that, and the
+	// two are identical for ASCII. A byte offset on a string is the shape this
+	// repository no longer writes.
+	return textbound.Bytes(d, 8)
 }
 
 // validateChangePath rejects absolute, backslash, and ".." escapes. Its path

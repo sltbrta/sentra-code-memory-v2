@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/factualconsistency"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/memory"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/productsec"
@@ -1278,9 +1280,7 @@ func extractiveForQuestion(question string, passages []Passage) string {
 			break
 		}
 		snip := p.Text
-		if len(snip) > 400 {
-			snip = snip[:400]
-		}
+		snip = textbound.Bytes(snip, 400)
 		b.WriteString(fmt.Sprintf("- [%s] %s\n", p.DocumentID, snip))
 	}
 	return strings.TrimSpace(b.String())
@@ -1357,9 +1357,7 @@ func contestAnswerWithPack(question, questionType string, g Grounded, passages [
 				if durationAtomRE.MatchString(low) || moneyAtomRE.MatchString(p.Text) ||
 					strings.Contains(low, "max_") || strings.Contains(low, "count") {
 					snip := strings.TrimSpace(p.Text)
-					if len(snip) > 600 {
-						snip = snip[:600]
-					}
+					snip = textbound.Bytes(snip, 600)
 					// Keep answer form but prepend pack fact.
 					g.Answer = snip
 					if !containsString(g.CitedDocumentIDs, p.DocumentID) {

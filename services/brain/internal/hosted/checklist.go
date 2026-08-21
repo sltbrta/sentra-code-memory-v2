@@ -3,6 +3,8 @@ package hosted
 import (
 	"regexp"
 	"strings"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // seeksChecklist: triage steps, acceptance criteria, required content lists.
@@ -44,9 +46,7 @@ func extractNumberedSteps(text string) []string {
 			return
 		}
 		key := strings.ToLower(s)
-		if len(key) > 80 {
-			key = key[:80]
-		}
+		key = textbound.Bytes(key, 80)
 		if _, ok := seen[key]; ok {
 			return
 		}
@@ -81,9 +81,7 @@ func mergeChecklistStepsIntoAnswer(question, answer string, passages []Passage) 
 	for _, p := range ordered {
 		for _, s := range extractNumberedSteps(p.Text) {
 			key := strings.ToLower(s)
-			if len(key) > 60 {
-				key = key[:60]
-			}
+			key = textbound.Bytes(key, 60)
 			if _, ok := seen[key]; ok {
 				continue
 			}

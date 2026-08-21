@@ -3,6 +3,8 @@ package hosted
 import (
 	"sort"
 	"strings"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // rrfFuseMany fuses multiple ranked hit lists by chunk_id (fallback dsid+channel).
@@ -333,9 +335,7 @@ func retainWindow(passages []Passage, question string, topK, diversityCap int) (
 			continue
 		}
 		prefix := dsid
-		if len(prefix) > 12 {
-			prefix = prefix[:12]
-		}
+		prefix = textbound.Bytes(prefix, 12)
 		if prefix == "" {
 			prefix = "?"
 		}

@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+
 	"github.com/sltbrta/sentra-code-memory-v2/services/internal/durablefile"
 )
 
@@ -128,9 +130,7 @@ func BuildProbesFromQueryLog(entries []QueryLogEntry, maxProbes int) []Probe {
 	add := func(e QueryLogEntry) {
 		q := strings.TrimSpace(e.Question)
 		key := strings.ToLower(q)
-		if len(key) > 80 {
-			key = key[:80]
-		}
+		key = textbound.Bytes(key, 80)
 		if _, ok := seenQ[key]; ok {
 			return
 		}

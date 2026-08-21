@@ -37,9 +37,7 @@ func (DeterministicDoc2QueryWorker) Run(_ context.Context, job Job, _ Budget) (R
 func deterministicDoc2QueryLines(docID, text string) []string {
 	// First sentence-ish window.
 	snip := strings.TrimSpace(text)
-	if len(snip) > 400 {
-		snip = snip[:400]
-	}
+	snip = textbound.Bytes(snip, 400)
 	// Token bag for "what about X" questions.
 	fields := strings.Fields(strings.ToLower(snip))
 	var content []string

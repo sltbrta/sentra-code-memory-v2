@@ -6,6 +6,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/dense"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/gardener"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/ontology"
@@ -177,9 +179,7 @@ func (c *LiveCorpus) Answer(ctx context.Context, question string, topK int) (str
 	var parts []string
 	for _, id := range cited {
 		snip := c.Docs[id]
-		if len(snip) > 400 {
-			snip = snip[:400]
-		}
+		snip = textbound.Bytes(snip, 400)
 		if title := c.Titles[id]; title != "" {
 			parts = append(parts, fmt.Sprintf("[%s] %s — %s", id, title, snip))
 		} else {

@@ -3,6 +3,8 @@ package hosted
 import (
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // smf_funnel.go — latency-tiered Path-4 style budgets (smf-research).
@@ -125,10 +127,8 @@ func shortHydeForDense(question string) string {
 	if hy == "" {
 		return ""
 	}
-	if len(hy) > 400 {
-		// Prefer first sentence-ish of stub.
-		hy = hy[:400]
-	}
+	// Prefer first sentence-ish of stub.
+	hy = textbound.Bytes(hy, 400)
 	// Prefer phrase head if stub is still too long.
 	if len(hy) > 280 {
 		if ph := pickHotLexPhrases(question, 2); len(ph) > 0 {

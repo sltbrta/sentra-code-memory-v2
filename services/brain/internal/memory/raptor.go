@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // SummaryNode is a hierarchical (RAPTOR-style) summary over document IDs.
@@ -75,9 +77,7 @@ func BuildRAPTORSummaries(docs map[string]string, maxClusters int) []SummaryNode
 				break
 			}
 			snip := docs[id]
-			if len(snip) > 80 {
-				snip = snip[:80]
-			}
+			snip = textbound.Bytes(snip, 80)
 			fmt.Fprintf(&b, "[%s] %s; ", id, strings.TrimSpace(snip))
 		}
 		nodes = append(nodes, SummaryNode{

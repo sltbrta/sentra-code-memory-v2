@@ -411,9 +411,7 @@ func prfTermsFromTexts(question string, texts []string, maxN int) []string {
 		seen := map[string]struct{}{}
 		// Prefer heads (policy titles often front-loaded).
 		chunk := text
-		if len(chunk) > 2500 {
-			chunk = chunk[:2500]
-		}
+		chunk = textbound.Bytes(chunk, 2500)
 		for _, t := range contentTokens(chunk) {
 			if len(t) < 4 {
 				continue
@@ -635,9 +633,7 @@ func passageDocDate(p Passage) string {
 		return m[1]
 	}
 	head := text
-	if len(head) > 800 {
-		head = head[:800]
-	}
+	head = textbound.Bytes(head, 800)
 	if m := isoDateRE.FindString(head); m != "" {
 		return m
 	}
@@ -955,9 +951,7 @@ func (c *Client) runRecoveryHotLists(queries []string, limit int) [][]Hit {
 	ch := make(chan hres, len(queries))
 	for _, q := range queries {
 		go func(qq string) {
-			if len(qq) > 120 {
-				qq = qq[:120]
-			}
+			qq = textbound.Bytes(qq, 120)
 			hits := c.hot.Search(qq, limit)
 			ch <- hres{hits: hits}
 		}(q)

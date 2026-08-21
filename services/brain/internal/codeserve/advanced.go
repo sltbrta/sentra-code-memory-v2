@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/contextpack"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/workflow"
@@ -211,9 +213,7 @@ func handleStructuralSearch(req Request) Response {
 			locs := rx.FindAllStringIndex(line, -1)
 			for _, loc := range locs {
 				excerpt := strings.TrimSpace(line)
-				if len(excerpt) > 240 {
-					excerpt = excerpt[:240]
-				}
+				excerpt = textbound.Bytes(excerpt, 240)
 				cost := len(excerpt)
 				if len(matches) >= l.matches || used+cost > l.bytes {
 					truncated = true

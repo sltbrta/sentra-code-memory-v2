@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/gardener"
 )
 
@@ -350,9 +352,7 @@ func buildDeterministicSidecars(docs map[string]string) []SidecarWrite {
 	for id, text := range docs {
 		q := "What does " + id + " cover?"
 		snip := strings.TrimSpace(text)
-		if len(snip) > 200 {
-			snip = snip[:200]
-		}
+		snip = textbound.Bytes(snip, 200)
 		if snip != "" {
 			q = q + " Key terms: " + snip
 		}
