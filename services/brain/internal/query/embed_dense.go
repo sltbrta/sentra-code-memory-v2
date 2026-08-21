@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/dense"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/rerank"
 )
@@ -138,9 +140,7 @@ func (h *HybridEmbedDense) ensureStore(ctx context.Context, generationID string,
 		if id == "" || strings.TrimSpace(text) == "" {
 			continue
 		}
-		if len(text) > 6_000 {
-			text = text[:6_000]
-		}
+		text = textbound.Bytes(text, 6_000)
 		ids = append(ids, id)
 		texts = append(texts, text)
 	}

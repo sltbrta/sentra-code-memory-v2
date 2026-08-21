@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeindex"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/ingestion"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/localstate"
@@ -239,9 +241,7 @@ func (r *Runtime) maybeEnrichPublished(ctx context.Context, candidate *published
 		}
 		// Cap body size for gardener budgets.
 		text := string(file.Content)
-		if len(text) > 8_000 {
-			text = text[:8_000]
-		}
+		text = textbound.Bytes(text, 8_000)
 		docs[path] = text
 	}
 	if len(docs) == 0 {

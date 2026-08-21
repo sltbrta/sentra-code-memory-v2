@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/hosted"
 )
@@ -59,9 +61,7 @@ func Ask(ctx context.Context, req Request) Result {
 			title = h.ID
 		}
 		snippet := h.Text
-		if len(snippet) > 280 {
-			snippet = snippet[:280] + "…"
-		}
+		snippet = textbound.Ellipsis(snippet, 280)
 		fmt.Fprintf(&b, "- [%s] %s — %s\n", h.ID, title, snippet)
 		cites = append(cites, h.ID)
 	}

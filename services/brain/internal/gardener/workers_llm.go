@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // RegisterLLMWorkers adds LLM-backed workers for doc2query when client is set.
@@ -45,9 +47,7 @@ func (w LLMSummaryWorker) Run(ctx context.Context, job Job, budget Budget) (Rece
 			OK: false, Error: "empty_text", FinishedAt: time.Now(),
 		}, nil
 	}
-	if len(text) > 4_000 {
-		text = text[:4_000]
-	}
+	text = textbound.Bytes(text, 4_000)
 	maxTok := budget.MaxTokensPerJob
 	if maxTok <= 0 {
 		maxTok = 256

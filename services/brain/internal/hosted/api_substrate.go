@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // API-side substrate names (llm / embed / ranker). Not product forks.
@@ -126,9 +128,7 @@ func embedOpenAICompatible(ctx context.Context, text string, cfg openAIEmbedCfg)
 	if strings.TrimSpace(text) == "" {
 		return nil, fmt.Errorf("hosted: empty embed text")
 	}
-	if len(text) > 8000 {
-		text = text[:8000]
-	}
+	text = textbound.Bytes(text, 8000)
 	body, _ := json.Marshal(map[string]any{
 		"model": cfg.Model,
 		"input": text,

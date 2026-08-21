@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // Claim is one grounded claim with a support quote. Locator is bound only
@@ -288,9 +290,7 @@ func groundCompletion(
 			if doc == "" || doc != matched {
 				doc = matched
 			}
-			if len(text) > 500 {
-				text = text[:500]
-			}
+			text = textbound.Bytes(text, 500)
 			if len(quote) > 500 {
 				quote = quote[:500]
 			}
@@ -628,9 +628,7 @@ func forceInfoNotFoundAbstention(answer string) string {
 	if inventsNumericDetail(body) {
 		return caveat
 	}
-	if len(body) > 400 {
-		body = body[:400] + "…"
-	}
+	body = textbound.Ellipsis(body, 400)
 	return caveat + " Related context that may be incomplete or off-target: " + body
 }
 

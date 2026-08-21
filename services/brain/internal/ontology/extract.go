@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // Deterministic extraction patterns (aligned with ERB edges.v1 offline builder).
@@ -231,9 +233,7 @@ func termsForDoc(docID, text string) map[RelationKind]map[string]struct{} {
 }
 
 func extractMentionTokens(body string) []string {
-	if len(body) > 2_000 {
-		body = body[:2_000]
-	}
+	body = textbound.Bytes(body, 2_000)
 	var out []string
 	seen := map[string]struct{}{}
 	var b strings.Builder

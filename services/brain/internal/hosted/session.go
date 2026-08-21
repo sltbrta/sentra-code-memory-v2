@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // Product chat channel (ported from Python product_brain/sessions + turns).
@@ -80,9 +82,7 @@ func AppendSessionTurn(sessionID, role, content string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	if len(content) > 16000 {
-		content = content[:16000]
-	}
+	content = textbound.Bytes(content, 16000)
 	row := SessionTurn{
 		SessionID: sessionID,
 		Role:      role,
@@ -152,9 +152,7 @@ func FormatSessionHistory(sessionID string, limit int) string {
 		if content == "" {
 			continue
 		}
-		if len(content) > 800 {
-			content = content[:800]
-		}
+		content = textbound.Bytes(content, 800)
 		role := t.Role
 		if role == "" {
 			role = "user"
@@ -245,9 +243,7 @@ func TurnGrep(question, sessionID string, topK, minOverlap int) ([]TurnHit, map[
 		// Nanosecond-resolution id so same-second turns do not collide.
 		id := fmt.Sprintf("turn:%s:%.9f", row.SessionID, row.TS)
 		text := body
-		if len(text) > 4000 {
-			text = text[:4000]
-		}
+		text = textbound.Bytes(text, 4000)
 		scoredHits = append(scoredHits, scored{
 			score: score,
 			hit: TurnHit{

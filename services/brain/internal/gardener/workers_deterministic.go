@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // DeterministicDoc2QueryWorker emits pseudo-questions without an LLM.
@@ -96,9 +98,7 @@ func (w LLMDoc2QueryWorker) Run(ctx context.Context, job Job, budget Budget) (Re
 		return DeterministicDoc2QueryWorker{}.Run(ctx, job, budget)
 	}
 	text := job.Payload["text"]
-	if len(text) > 4_000 {
-		text = text[:4_000]
-	}
+	text = textbound.Bytes(text, 4_000)
 	system := "Emit 2-3 short search questions a user might ask that this document answers. One per line. No numbering."
 	user := fmt.Sprintf("Document %s:\n%s", job.DocumentID, text)
 	maxTok := budget.MaxTokensPerJob

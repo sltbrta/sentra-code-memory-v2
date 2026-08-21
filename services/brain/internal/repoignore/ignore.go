@@ -5,6 +5,7 @@ package repoignore
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -66,13 +67,32 @@ func (m *Matcher) addFile(path string) error {
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
+	// Raise the bound to match every other JSONL and text reader in this
+	// repository. On the 64 KiB default, one over-long line in a .gitignore
+	// ends the scan and Load returns a bare "token too long" -- which fails
+	// the whole crawl, because every walk loads the ignore policy first. The
+	// same file already had a P0 for a pattern that panicked the indexer; this
+	// is the adjacent way a checked-in file stops it.
+	scanner.Buffer(make([]byte, 0, 64<<10), maxIgnoreLineBytes)
 	for scanner.Scan() {
 		if err := m.add(scanner.Text()); err != nil {
 			return err
 		}
 	}
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		// Still fail closed past the raised bound, and name the file. An
+		// unreadable ignore rule cannot be shown not to exclude something, and
+		// skipping it would widen what the crawler and code_read will serve --
+		// which is the wrong direction for a policy whose job is to withhold.
+		return fmt.Errorf("repoignore: read %s: %w", path, err)
+	}
+	return nil
 }
+
+// maxIgnoreLineBytes bounds one ignore pattern. It matches the readers
+// elsewhere in this repository rather than the scanner default, which no real
+// file exceeds and a generated one does.
+const maxIgnoreLineBytes = 8 << 20
 
 func (m *Matcher) add(raw string) error {
 	pattern := strings.TrimSpace(raw)

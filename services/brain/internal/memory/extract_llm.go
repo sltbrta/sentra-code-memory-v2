@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // LLMExtractFunc is injected by residual to avoid memory→hosted import cycles.
@@ -24,9 +26,7 @@ func ExtractClaimsOpenIELLM(ctx context.Context, docID, text string, llm LLMExtr
 	if llm == nil || docID == "" || strings.TrimSpace(text) == "" {
 		return nil
 	}
-	if len(text) > 6000 {
-		text = text[:6000]
-	}
+	text = textbound.Bytes(text, 6000)
 	sys := `Extract factual subject-predicate-object triples from the document.
 Reply with ONLY a JSON array: [{"subject":"...","predicate":"...","object":"...","span":"..."}]
 Max 12 triples. High precision only. No prose.`

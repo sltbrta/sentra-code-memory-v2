@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
+
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/gardener"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/ontology"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/projections"
@@ -106,9 +108,7 @@ func (r *Runtime) generationBodies(generationID string) map[string]string {
 			continue
 		}
 		text := string(f.Content)
-		if len(text) > 12_000 {
-			text = text[:12_000]
-		}
+		text = textbound.Bytes(text, 12_000)
 		out[path] = text
 	}
 	return out

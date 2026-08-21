@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // Product-path retrieval/generation pieces (strict superset of sentra-rag-bench v5
@@ -628,9 +630,7 @@ func annotateRecencyPack(ps []Passage) []Passage {
 
 func passageDocDate(p Passage) string {
 	text := p.Text
-	if len(text) > 4000 {
-		text = text[:4000]
-	}
+	text = textbound.Bytes(text, 4000)
 	if m := effectiveDateRE.FindStringSubmatch(text); len(m) > 1 {
 		return m[1]
 	}

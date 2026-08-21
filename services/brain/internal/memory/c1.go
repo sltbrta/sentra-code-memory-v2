@@ -3,6 +3,8 @@ package memory
 import (
 	"math"
 	"strings"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/internal/textbound"
 )
 
 // Probe is a hold-out query used for C1 predict-calibrate.
@@ -114,9 +116,7 @@ func probeQuestionFromText(text string) string {
 	}
 	// First sentence or first 80 chars.
 	snippet := text
-	if len(snippet) > 80 {
-		snippet = snippet[:80]
-	}
+	snippet = textbound.Bytes(snippet, 80)
 	// Cut at sentence boundary if present.
 	for _, sep := range []string{". ", "! ", "? ", "\n"} {
 		if i := strings.Index(snippet, sep); i > 8 {
