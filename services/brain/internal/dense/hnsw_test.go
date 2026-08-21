@@ -192,7 +192,19 @@ func TestHNSWFixedCorpusExactVsANNMetrics(t *testing.T) {
 			}
 			sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
 			p50, p95 := percentileDuration(latencies, 0.50), percentileDuration(latencies, 0.95)
-			if p95 > 500*time.Millisecond {
+			// A wall-clock bound is a statement about this machine, not about
+			// the index. Under `go test -race ./...` this test shares its
+			// cores with every other package in the module and the race
+			// detector multiplies the work, and the measurement drifts by more
+			// than the bound it is checked against: observed at 1.27s against
+			// a 500ms limit in a full-repo race run that passed in isolation.
+			//
+			// Skipping the clock there rather than raising the number keeps
+			// the bound meaningful where it can be measured. Everything below
+			// -- recall, allocations, the distance-calculation ceiling, and
+			// the ordering of the percentiles -- is independent of load and
+			// still checked in both modes.
+			if p95 > 500*time.Millisecond && !RaceDetectorEnabled {
 				t.Fatalf("ANN p95=%s, want <=500ms", p95)
 			}
 			allocs := testing.AllocsPerRun(20, func() {

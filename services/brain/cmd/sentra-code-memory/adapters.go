@@ -21,6 +21,27 @@ import (
 // runHTTP serves the canonical local HTTP adapter (Phase 5, issue #35). It
 // exposes /health and /dispatch over codeserve.Handle with bounded requests
 // and structured errors; JSONL and the direct CLI are unchanged.
+// newHTTPServer builds the serving http.Server with the full set of bounds.
+//
+// Only ReadHeaderTimeout was set. MaxBytesReader bounds a body's size but not
+// the time taken to send it, so a client trickling a body held a connection
+// and its goroutine indefinitely; a slow response had no bound at all, and an
+// idle keep-alive connection was never reclaimed.
+//
+// It is a named function rather than a literal inside runHTTP so the bounds
+// can be asserted without opening a socket and waiting out a minute of them.
+func newHTTPServer(listenAddr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              listenAddr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    64 << 10,
+	}
+}
+
 func runHTTP(args []string, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("http", flag.ContinueOnError)
 	fs.SetOutput(errOut)
@@ -61,18 +82,7 @@ func runHTTP(args []string, out, errOut io.Writer) int {
 		OperatorTrust: operatorTrustRequested(*trust),
 		RootPin:       pin,
 	})
-	server := &http.Server{
-		Addr:    listenAddr,
-		Handler: handler,
-		// Only ReadHeaderTimeout was set. MaxBytesReader bounds a body's size
-		// but not the time taken to send it, so a client trickling a body held
-		// a connection and its goroutine indefinitely.
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      120 * time.Second,
-		IdleTimeout:       120 * time.Second,
-		MaxHeaderBytes:    64 << 10,
-	}
+	server := newHTTPServer(listenAddr, handler)
 
 	// Bind before announcing. ListenAndServe was called inside a goroutine
 	// *after* the "listening on ..." line was printed, so a failed bind printed

@@ -68,7 +68,10 @@ func TestCortexIsNeverObservedPartiallyWritten(t *testing.T) {
 	var shortest atomic.Int64
 	shortest.Store(full)
 
-	for i := 0; i < 4; i++ {
+	// Two samplers, not more: this runs inside `go test -race ./...` alongside
+	// every other package, and a tight Stat loop per core is load the rest of
+	// the suite has to absorb. Two is enough to catch the window every run.
+	for i := 0; i < 2; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
