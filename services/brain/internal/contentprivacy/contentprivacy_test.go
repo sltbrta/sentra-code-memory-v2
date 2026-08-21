@@ -425,7 +425,7 @@ func TestConfiguredLocalPIIAndSecretClasses(t *testing.T) {
 		{contentprivacy.ClassCreditCard, "4111 1111 1111 1111"},
 		{contentprivacy.ClassAPIKey, "sk_" + "1234567890abcd"},
 		{contentprivacy.ClassBearerToken, "Bearer abcdefghijklmnop"},
-		{contentprivacy.ClassPrivateKey, "-----BEGIN PRIVATE KEY-----\nabc123\n-----END PRIVATE KEY-----"},
+		{contentprivacy.ClassPrivateKey, "-----BEGIN " + "PRIVATE KEY-----\nabc123\n-----END " + "PRIVATE KEY-----"},
 		{contentprivacy.ClassPasswordAssignment, "password=hunter2"},
 	}
 	detector := contentprivacy.LocalDetector{}
