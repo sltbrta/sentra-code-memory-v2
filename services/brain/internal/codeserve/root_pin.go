@@ -2,6 +2,9 @@ package codeserve
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -137,4 +140,43 @@ func rootPinError(verb string) Response {
 // whose whole point was that there should be one.
 func resolveRootForPin(path string) (string, error) {
 	return pathguard.Resolve(path)
+}
+
+// ErrRootFlagInvalid is returned by ResolveRootFlag for a value that names
+// something other than an existing directory.
+var ErrRootFlagInvalid = errors.New("codeserve: --root must be an existing directory")
+
+// ResolveRootFlag turns a surface's --root flag into the subtree it will
+// serve.
+//
+// The default is the working directory rather than "unconstrained": these
+// surfaces take their requests from a model, and an absent flag must not mean
+// "the whole filesystem". Serving everything stays available -- pass the path
+// separator alone -- but has to be asked for, and returns "" so the caller
+// leaves the context unpinned.
+//
+// This lives here rather than in a command's main package because there are
+// two JSONL surfaces over the same Handle. The first copy of it pinned one of
+// them; the second surface took no flag at all and was reached by nothing.
+func ResolveRootFlag(flagValue string) (string, error) {
+	value := strings.TrimSpace(flagValue)
+	if value == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("codeserve: resolve default root: %w", err)
+		}
+		return wd, nil
+	}
+	if value == string(os.PathSeparator) {
+		return "", nil
+	}
+	abs, err := filepath.Abs(value)
+	if err != nil {
+		return "", fmt.Errorf("codeserve: resolve --root: %w", err)
+	}
+	info, err := os.Stat(abs)
+	if err != nil || !info.IsDir() {
+		return "", ErrRootFlagInvalid
+	}
+	return abs, nil
 }

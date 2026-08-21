@@ -11,6 +11,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/repoignore"
 )
 
 // DefaultIndexFile is the durable codecrawl index basename.
@@ -383,9 +385,33 @@ func stAllStampsMatch(root string, prev *Index) bool {
 	if prev == nil || prev.fileStamps == nil || len(prev.fileStamps) == 0 {
 		return false
 	}
+	// The census has to be taken under the same policy that produced the
+	// stamps it is compared against.
+	//
+	// This walked with the hardcoded skipDir set while every other walk in the
+	// package loads repoignore, so its file census was a strict superset of
+	// the indexed set: any repository with a single ignore rule -- this one
+	// has .pytest_cache/ -- failed the len(live) != len(prev.fileStamps) gate
+	// permanently, and the warm fast path could never be taken. A fast path
+	// that is structurally unreachable is worse than none, because the
+	// documentation and the cost model both assume it fires.
+	ignores, err := repoignore.Load(root)
+	if err != nil {
+		return false
+	}
 	live := map[string]FileStamp{}
 	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info == nil {
+			return nil
+		}
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil || rel == "" {
+			rel = path
+		}
+		if ignores.Ignored(rel, info.IsDir()) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if info.IsDir() {
@@ -396,10 +422,6 @@ func stAllStampsMatch(root string, prev *Index) bool {
 		}
 		if _, ok := extOK[strings.ToLower(filepath.Ext(path))]; !ok {
 			return nil
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil || rel == "" {
-			rel = path
 		}
 		live[rel] = FileStamp{Size: info.Size(), MtimeNs: info.ModTime().UnixNano()}
 		return nil

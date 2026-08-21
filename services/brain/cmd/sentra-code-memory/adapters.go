@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -155,34 +153,14 @@ func runMCP(args []string, in io.Reader, out, errOut io.Writer) int {
 	return 0
 }
 
-// resolveRootPin turns the --root flag into the subtree a server surface will
-// serve. The default is the working directory rather than "unconstrained":
-// these surfaces take their requests from a model, and an absent flag should
-// not mean "the whole filesystem". Serving everything stays available, but has
-// to be asked for.
+// resolveRootPin adapts codeserve.ResolveRootFlag to a command's exit-code
+// convention. The resolution itself is shared, so the two JSONL surfaces
+// cannot drift apart again.
 func resolveRootPin(flagValue string, errOut io.Writer) (string, int) {
-	value := strings.TrimSpace(flagValue)
-	if value == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			fmt.Fprintf(errOut, "resolve default root: %v\n", err)
-			return "", 2
-		}
-		return wd, 0
-	}
-	if value == string(os.PathSeparator) {
-		// An explicit opt-out. Returning "" leaves the context unpinned.
-		return "", 0
-	}
-	abs, err := filepath.Abs(value)
+	pin, err := codeserve.ResolveRootFlag(flagValue)
 	if err != nil {
-		fmt.Fprintf(errOut, "resolve --root: %v\n", err)
+		fmt.Fprintf(errOut, "%v\n", err)
 		return "", 2
 	}
-	info, err := os.Stat(abs)
-	if err != nil || !info.IsDir() {
-		fmt.Fprintf(errOut, "--root must be an existing directory\n")
-		return "", 2
-	}
-	return abs, 0
+	return pin, 0
 }

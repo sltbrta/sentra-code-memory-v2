@@ -53,8 +53,22 @@ Comparison: docs/specs/product/STAGE-VS-PRODUCT.md`)
 // Verb catalog: codeserve.Catalog() (Phase 1 SCM operator parity).
 func runServe(args []string) {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	root := fs.String("root", "",
+		"confine every request to this subtree (default: the working directory). "+
+			"Pass --root=/ to serve the whole filesystem.")
 	_ = fs.Parse(args)
-	serveJSONL(context.Background(), os.Stdin, os.Stdout)
+
+	// This surface took no --root at all while the sibling binary's serve,
+	// http and mcp were pinned. It is the same codeserve.Handle over the same
+	// JSONL contract, so a request naming "/" was answered here after being
+	// refused there: the pin reached three of the four surfaces that need it.
+	pin, err := codeserve.ResolveRootFlag(*root)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "serve: %v\n", err)
+		os.Exit(2)
+	}
+	ctx := codeserve.WithRootPin(context.Background(), pin)
+	serveJSONL(ctx, os.Stdin, os.Stdout)
 }
 
 // serveJSONLMaxLine bounds one request line. It matches the sibling
