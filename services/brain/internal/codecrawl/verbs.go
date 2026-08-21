@@ -115,9 +115,10 @@ func (idx *Index) FindRelevant(root, query string, topK int, withPreview bool) A
 			ah.Kind = "def"
 		}
 		if withPreview && root != "" {
-			if abs, ok := safeRootPath(root, h.Path); ok {
-				ah.Preview, ah.StartLine = previewFile(abs, 12)
-			}
+			// Read through the root descriptor. Resolving to a path here and
+			// opening that path separately is the check/use split that let a
+			// swapped directory component escape the root.
+			ah.Preview, ah.StartLine = previewRooted(root, h.Path, 12)
 		}
 		out.Hits = append(out.Hits, ah)
 		if len(out.Hits) >= topK {
@@ -164,9 +165,10 @@ func (idx *Index) FindRelevantRanked(root, query string, topK int, withPreview b
 			ah.Kind = "def"
 		}
 		if withPreview && root != "" {
-			if abs, ok := safeRootPath(root, h.Path); ok {
-				ah.Preview, ah.StartLine = previewFile(abs, 12)
-			}
+			// Read through the root descriptor. Resolving to a path here and
+			// opening that path separately is the check/use split that let a
+			// swapped directory component escape the root.
+			ah.Preview, ah.StartLine = previewRooted(root, h.Path, 12)
 		}
 		out.Hits = append(out.Hits, ah)
 	}
@@ -908,11 +910,22 @@ func safeRootPath(root, rel string) (string, bool) {
 	return resolved, true
 }
 
-func previewFile(abs string, maxLines int) (string, int) {
-	raw, err := os.ReadFile(abs)
+// previewRooted reads a preview through the root descriptor, so the file that
+// is opened is the one the root contains rather than whatever the path
+// resolves to a moment later.
+func previewRooted(root, rel string, maxLines int) (string, int) {
+	raw, err := ReadRooted(root, rel, previewReadCap)
 	if err != nil {
 		return "", 0
 	}
+	return previewLines(raw, maxLines)
+}
+
+// previewReadCap bounds a preview read. Twelve lines never needs more, and an
+// unbounded read of a generated file is a cost paid per hit.
+const previewReadCap = 256 << 10
+
+func previewLines(raw []byte, maxLines int) (string, int) {
 	lines := strings.Split(string(raw), "\n")
 	if maxLines > len(lines) {
 		maxLines = len(lines)

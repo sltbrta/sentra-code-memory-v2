@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -461,16 +462,12 @@ func packFindRelevant(req Request, rootAbs string, payload codecrawl.AgentPayloa
 		if len(sources) >= findRelevantCandidateCap {
 			break
 		}
-		abs, ok := codecrawl.SafeRootPath(rootAbs, h.Path)
-		if !ok {
-			continue
-		}
-		raw, err := os.ReadFile(abs)
+		// Read through the root descriptor rather than resolving to a path and
+		// opening it: the two resolutions are what let a swapped directory
+		// component escape between the check and the open.
+		raw, err := codecrawl.ReadRooted(rootAbs, h.Path, findRelevantSourceCap)
 		if err != nil {
 			continue
-		}
-		if len(raw) > findRelevantSourceCap {
-			raw = raw[:findRelevantSourceCap]
 		}
 		content := string(raw)
 		sources = append(sources, contextpack.Source{
@@ -653,23 +650,18 @@ func handleIngestSCIP(ctx context.Context, req Request) Response {
 	if err != nil {
 		return errResp(verb, err.Error())
 	}
-	safe, ok := codecrawl.SafeRootPath(rootAbs, path)
-	if !ok {
-		return codeErrResp(verb, ErrPathDenied, "path must resolve to a regular file inside root")
-	}
-	info, err := os.Stat(safe)
+	// Stat through the root descriptor. The previous sequence resolved the
+	// path, stat'd the resolved string, then resolved the root separately to
+	// derive a relative name -- three resolutions of the same tree with gaps
+	// between them.
+	info, err := codecrawl.StatRooted(rootAbs, path)
 	if err != nil || !info.Mode().IsRegular() {
 		return codeErrResp(verb, ErrPathDenied, "path must resolve to a regular file inside root")
 	}
-	rootReal, err := filepath.EvalSymlinks(rootAbs)
+	rel, err := codecrawl.RootRelative(rootAbs, path)
 	if err != nil {
-		return codeErrResp(verb, ErrPathDenied, "cannot resolve root: "+err.Error())
-	}
-	rel, err := filepath.Rel(rootReal, safe)
-	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return codeErrResp(verb, ErrPathDenied, "path escapes root")
 	}
-	rel = filepath.ToSlash(rel)
 
 	idx, loadedRoot, gobPath, err := loadIndex(req)
 	if err != nil {
@@ -1169,8 +1161,16 @@ func handleCodeRead(ctx context.Context, req Request) Response {
 		return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
 			"path escapes workspace root")
 	}
-	fi, err := os.Stat(real)
+	// Stat through the root descriptor rather than the resolved string. The
+	// leaf was already pinned; every directory component above it was not, so
+	// replacing one between this check and the open below reached a file the
+	// check never saw.
+	fi, err := codecrawl.StatRooted(rootAbs, rel)
 	if err != nil {
+		if errors.Is(err, codecrawl.ErrRootEscape) {
+			return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
+				"path escapes workspace root")
+		}
 		return codeErrResp(string(VerbCodeRead), ErrIndexUnavailable, err.Error())
 	}
 	if !fi.Mode().IsRegular() {
@@ -1195,8 +1195,14 @@ func handleCodeRead(ctx context.Context, req Request) Response {
 		maxLines = maxLinesCap
 	}
 
-	f, err := os.Open(real)
+	// Open through the root descriptor: the same operation that resolves is
+	// the one that opens, so there is nothing between them to swap.
+	f, err := codecrawl.OpenRooted(rootAbs, rel)
 	if err != nil {
+		if errors.Is(err, codecrawl.ErrRootEscape) {
+			return codeErrResp(string(VerbCodeRead), ErrInvalidRequest,
+				"path escapes workspace root")
+		}
 		return codeErrResp(string(VerbCodeRead), ErrInternal, err.Error())
 	}
 	defer f.Close()
