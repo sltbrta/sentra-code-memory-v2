@@ -148,14 +148,28 @@ Calls taken, each reversible by reverting the named commit:
       whether the document survives somewhere the loop did not look. A test
       covers exactly that: a substrate that reports a delete and keeps the
       document is caught.
-      *What is deliberately not done:* the dense backends. There are five
-      behind `denseBackend` -- SQLite, Postgres, FAISS, HNSW, Qdrant -- and
-      none exposes a delete. Adding one to each without being able to exercise
-      Postgres or Qdrant would ship an erasure path that has never run. The
-      receipt names `vectors` as **skipped** and refuses `VerifiedComplete`,
-      so the gap is in the artifact rather than in a footnote. Closing it is
-      the remaining work, and is now a bounded task: implement one method per
-      backend against a port that already exists and is already tested.
+      *The dense backends, closed 2026-08-21.* `denseBackend` gained the purge
+      port and all five implement it. Three are exercised here -- the
+      in-memory store, the HNSW index, and the SQLite-backed local projection
+      -- and Postgres implements the same SQL as its writer. With a dense
+      backend configured, a purge now reaches the vectors and the receipt
+      reports `VerifiedComplete`, which it could not do before.
+
+      The HNSW index had no deletion at all, which was the real blocker: it
+      backs the local default. Removal compacts the parallel slices and
+      rewires rather than tombstoning a slot, because "the vector is no longer
+      here" has to mean the bytes are gone. The graph is rebuilt rather than
+      patched -- every neighbour index refers to a slot that has moved, and a
+      stale index still points at a live slot, so nothing crashes and the
+      results are simply wrong.
+
+      FAISS and Qdrant return `ErrPurgeUnsupported`. They are remote services
+      whose delete surfaces this repository cannot exercise, and an unverified
+      HTTP call reported as an erasure is the overclaiming this branch exists
+      to remove. Against those two the receipt still names `vectors` as
+      skipped and still refuses `VerifiedComplete`. A backend that cannot
+      answer a verification is read as *residual*, not as empty: unable to
+      verify is not verified empty.
       *Also:* `internal/deletion` had no test file at all, which is part of why
       none of this was noticed. It has one now.
 

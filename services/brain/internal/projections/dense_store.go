@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"hash"
 	"sort"
+	"strings"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/dense"
 )
@@ -347,4 +348,62 @@ WHERE generation_id = ? AND model_id = ? AND document_id = ?`,
 		return nil, false, err
 	}
 	return vec, true, nil
+}
+
+// DeleteDocuments removes every vector belonging to the named documents.
+//
+// The store had no deletion, so a purge could not reach the durable dense
+// projection: erased content stayed answerable by vector search after every
+// other substrate had dropped it.
+//
+// The match is on dsid, which is the document identity the writer records,
+// with document_id as a fallback for rows written before dsid was populated.
+// It is deliberately not a LIKE on the vector id: "doc-1%" would claim
+// "doc-10#0".
+func (s *SQLDenseStore) DeleteDocuments(docIDs []string) (int, error) {
+	if s == nil || s.DB == nil {
+		return 0, fmt.Errorf("projections: nil dense store")
+	}
+	total := 0
+	for _, docID := range docIDs {
+		docID = strings.TrimSpace(docID)
+		if docID == "" {
+			continue
+		}
+		result, err := s.DB.Exec(
+			`DELETE FROM dense_vectors WHERE dsid = ? OR document_id = ?`, docID, docID)
+		if err != nil {
+			return total, fmt.Errorf("projections: delete dense vectors: %w", err)
+		}
+		if n, err := result.RowsAffected(); err == nil {
+			total += int(n)
+		}
+	}
+	return total, nil
+}
+
+// HasDocuments returns the document ids that still have rows.
+func (s *SQLDenseStore) HasDocuments(docIDs []string) ([]string, error) {
+	if s == nil || s.DB == nil {
+		return nil, fmt.Errorf("projections: nil dense store")
+	}
+	var found []string
+	for _, docID := range docIDs {
+		docID = strings.TrimSpace(docID)
+		if docID == "" {
+			continue
+		}
+		var count int
+		err := s.DB.QueryRow(
+			`SELECT COUNT(1) FROM dense_vectors WHERE dsid = ? OR document_id = ?`,
+			docID, docID).Scan(&count)
+		if err != nil {
+			return nil, fmt.Errorf("projections: count dense vectors: %w", err)
+		}
+		if count > 0 {
+			found = append(found, docID)
+		}
+	}
+	sort.Strings(found)
+	return found, nil
 }

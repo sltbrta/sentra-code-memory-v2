@@ -727,3 +727,95 @@ func cosineUnit(a, b []float32) float64 {
 	}
 	return d
 }
+
+// DeleteDocuments removes every vector belonging to the named documents.
+//
+// The index had no deletion at all, which is why erasure could not reach it:
+// deleted content stayed answerable by vector search after the corpus, the
+// lexical index and the cortex had all dropped it.
+//
+// Removal compacts the parallel slices and rewires, rather than tombstoning a
+// slot. A tombstone would be cheaper, but this index is what a purge receipt
+// claims about: "the vector is no longer here" has to mean the bytes are gone,
+// not that a flag says to skip them. Compaction is O(n) in the corpus and
+// deletes are rare; a search is on the hot path and must not pay for a filter.
+//
+// Vectors are keyed per chunk ("doc-1#0"), so a document is matched by its
+// exact id or by the "docID#" prefix -- never a bare string prefix, or "doc-1"
+// would claim "doc-10#0".
+func (h *HNSW) DeleteDocuments(docIDs []string) int {
+	if h == nil || len(docIDs) == 0 {
+		return 0
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	keep := make([]int, 0, len(h.ids))
+	removed := 0
+	for i, id := range h.ids {
+		if vectorIDMatchesAnyDocument(id, docIDs) {
+			removed++
+			continue
+		}
+		keep = append(keep, i)
+	}
+	if removed == 0 {
+		return 0
+	}
+
+	ids := make([]string, 0, len(keep))
+	vecs := make([][]float32, 0, len(keep))
+	meta := make([]HitMetadata, 0, len(keep))
+	byID := make(map[string]int, len(keep))
+	for newIdx, oldIdx := range keep {
+		ids = append(ids, h.ids[oldIdx])
+		vecs = append(vecs, h.vecs[oldIdx])
+		meta = append(meta, h.meta[oldIdx])
+		byID[h.ids[oldIdx]] = newIdx
+	}
+	h.ids, h.vecs, h.meta, h.byID = ids, vecs, meta, byID
+
+	// Every neighbour index in the old graph refers to a slot that has moved,
+	// so the graph is rebuilt rather than patched. Patching it is where an
+	// index like this goes quietly wrong: a stale neighbour index still points
+	// at a live slot, so nothing crashes and the results are simply wrong.
+	h.graph = make([][]int, len(h.ids))
+	for i := range h.ids {
+		h.rewireLocked(i)
+	}
+	return removed
+}
+
+// HasDocuments returns the document ids that still have vectors stored. It is
+// the verification half of a purge: a delete count says how many entries a
+// loop matched, not whether the document survives.
+func (h *HNSW) HasDocuments(docIDs []string) []string {
+	if h == nil || len(docIDs) == 0 {
+		return nil
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	found := map[string]struct{}{}
+	for _, id := range h.ids {
+		for _, docID := range docIDs {
+			if vectorIDMatchesDocument(id, docID) {
+				found[docID] = struct{}{}
+			}
+		}
+	}
+	out := make([]string, 0, len(found))
+	for id := range found {
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func vectorIDMatchesAnyDocument(vectorID string, docIDs []string) bool {
+	for _, docID := range docIDs {
+		if vectorIDMatchesDocument(vectorID, docID) {
+			return true
+		}
+	}
+	return false
+}

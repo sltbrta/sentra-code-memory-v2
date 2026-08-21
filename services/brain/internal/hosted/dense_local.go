@@ -3,6 +3,7 @@ package hosted
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,7 +37,28 @@ type denseBackend interface {
 	Close() error
 	Upsert(points []DensePoint) error
 	Search(query denseQuery, topK int) (denseSearchResult, error)
+	// DeleteDocuments removes every vector belonging to the named documents
+	// and reports how many were removed. A backend that cannot verifiably
+	// purge returns ErrPurgeUnsupported rather than reporting a success it
+	// cannot stand behind -- a purge receipt that says "removed" about a store
+	// that silently no-opped is worse than a receipt that names the gap.
+	DeleteDocuments(docIDs []string) (int, error)
+	// HasDocuments returns the document ids that still have vectors. It is the
+	// verification half: a delete count says how many rows a statement
+	// matched, not whether the document survives.
+	HasDocuments(docIDs []string) ([]string, error)
 }
+
+// ErrPurgeUnsupported reports a dense backend that cannot verifiably delete.
+//
+// Two of the five are in this state, and it is a deliberate answer rather than
+// an unfinished one. The FAISS sidecar and Qdrant are remote services whose
+// delete surfaces this repository cannot exercise; implementing an HTTP call
+// against an endpoint nobody here can confirm, and then reporting its result
+// as an erasure, would ship an erasure path that has never run. The purge
+// receipt names them as skipped and refuses to report completeness, so the gap
+// is visible in the artifact rather than assumed away.
+var ErrPurgeUnsupported = errors.New("hosted: dense backend does not support verifiable purge")
 
 // localDense holds a durable SQLite dense projection under the residual Dir.
 type localDense struct {
