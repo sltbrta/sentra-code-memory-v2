@@ -94,19 +94,24 @@ Calls taken, each reversible by reverting the named commit:
       verification. `internal/deletion` also has no test file at all, which
       should be fixed in the same change.
 
-- [ ] **Delete the Rust `workers/code-index` crate?**
-      *Why it matters:* its own doc comment says it "does not index code,
-      invoke a compiler, read a repository, access a network, or claim
-      compatibility with the canonical contracts". `main` reads stdin and
-      prints two digests. Nothing calls it; the Go `internal/codeindex` does
-      the real work. It carries a hand-rolled SHA-256 and JSON parser and a
-      Rust toolchain requirement into `check-all`.
-      *Options:* delete it, or land real indexing behind it.
-      *Recommendation:* delete. It is referenced by the justfile, CI and 95
-      Bazel files, so this is a repo-shape change rather than a package
-      deletion, which is why it is recorded rather than done here. The Rust
-      itself is the cleanest code in the repository — no unsafe, no unwrap,
-      zero third-party crates — so this is about wiring, not quality.
+- [x] **Delete the Rust `workers/code-index` crate? — yes, deleted
+      (2026-08-21).** Its own doc comment said it "does not index code, invoke
+      a compiler, read a repository, access a network, or claim compatibility
+      with the canonical contracts"; `main` read stdin and printed two digests.
+      Nothing called it. Removed along with the `cargo` line in `check-all`,
+      the CI `cargo` job (and with it the Rust toolchain requirement), and the
+      references in the README, the architecture doc and the installation
+      prerequisites.
+
+      One correction to the entry as written: it said the crate was "referenced
+      by the justfile, CI and 95 Bazel files". 94 is the repository's *total*
+      Bazel file count, and exactly one of them -- the crate's own
+      `BUILD.bazel` -- referenced it. The deletion was a package removal after
+      all, not a repo-shape change. `just check-all` passes without it.
+
+      Reversible with `git revert`. The Rust itself was the cleanest code in
+      the repository -- no unsafe, no unwrap, zero third-party crates -- so
+      this was about wiring, not quality.
 
 - [ ] **Wire or remove `llmadapter`?**
       *Why it matters:* 727 lines with no non-test importer, including the

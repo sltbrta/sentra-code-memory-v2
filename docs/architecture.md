@@ -64,9 +64,7 @@ session events ────► sessionlog JSONL ──► replay, continuation, 
   multimodal Qwen3-VL 2B embedding/reranker checkpoints when their local
   endpoints are available. Credentials and endpoints are configuration inputs;
   local code indexing never uploads working-tree source.
-- **`workers/code-index`** is an isolated Rust worker boundary for deterministic
-  receipts and cross-runtime hardening. It is separate from the Go code-index
-  projection and can be built/tested independently.
+
 - **`adapters`** (Phase 5, issue #35) exposes the canonical `codeserve` contract
   over local HTTP (`/health`, `/dispatch`) and MCP stdio (JSON-RPC 2.0
   `initialize`/`ping`/`tools.list`/`tools.call`). Both reuse `codeserve.Handle`

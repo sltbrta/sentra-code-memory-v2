@@ -3,7 +3,6 @@
 ## Prerequisites
 
 - Go 1.26 or newer for the backend workspace.
-- Rust 1.95 for the optional `workers/code-index` boundary.
 - Git for repository-head and working-tree metadata.
 
 No LLM, embedding service, database, or cloud credential is required for local

@@ -101,7 +101,6 @@ and
   PageIndex, PPR/PageRank, RAPTOR/community, agent-memory tiers, and gardener.
 - Local and hosted retrieval/model clients, dense backends, and generated Go/TS
   contracts.
-- Rust code-index worker boundary and parity fixtures.
 - Debounced fsnotify/poll watch with coalesced bounded event queue, overflow
   full-rescan protection, exponential retries, and multi-worker refresh.
 

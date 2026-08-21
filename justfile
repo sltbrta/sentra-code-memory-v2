@@ -24,7 +24,6 @@ check-race:
 
 check-all: check check-race
     go test -count=1 ./packages/contracts/...
-    cargo test --locked --offline --manifest-path workers/code-index/Cargo.toml
     cd packages/contracts && ruby tools/generated-manifest.rb check
 
 # Reachable-vulnerability scan. Requires golang.org/x/vuln/cmd/govulncheck.
