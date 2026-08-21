@@ -22,7 +22,7 @@ func TestLedgerPersistsAndReopens(t *testing.T) {
 	step := savings.Step{
 		Name: "find-relevant", Category: savings.CategoryRetrieval,
 		BaselineBytes: 400, ServedBytes: 100,
-		BaselineTokens: 100, ServedTokens: 25,
+		BaselineTokensEst: 100, ServedTokensEst: 25,
 		DedupCount: 2, CompressionCount: 1,
 		AvoidedReads: 3, ModelCalls: 1, AvoidedModelCalls: 1,
 	}
@@ -96,8 +96,8 @@ func TestRecordValidationLeavesCommittedLedgerIntact(t *testing.T) {
 func TestSummaryIsStableAcrossRecordOrder(t *testing.T) {
 	t.Parallel()
 	steps := []savings.Step{
-		{Name: "phase-a-private-name", Category: savings.CategoryCompression, BaselineBytes: 100, ServedBytes: 40, BaselineTokens: 25, ServedTokens: 10, CompressionCount: 1},
-		{Name: "phase-b-private-name", Category: savings.CategoryRetrieval, BaselineBytes: 50, ServedBytes: 10, BaselineTokens: 13, ServedTokens: 3, DedupCount: 2, AvoidedReads: 3, ModelCalls: 1, AvoidedModelCalls: 1},
+		{Name: "phase-a-private-name", Category: savings.CategoryCompression, BaselineBytes: 100, ServedBytes: 40, BaselineTokensEst: 25, ServedTokensEst: 10, CompressionCount: 1},
+		{Name: "phase-b-private-name", Category: savings.CategoryRetrieval, BaselineBytes: 50, ServedBytes: 10, BaselineTokensEst: 13, ServedTokensEst: 3, DedupCount: 2, AvoidedReads: 3, ModelCalls: 1, AvoidedModelCalls: 1},
 	}
 	makeSummary := func(cache string, ordered []savings.Step) savings.Summary {
 		ledger, err := savings.Open(cache)
@@ -124,7 +124,7 @@ func TestSummaryIsStableAcrossRecordOrder(t *testing.T) {
 	if !reflect.DeepEqual(leftJSON, rightJSON) {
 		t.Fatalf("summary JSON depends on record order:\n%s\n%s", leftJSON, rightJSON)
 	}
-	want := "steps=2 baseline_bytes=150 served_bytes=50 saved_bytes=100 baseline_tokens=38 served_tokens=13 saved_tokens=25 dedup=2 compression=1 avoided_reads=3 model_calls=1 avoided_model_calls=1 categories=compression:1,retrieval:1"
+	want := "steps=2 baseline_bytes=150 served_bytes=50 saved_bytes=100 baseline_tokens_est=38 served_tokens_est=13 saved_tokens_est=25 dedup=2 compression=1 avoided_reads=3 model_calls=1 avoided_model_calls=1 categories=compression:1,retrieval:1"
 	if got := left.String(); got != want {
 		t.Fatalf("summary = %q, want %q", got, want)
 	}
@@ -143,7 +143,7 @@ func TestLedgerRollsUpBeyondActiveStepCap(t *testing.T) {
 	for i := 0; i < savings.DefaultMaxSteps+17; i++ {
 		if err := ledger.Record(savings.Step{
 			Name: "step", Category: savings.CategoryRetrieval,
-			BaselineBytes: 10, ServedBytes: 4, BaselineTokens: 5, ServedTokens: 2,
+			BaselineBytes: 10, ServedBytes: 4, BaselineTokensEst: 5, ServedTokensEst: 2,
 		}); err != nil {
 			t.Fatalf("record %d: %v", i, err)
 		}
@@ -182,7 +182,7 @@ func TestLedgerSummaryConsistentUnderConcurrentRecord(t *testing.T) {
 			defer wg.Done()
 			if err := ledger.Record(savings.Step{
 				Name: "step", Category: savings.CategoryRetrieval,
-				BaselineBytes: 10, ServedBytes: 4, BaselineTokens: 5, ServedTokens: 2,
+				BaselineBytes: 10, ServedBytes: 4, BaselineTokensEst: 5, ServedTokensEst: 2,
 			}); err != nil {
 				t.Errorf("record: %v", err)
 			}

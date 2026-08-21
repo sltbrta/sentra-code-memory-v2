@@ -158,10 +158,10 @@ func TestWorkflowReport(t *testing.T) {
 		t.Fatalf("tool calls %d != steps %d", rep.Totals.ToolCalls, len(rep.Steps))
 	}
 	// The indexed workflow must beat reading the whole tree.
-	if rep.SavedTokens <= 0 || rep.TokenSavingsRatio <= 0 {
+	if rep.SavedTokensEst <= 0 || rep.TokenSavingsRatioEst <= 0 {
 		t.Fatalf("expected token savings: %+v", rep)
 	}
-	if rep.SavedTokens != rep.BaselineTokens-rep.Totals.EstTokens {
+	if rep.SavedTokensEst != rep.BaselineTokensEst-rep.Totals.EstTokens {
 		t.Fatalf("savings math: %+v", rep)
 	}
 	// The report is a stable JSON artifact.
@@ -173,7 +173,7 @@ func TestWorkflowReport(t *testing.T) {
 	if err := json.Unmarshal(raw, &round); err != nil {
 		t.Fatal(err)
 	}
-	if round.Totals != rep.Totals || round.SavedTokens != rep.SavedTokens {
+	if round.Totals != rep.Totals || round.SavedTokensEst != rep.SavedTokensEst {
 		t.Fatal("report does not round-trip")
 	}
 }
@@ -216,7 +216,7 @@ func TestReportRecordsOptionalSavingsLedger(t *testing.T) {
 		t.Fatalf("ledger identity: %+v", got)
 	}
 	if got.BaselineBytes != rep.BaselineBytes || got.ServedBytes != int64(rep.Totals.ResponseBytes) ||
-		got.BaselineTokens != int64(rep.BaselineTokens) || got.ServedTokens != int64(rep.Totals.EstTokens) {
+		got.BaselineTokensEst != int64(rep.BaselineTokensEst) || got.ServedTokensEst != int64(rep.Totals.EstTokens) {
 		t.Fatalf("ledger metric mismatch: %+v report=%+v", got, rep)
 	}
 }
@@ -258,7 +258,7 @@ func TestNormalizeDeterministic(t *testing.T) {
 	if err := n.MeasureBaseline(root); err != nil {
 		t.Fatal(err)
 	}
-	if n.SavedTokens <= 0 {
+	if n.SavedTokensEst <= 0 {
 		t.Fatal("normalized report must still show token savings")
 	}
 

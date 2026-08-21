@@ -243,7 +243,7 @@ func TestSavingsSummary(t *testing.T) {
 	}
 	if err := ledger.Record(savings.Step{
 		Name: "find-relevant", Category: savings.CategoryRetrieval,
-		BaselineBytes: 1200, ServedBytes: 240, BaselineTokens: 300, ServedTokens: 60,
+		BaselineBytes: 1200, ServedBytes: 240, BaselineTokensEst: 300, ServedTokensEst: 60,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -257,10 +257,10 @@ func TestSavingsSummary(t *testing.T) {
 	if !out.OK {
 		t.Fatalf("savings: %+v", out)
 	}
-	if out.Summary.Totals.SavedTokens != 240 {
-		t.Fatalf("saved_tokens=%d want 240: %+v", out.Summary.Totals.SavedTokens, out.Summary)
+	if out.Summary.Totals.SavedTokensEst != 240 {
+		t.Fatalf("saved_tokens_est=%d want 240: %+v", out.Summary.Totals.SavedTokensEst, out.Summary)
 	}
-	if !strings.Contains(out.Text, "saved_tokens=240") {
+	if !strings.Contains(out.Text, "saved_tokens_est=240") {
 		t.Fatalf("text summary missing tokens: %q", out.Text)
 	}
 }

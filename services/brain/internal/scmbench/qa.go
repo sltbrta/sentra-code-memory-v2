@@ -6,12 +6,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codecrawl"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/codeserve"
+	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/savings"
 )
 
 // Baseline is the checked-in deterministic reference for a QA suite (issue
@@ -19,31 +22,31 @@ import (
 // thresholds so CI/preflight can record and compare them across runs without
 // depending on machine speed (latency is excluded).
 type Baseline struct {
-	Suite             string         `json:"suite"`
-	Lane              string         `json:"lane"`
-	Digest            string         `json:"digest"`
-	HitRateAt1        float64        `json:"hit_rate_at_1"`
-	HitRateAt5        float64        `json:"hit_rate_at_5"`
-	HitRateAt10       float64        `json:"hit_rate_at_10"`
-	MeanPrecision     float64        `json:"mean_precision"`
-	TokenSavingsRatio float64        `json:"token_savings_ratio"`
-	Failures          map[string]int `json:"failures"`
-	Thresholds        Thresholds     `json:"thresholds"`
+	Suite                string         `json:"suite"`
+	Lane                 string         `json:"lane"`
+	Digest               string         `json:"digest"`
+	HitRateAt1           float64        `json:"hit_rate_at_1"`
+	HitRateAt5           float64        `json:"hit_rate_at_5"`
+	HitRateAt10          float64        `json:"hit_rate_at_10"`
+	MeanPrecision        float64        `json:"mean_precision"`
+	TokenSavingsRatioEst float64        `json:"token_savings_ratio"`
+	Failures             map[string]int `json:"failures"`
+	Thresholds           Thresholds     `json:"thresholds"`
 }
 
 // BaselineFromReport snapshots the deterministic core of a QA report.
 func BaselineFromReport(rep QAReport) Baseline {
 	return Baseline{
-		Suite:             rep.Suite,
-		Lane:              rep.Lane,
-		Digest:            rep.Digest,
-		HitRateAt1:        rep.HitRateAt1,
-		HitRateAt5:        rep.HitRateAt5,
-		HitRateAt10:       rep.HitRateAt10,
-		MeanPrecision:     rep.MeanPrecision,
-		TokenSavingsRatio: rep.TokenSavingsRatio,
-		Failures:          rep.Failures,
-		Thresholds:        rep.Thresholds,
+		Suite:                rep.Suite,
+		Lane:                 rep.Lane,
+		Digest:               rep.Digest,
+		HitRateAt1:           rep.HitRateAt1,
+		HitRateAt5:           rep.HitRateAt5,
+		HitRateAt10:          rep.HitRateAt10,
+		MeanPrecision:        rep.MeanPrecision,
+		TokenSavingsRatioEst: rep.TokenSavingsRatioEst,
+		Failures:             rep.Failures,
+		Thresholds:           rep.Thresholds,
 	}
 }
 
@@ -112,11 +115,27 @@ type QAReport struct {
 
 	Totals Totals `json:"totals"`
 
-	BaselineBytes     int64   `json:"baseline_bytes"`
-	BaselineTokens    int     `json:"baseline_tokens"`
-	SavedBytes        int64   `json:"saved_bytes"`
-	SavedTokens       int     `json:"saved_tokens"`
-	TokenSavingsRatio float64 `json:"token_savings_ratio"`
+	// Estimator and BaselineModel name how the figures below were produced.
+	// Without them a reader cannot tell an approximation from a count, or a
+	// saving against the whole tree from one against the files a query needed.
+	Estimator     string `json:"estimator"`
+	BaselineModel string `json:"baseline_model"`
+
+	BaselineBytes        int64   `json:"baseline_bytes"`
+	BaselineTokensEst    int     `json:"baseline_tokens_est"`
+	SavedBytes           int64   `json:"saved_bytes"`
+	SavedTokensEst       int     `json:"saved_tokens_est"`
+	TokenSavingsRatioEst float64 `json:"token_savings_ratio_est"`
+
+	// The gold-file baseline: the distinct files the queries name as their
+	// expected answers, which is what an agent would otherwise have read.
+	// Reported beside the whole-tree figures so the gap between the bound and
+	// the measurement is visible in the artifact rather than having to be
+	// known.
+	GoldBaselineBytes        int64   `json:"gold_baseline_bytes"`
+	GoldBaselineTokensEst    int     `json:"gold_baseline_tokens_est"`
+	GoldSavedTokensEst       int     `json:"gold_saved_tokens_est"`
+	GoldTokenSavingsRatioEst float64 `json:"gold_token_savings_ratio_est"`
 
 	Failures map[string]int `json:"failures"`
 
@@ -310,20 +329,83 @@ func percentile(sorted []int64, p float64) int64 {
 	return sorted[idx]
 }
 
-// MeasureQABaseline fills the token-savings fields against the whole-tree
-// naive baseline, matching the scenario baseline semantics.
-func (rep *QAReport) MeasureQABaseline(root string) error {
+// GoldBaselineBytes sums the distinct files the suite's queries name as their
+// expected answers.
+//
+// This is the honest baseline: it is what an agent would have had to read to
+// answer these queries without retrieval. The whole-tree baseline beside it --
+// "an agent reads every indexed source file" -- is a bound rather than a
+// measurement, because no agent performs it, and a ratio against it says more
+// about the size of the repository than about the product.
+//
+// A file named by more than one query is counted once, because the agent reads
+// it once. Expectations are matched as path suffixes, which is how the suite's
+// own hit checking already treats them.
+func GoldBaselineBytes(root string, queries []QAQuery) (int64, error) {
+	paths, err := codecrawl.SourceFiles(root)
+	if err != nil {
+		return 0, err
+	}
+	wanted := map[string]struct{}{}
+	for _, query := range queries {
+		for _, expect := range query.Expect {
+			expect = filepath.ToSlash(strings.TrimSpace(expect))
+			if expect == "" {
+				continue
+			}
+			for _, path := range paths {
+				if strings.HasSuffix(filepath.ToSlash(path), expect) {
+					wanted[path] = struct{}{}
+				}
+			}
+		}
+	}
+	var total int64
+	for path := range wanted {
+		info, err := os.Stat(path)
+		if err != nil {
+			return 0, err
+		}
+		if info.Mode().IsRegular() {
+			total += info.Size()
+		}
+	}
+	return total, nil
+}
+
+// MeasureQABaseline fills the token-savings fields.
+//
+// Two baselines are reported rather than one. The headline figures stay on the
+// whole-tree baseline so the threshold and the checked-in digest keep their
+// meaning, but they are named for what they are, and the gold-file baseline is
+// reported alongside so the distance between the bound and the measurement is
+// visible in the artifact rather than having to be known.
+func (rep *QAReport) MeasureQABaseline(root string, queries []QAQuery) error {
 	b, err := NaiveBaselineBytes(root)
 	if err != nil {
 		return err
 	}
+	rep.Estimator = string(savings.EstimatorBytesDiv4)
+	rep.BaselineModel = string(savings.BaselineWholeTree)
 	rep.BaselineBytes = b
-	rep.BaselineTokens = estimateBytes(b)
+	rep.BaselineTokensEst = estimateBytes(b)
 	rep.SavedBytes = b - int64(rep.Totals.ResponseBytes)
-	rep.SavedTokens = rep.BaselineTokens - rep.Totals.EstTokens
-	if rep.BaselineTokens > 0 {
-		rep.TokenSavingsRatio = float64(rep.SavedTokens) / float64(rep.BaselineTokens)
+	rep.SavedTokensEst = rep.BaselineTokensEst - rep.Totals.EstTokens
+	if rep.BaselineTokensEst > 0 {
+		rep.TokenSavingsRatioEst = float64(rep.SavedTokensEst) / float64(rep.BaselineTokensEst)
 	}
+
+	gold, err := GoldBaselineBytes(root, queries)
+	if err != nil {
+		return err
+	}
+	rep.GoldBaselineBytes = gold
+	rep.GoldBaselineTokensEst = estimateBytes(gold)
+	rep.GoldSavedTokensEst = rep.GoldBaselineTokensEst - rep.Totals.EstTokens
+	if rep.GoldBaselineTokensEst > 0 {
+		rep.GoldTokenSavingsRatioEst = float64(rep.GoldSavedTokensEst) / float64(rep.GoldBaselineTokensEst)
+	}
+
 	// The savings fields feed the digest, so recompute it once they are set.
 	rep.Digest = qaDigest(rep)
 	return nil
@@ -351,8 +433,8 @@ func (rep *QAReport) CheckThresholds(t Thresholds) {
 	if t.MaxP95LatencyMS > 0 && rep.P95LatencyMS > t.MaxP95LatencyMS {
 		add("p95 latency %dms above threshold %dms", rep.P95LatencyMS, t.MaxP95LatencyMS)
 	}
-	if rep.TokenSavingsRatio < t.MinTokenSavingsRatio {
-		add("token savings ratio %.2f below threshold %.2f", rep.TokenSavingsRatio, t.MinTokenSavingsRatio)
+	if rep.TokenSavingsRatioEst < t.MinTokenSavingsRatio {
+		add("token savings ratio %.2f below threshold %.2f", rep.TokenSavingsRatioEst, t.MinTokenSavingsRatio)
 	}
 	failed := 0
 	for _, q := range rep.Queries {
@@ -384,18 +466,18 @@ func qaDigest(rep *QAReport) string {
 		EstTokens int     `json:"est_tokens"`
 	}
 	core := struct {
-		Suite             string         `json:"suite"`
-		Lane              string         `json:"lane"`
-		Queries           []coreQuery    `json:"queries"`
-		HitRateAt1        float64        `json:"hit_rate_at_1"`
-		HitRateAt5        float64        `json:"hit_rate_at_5"`
-		HitRateAt10       float64        `json:"hit_rate_at_10"`
-		MeanPrecision     float64        `json:"mean_precision"`
-		Totals            Totals         `json:"totals"`
-		BaselineBytes     int64          `json:"baseline_bytes"`
-		SavedTokens       int            `json:"saved_tokens"`
-		TokenSavingsRatio float64        `json:"token_savings_ratio"`
-		Failures          map[string]int `json:"failures"`
+		Suite                string         `json:"suite"`
+		Lane                 string         `json:"lane"`
+		Queries              []coreQuery    `json:"queries"`
+		HitRateAt1           float64        `json:"hit_rate_at_1"`
+		HitRateAt5           float64        `json:"hit_rate_at_5"`
+		HitRateAt10          float64        `json:"hit_rate_at_10"`
+		MeanPrecision        float64        `json:"mean_precision"`
+		Totals               Totals         `json:"totals"`
+		BaselineBytes        int64          `json:"baseline_bytes"`
+		SavedTokensEst       int            `json:"saved_tokens"`
+		TokenSavingsRatioEst float64        `json:"token_savings_ratio"`
+		Failures             map[string]int `json:"failures"`
 	}{
 		Suite: rep.Suite, Lane: rep.Lane,
 		HitRateAt1: rep.HitRateAt1, HitRateAt5: rep.HitRateAt5,
@@ -405,10 +487,10 @@ func qaDigest(rep *QAReport) string {
 			EstTokens:     rep.Totals.EstTokens,
 			ToolCalls:     rep.Totals.ToolCalls,
 		},
-		BaselineBytes:     rep.BaselineBytes,
-		SavedTokens:       rep.SavedTokens,
-		TokenSavingsRatio: rep.TokenSavingsRatio,
-		Failures:          rep.Failures,
+		BaselineBytes:        rep.BaselineBytes,
+		SavedTokensEst:       rep.SavedTokensEst,
+		TokenSavingsRatioEst: rep.TokenSavingsRatioEst,
+		Failures:             rep.Failures,
 	}
 	core.Queries = make([]coreQuery, 0, len(rep.Queries))
 	for _, q := range rep.Queries {

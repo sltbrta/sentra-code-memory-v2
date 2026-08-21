@@ -113,16 +113,16 @@ type Totals struct {
 
 // Report is the deterministic benchmark artifact (safe to commit/diff).
 type Report struct {
-	Contract          string       `json:"contract"`
-	Scenario          string       `json:"scenario"`
-	Steps             []StepMetric `json:"steps"`
-	Totals            Totals       `json:"totals"`
-	FailedSteps       int          `json:"failed_steps"`
-	BaselineBytes     int64        `json:"baseline_bytes"`
-	BaselineTokens    int          `json:"baseline_tokens"`
-	SavedBytes        int64        `json:"saved_bytes"`
-	SavedTokens       int          `json:"saved_tokens"`
-	TokenSavingsRatio float64      `json:"token_savings_ratio"`
+	Contract             string       `json:"contract"`
+	Scenario             string       `json:"scenario"`
+	Steps                []StepMetric `json:"steps"`
+	Totals               Totals       `json:"totals"`
+	FailedSteps          int          `json:"failed_steps"`
+	BaselineBytes        int64        `json:"baseline_bytes"`
+	BaselineTokensEst    int          `json:"baseline_tokens_est"`
+	SavedBytes           int64        `json:"saved_bytes"`
+	SavedTokensEst       int          `json:"saved_tokens_est"`
+	TokenSavingsRatioEst float64      `json:"token_savings_ratio_est"`
 }
 
 // EstimateTokens is the deterministic offline token yardstick:
@@ -245,7 +245,7 @@ func (rep Report) RecordSavings(cacheDir string) error {
 		return fmt.Errorf("benchmark has %d failed step(s)", rep.FailedSteps)
 	}
 	if rep.SavedBytes != rep.BaselineBytes-int64(rep.Totals.ResponseBytes) ||
-		rep.SavedTokens != rep.BaselineTokens-rep.Totals.EstTokens {
+		rep.SavedTokensEst != rep.BaselineTokensEst-rep.Totals.EstTokens {
 		return fmt.Errorf("benchmark baseline has not been measured or is stale")
 	}
 	ledger, err := savings.Open(cacheDir)
@@ -253,12 +253,18 @@ func (rep Report) RecordSavings(cacheDir string) error {
 		return err
 	}
 	return ledger.Record(savings.Step{
-		Name:           rep.Scenario,
-		Category:       savings.CategoryRetrieval,
-		BaselineBytes:  rep.BaselineBytes,
-		ServedBytes:    int64(rep.Totals.ResponseBytes),
-		BaselineTokens: int64(rep.BaselineTokens),
-		ServedTokens:   int64(rep.Totals.EstTokens),
+		Name:      rep.Scenario,
+		Category:  savings.CategoryRetrieval,
+		Estimator: savings.EstimatorBytesDiv4,
+		// The scenario lane's baseline is the whole indexed tree, which is a
+		// bound rather than a measurement. Naming it here means a figure
+		// produced against it is never silently compared with one produced
+		// against the gold-file baseline the QA lane uses.
+		BaselineModel:     savings.BaselineWholeTree,
+		BaselineBytes:     rep.BaselineBytes,
+		ServedBytes:       int64(rep.Totals.ResponseBytes),
+		BaselineTokensEst: int64(rep.BaselineTokensEst),
+		ServedTokensEst:   int64(rep.Totals.EstTokens),
 	})
 }
 
@@ -272,11 +278,11 @@ func (rep *Report) MeasureBaseline(root string) error {
 		return err
 	}
 	rep.BaselineBytes = b
-	rep.BaselineTokens = estimateBytes(b)
+	rep.BaselineTokensEst = estimateBytes(b)
 	rep.SavedBytes = b - int64(rep.Totals.ResponseBytes)
-	rep.SavedTokens = rep.BaselineTokens - rep.Totals.EstTokens
-	if rep.BaselineTokens > 0 {
-		rep.TokenSavingsRatio = float64(rep.SavedTokens) / float64(rep.BaselineTokens)
+	rep.SavedTokensEst = rep.BaselineTokensEst - rep.Totals.EstTokens
+	if rep.BaselineTokensEst > 0 {
+		rep.TokenSavingsRatioEst = float64(rep.SavedTokensEst) / float64(rep.BaselineTokensEst)
 	}
 	return nil
 }

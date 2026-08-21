@@ -7,25 +7,6 @@ Schema per entry: date, wave, trigger, why deferred, what would satisfy it.
 
 ## Open
 
-### 2026-08-21 — savings figures are estimates presented as measurements
-
-- **Wave:** W3
-- **Trigger:** `savings` reports `baseline_tokens` / `served_tokens` /
-  `saved_tokens` derived from a flat bytes÷4 heuristic, against a baseline of
-  "an agent reads every indexed source file" that no real agent performs. The
-  JSON and CLI carry no qualifier. Separately the ledger has no producer in the
-  product: only the benchmark writes to it, so `savings_summary` answers
-  `steps: 0` after real use.
-- **Why deferred:** a real tokenizer means either vendoring a BPE vocabulary
-  (a dependency decision recorded in `DECISIONS.md`) or shipping a model-specific
-  approximation, and an honest baseline means measuring what an agent would
-  otherwise have read per query rather than the whole repository. Both are
-  design choices rather than corrections.
-- **What would satisfy it:** rename the wire fields to `*_tokens_est`, emit the
-  estimator identity and baseline model alongside them, have the retrieval verbs
-  record a `savings.Step` per served response, and base the baseline on the gold
-  files for a query rather than the tree.
-
 ### 2026-08-21 — performance findings not addressed
 
 - **Wave:** W3
@@ -80,6 +61,51 @@ Schema per entry: date, wave, trigger, why deferred, what would satisfy it.
   aimed at the wrong bound.
 
 ## Drained
+
+### 2026-08-21 — savings figures were estimates presented as measurements
+
+- **Wave:** W3
+- **Trigger:** `savings` reported `baseline_tokens` / `served_tokens` /
+  `saved_tokens` from a flat bytes÷4 heuristic, against a baseline of "an agent
+  reads every indexed source file" that no real agent performs, with no
+  qualifier on the JSON or the CLI. Separately the ledger had no producer in
+  the product: only the benchmark wrote to it, so `savings_summary` answered
+  `steps: 0` after any amount of real use.
+- **Why deferred:** a real tokenizer means vendoring a BPE vocabulary or
+  shipping a model-specific approximation, and an honest baseline means
+  measuring what an agent would otherwise have read. Both are design choices.
+- **What satisfied it:**
+  - Every token field is `*_tokens_est`, and every step and report carries the
+    identity of the estimator (`bytes_div_4`) and of the baseline model
+    (`whole_tree` or `gold_files`), so a figure produced under one is never
+    silently compared with a figure produced under another. The on-disk schema
+    went to 2; an older ledger is discarded rather than reinterpreted, being
+    derived cache-resident data whose estimator was never recorded.
+  - The QA lane reports both baselines. **Measured on the checked-in fixture:
+    0.50 against the whole tree, 0.42 against the gold files** -- the strawman
+    was worth eight points of claimed saving. The headline figure stays on the
+    whole-tree baseline so the threshold and the digest keep their meaning, but
+    it is named, and the honest one sits beside it in the artifact.
+  - `code_search` now records a step per served response, so the ledger has a
+    producer in the product. Its baseline is the set of files the answer cites
+    -- what the caller would otherwise have read to reach the same hits.
+  - A durable rewrite of the ledger measures 4.2ms at capacity while the
+    retrieval path answers in well under a millisecond, so writing per response
+    would cost several times what it measures. Steps are queued and written
+    every 32, and a summary flushes before reading. `bench-code` p95 and the
+    baseline digest are both unchanged.
+
+  Two mistakes in the first version, each caught by a test rather than by
+  reading: the queued steps were held in a `savings.Ledger` opened per request
+  and thrown away, so nothing was ever written; and caching that Ledger instead
+  made a long-lived reader answer from a snapshot taken before other writers'
+  records. Only the queue is process state now, and the file stays the source
+  of truth.
+
+- **Not done, and still true:** the estimator is not any model's tokenizer, and
+  says so in its name rather than being corrected. A real one is the dependency
+  decision this entry originally described.
+
 
 ### 2026-08-21 — factory BUILD and TEST gates did not build or test
 

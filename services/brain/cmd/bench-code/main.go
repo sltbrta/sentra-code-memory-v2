@@ -86,7 +86,7 @@ func run(args []string) int {
 		fmt.Fprintf(os.Stderr, "bench-code: qa: %v\n", err)
 		return 1
 	}
-	if err := qa.MeasureQABaseline(root); err != nil {
+	if err := qa.MeasureQABaseline(root, suite.Queries); err != nil {
 		fmt.Fprintf(os.Stderr, "bench-code: baseline: %v\n", err)
 		return 1
 	}
@@ -179,8 +179,13 @@ func printSummary(rep BenchReport) {
 	fmt.Printf("  fixture=%s lane=%s contract=%s\n", rep.Fixture, rep.Lane, rep.Contract)
 	fmt.Printf("  hit@1=%.2f hit@5=%.2f hit@10=%.2f precision=%.2f queries=%d\n",
 		qa.HitRateAt1, qa.HitRateAt5, qa.HitRateAt10, qa.MeanPrecision, len(qa.Queries))
-	fmt.Printf("  p95_latency=%dms mean_latency=%.1fms token_savings=%.2f\n",
-		qa.P95LatencyMS, qa.MeanLatencyMS, qa.TokenSavingsRatio)
+	fmt.Printf("  p95_latency=%dms mean_latency=%.1fms\n", qa.P95LatencyMS, qa.MeanLatencyMS)
+	// Both baselines, both named. The whole-tree ratio is a bound -- no agent
+	// reads every indexed file -- and printing it alone as "token_savings"
+	// invited it to be read as a measurement. The gold-file ratio is what the
+	// queries actually needed.
+	fmt.Printf("  token_savings_est=%.2f (estimator=%s baseline=%s) gold_baseline_savings_est=%.2f\n",
+		qa.TokenSavingsRatioEst, qa.Estimator, qa.BaselineModel, qa.GoldTokenSavingsRatioEst)
 	fmt.Printf("  failures=%v\n", qa.Failures)
 	fmt.Printf("  smoke_matrix pass=%v (%d probes)\n", rep.Smoke.Pass, len(rep.Smoke.Results))
 	if rep.BaselinePresent {

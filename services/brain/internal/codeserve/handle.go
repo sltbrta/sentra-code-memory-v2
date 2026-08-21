@@ -20,7 +20,6 @@ import (
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/memory"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/productsearch"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/repoignore"
-	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/savings"
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/sessionlog"
 )
 
@@ -402,10 +401,15 @@ func handleCodeSearch(req Request) Response {
 	}
 	t0 := time.Now()
 	hits := idx.SearchOpts(q, topK, true)
-	return okResp(string(VerbCodeSearch), map[string]any{
+	response := okResp(string(VerbCodeSearch), map[string]any{
 		"root": rootAbs, "gob_path": gobPath, "q": q, "hits": hits,
 		"duration_ms": time.Since(t0).Milliseconds(), "search_backend": "codecrawl",
 	})
+	// The savings ledger had no producer in the product: only the benchmark
+	// wrote to it, so savings_summary answered steps: 0 after any amount of
+	// real use. Buffered and never fatal; see savings_producer.go.
+	recordSearchSavings(req, rootAbs, hits, response)
+	return response
 }
 
 // findRelevantSourceCap bounds per-file bytes read for packing (fail-safe).
@@ -1004,7 +1008,10 @@ func handleSavingsSummary(req Request) Response {
 	if dir == "" {
 		return errResp(string(VerbSavingsSummary), "dir required")
 	}
-	ledger, err := savings.Open(dir)
+	// The same instance the producer records into: a summary that opened its
+	// own would not see the buffered steps, and would answer zero for work
+	// this process has already done.
+	ledger, err := openSavingsLedgerForRead(dir)
 	if err != nil {
 		return errResp(string(VerbSavingsSummary), err.Error())
 	}

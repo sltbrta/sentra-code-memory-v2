@@ -14,11 +14,12 @@ func runQAFixture(t *testing.T) scmbench.QAReport {
 	t.Helper()
 	root := fixtureRoot
 	cache := t.TempDir()
-	rep, err := scmbench.RunQA(context.Background(), scmbench.QAFixtureSuite(root, cache))
+	suite := scmbench.QAFixtureSuite(root, cache)
+	rep, err := scmbench.RunQA(context.Background(), suite)
 	if err != nil {
 		t.Fatalf("RunQA: %v", err)
 	}
-	if err := rep.MeasureQABaseline(root); err != nil {
+	if err := rep.MeasureQABaseline(root, suite.Queries); err != nil {
 		t.Fatalf("MeasureQABaseline: %v", err)
 	}
 	return rep
@@ -76,7 +77,7 @@ func TestQATokenSavingsPositive(t *testing.T) {
 	if rep.BaselineBytes <= 0 {
 		t.Fatalf("baseline bytes=%d", rep.BaselineBytes)
 	}
-	if rep.SavedTokens <= 0 || rep.TokenSavingsRatio <= 0 {
+	if rep.SavedTokensEst <= 0 || rep.TokenSavingsRatioEst <= 0 {
 		t.Fatalf("expected token savings: %+v", rep)
 	}
 }
