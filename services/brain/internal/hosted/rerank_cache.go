@@ -384,12 +384,24 @@ func rerankDocumentCharacterLimit(backend string) int {
 	return 1500
 }
 
+// clippedRerankText bounds one document for the reranker.
+//
+// It took the first `limit` bytes, which on code is the licence header and the
+// imports -- so the model scored a preamble against a question about a
+// function. The budget is unchanged; where the bytes come from is not. See
+// rerank_window.go, and rerank_window_test.go for the offline measurement.
+//
+// The cut was also a byte offset, which lands mid-rune and reaches a provider's
+// JSON body, where encoding/json substitutes U+FFFD.
 func clippedRerankText(text, backend string) string {
-	limit := rerankDocumentCharacterLimit(backend)
-	if len(text) > limit {
-		return text[:limit]
-	}
-	return text
+	return clippedRerankTextFor(text, "", backend)
+}
+
+// clippedRerankTextFor bounds a document for a known query, so the window can
+// be the part of the document the query is about. An empty query keeps the
+// head, which is what a caller with no query to centre on should get.
+func clippedRerankTextFor(text, query, backend string) string {
+	return rerankWindow(text, query, rerankDocumentCharacterLimit(backend))
 }
 
 // rerankCECharacters counts the semantic strings submitted to the provider:
@@ -402,7 +414,7 @@ func rerankCECharacters(question string, passages []Passage, backend string) (in
 		return maxRerankCECharactersDiag, true
 	}
 	for _, passage := range passages {
-		total += utf8.RuneCountInString(clippedRerankText(passage.Text, backend))
+		total += utf8.RuneCountInString(clippedRerankTextFor(passage.Text, question, backend))
 		if total >= maxRerankCECharactersDiag {
 			return maxRerankCECharactersDiag, true
 		}

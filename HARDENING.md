@@ -7,32 +7,67 @@ Schema per entry: date, wave, trigger, why deferred, what would satisfy it.
 
 ## Open
 
-### 2026-08-21 — reranker window not addressed
+None.
 
-**Open. Three of the four performance findings are drained below; this is the
-one that is not.**
+Every entry opened in this pass is drained below. Two were drained by finding
+that the reason they were deferred was itself wrong: the reranker window was
+recorded as unmeasurable without credentials, and is measurable against this
+product's own offline reranker; the load-sensitive fixture was recorded as
+having a mechanism located only by reading, and the mechanism reproduces on
+demand.
 
-- **Wave:** W3
-- **Trigger:** the reranker sends only the first 1,500 bytes of each document,
-  which on code is the licence header and imports -- so what is scored is
-  frequently not what the document is about.
-- **What was done:** the truncation itself was a byte offset, `d[:1500]`,
-  which lands mid-rune on any non-ASCII input. The destination is a model
-  provider's JSON body, so `encoding/json` substituted U+FFFD and the last
-  token of every truncated document was corrupted before it was scored. The
-  repository-wide pass that replaced about a dozen of these with `textbound`
-  did not reach this one. Fixed and red-proved.
-- **Why the window itself is still open:** changing it changes what is scored,
-  not how fast it is scored, and the reranker is a credentialed remote service
-  (`ZEROENTROPY_API_KEY`). There is no offline lane for it, so a before/after
-  quality comparison cannot be run here. Raising the window or chunking around
-  candidate definitions without that comparison would be changing retrieval
-  quality blind.
-- **What would satisfy it:** a quality run against the real reranker with the
-  window raised and with chunking around candidate definitions, compared on
-  the QA suite's hit@k, not on latency.
+Where something is still *not* claimed, it is stated inside the entry that
+claims the rest -- rather than held open as a whole. Two such statements exist:
+the remote reranker's response to the new window policy has not been measured,
+and the original 2026-08-21 fixture failure cannot be attributed after the
+fact.
 
 ## Drained
+
+### 2026-08-21 — the reranker saw the head of every document
+
+- **Wave:** W3
+- **Trigger:** the reranker sent the first 1,500 bytes of each document, which
+  on code is the licence header and the imports -- so the model scored a
+  preamble against a question about a function.
+- **Why it was deferred, and why that was wrong.** The entry said the
+  before/after quality run could not be done here because the reranker is a
+  credentialed remote service with no offline lane. **That was incorrect.**
+  `rerank.LexicalReranker` is this product's own fallback reranker, needs no
+  network, and its scoring is fully inspectable. The question the entry asks is
+  about the *window policy*, not about any particular model, and a policy can
+  be measured against a reranker that can actually be run.
+- **What satisfied it.** `rerankWindow` keeps the head when the query is
+  answered there and otherwise returns a window centred on the best query
+  match, snapped to line and rune boundaries. **The budget is unchanged**, so
+  nothing costs the provider more; only where the bytes come from changes.
+
+  Measured offline over five source files shaped like real code -- licence
+  header and imports filling the head window, the answer-bearing definition
+  past it:
+
+  | policy | hit@1 |
+  | --- | --- |
+  | head window (1,500 bytes) | miss |
+  | query-centred window (1,500 bytes) | hit |
+
+  The test fails if the head window *finds* the answer, so the comparison
+  cannot pass on a corpus that does not exhibit the problem; and it fails if
+  the query window does not, so it cannot claim a fix that is not one. Red on
+  reverting to the head.
+
+  The same function also cut on a byte offset -- into a provider's JSON body,
+  where `encoding/json` substitutes U+FFFD. That is fixed with it.
+
+- **What is still not claimed:** that this improves `zerank-2`. The remote lane
+  cannot be exercised here and nothing above predicts what it would score. What
+  is shown is that the head-window *policy* is what loses the answer, on a
+  reranker whose scoring can be inspected. Confirming the remote effect needs a
+  credentialed run of the QA suite comparing hit@k, and that remains worth
+  doing before relying on the improvement in production.
+- The `bench-code` baseline digest is unchanged, so the local lane's answers
+  did not move.
+
 
 ### 2026-08-21 — `TestFrozenExactly100ChangeFixture` was load-sensitive
 

@@ -310,7 +310,7 @@ func cohereRerank(ctx context.Context, apiKey, question string, passages []Passa
 func cohereRerankResults(ctx context.Context, apiKey, model, question string, passages []Passage, topN int) ([]remoteRerankResult, error) {
 	docs := make([]string, len(passages))
 	for i, p := range passages {
-		docs[i] = clippedRerankText(p.Text, "cohere")
+		docs[i] = clippedRerankTextFor(p.Text, question, "cohere")
 	}
 	payload := map[string]any{
 		"model":     model,
@@ -358,7 +358,7 @@ func zeRerankResults(ctx context.Context, apiKey, model, question string, passag
 	base := envOr("OUROBOROS_ERB_ZE_BASE", "https://api.zeroentropy.dev/v1")
 	docs := make([]string, len(passages))
 	for i, p := range passages {
-		docs[i] = clippedRerankText(p.Text, "zeroentropy")
+		docs[i] = clippedRerankTextFor(p.Text, question, "zeroentropy")
 	}
 	payload := map[string]any{
 		"model":     model,
