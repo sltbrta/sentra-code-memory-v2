@@ -3,7 +3,6 @@ package hosted
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,10 +37,11 @@ type denseBackend interface {
 	Upsert(points []DensePoint) error
 	Search(query denseQuery, topK int) (denseSearchResult, error)
 	// DeleteDocuments removes every vector belonging to the named documents
-	// and reports how many were removed. A backend that cannot verifiably
-	// purge returns ErrPurgeUnsupported rather than reporting a success it
-	// cannot stand behind -- a purge receipt that says "removed" about a store
-	// that silently no-opped is worse than a receipt that names the gap.
+	// and reports how many were removed. A backend that cannot perform the
+	// delete returns an error rather than a count: a purge receipt that says
+	// "removed" about a store that silently no-opped is worse than one that
+	// names the gap, and the fan-out's verification pass turns the error into
+	// a reported residual.
 	DeleteDocuments(docIDs []string) (int, error)
 	// HasDocuments returns the document ids that still have vectors. It is the
 	// verification half: a delete count says how many rows a statement
@@ -49,16 +49,14 @@ type denseBackend interface {
 	HasDocuments(docIDs []string) ([]string, error)
 }
 
-// ErrPurgeUnsupported reports a dense backend that cannot verifiably delete.
-//
-// Two of the five are in this state, and it is a deliberate answer rather than
-// an unfinished one. The FAISS sidecar and Qdrant are remote services whose
-// delete surfaces this repository cannot exercise; implementing an HTTP call
-// against an endpoint nobody here can confirm, and then reporting its result
-// as an erasure, would ship an erasure path that has never run. The purge
-// receipt names them as skipped and refuses to report completeness, so the gap
-// is visible in the artifact rather than assumed away.
-var ErrPurgeUnsupported = errors.New("hosted: dense backend does not support verifiable purge")
+// All five dense backends implement the purge port. The two remote ones --
+// the FAISS sidecar and Qdrant -- are implemented against their documented
+// APIs and exercised against fakes that speak them; neither has been run
+// against a live server, which is tolerable only because the fan-out verifies
+// by re-querying. An endpoint guessed wrong returns non-2xx, which becomes an
+// error, which the verification pass reports as a residual -- so a wrong
+// implementation surfaces as an incomplete erasure rather than a successful
+// one. See dense_purge.go.
 
 // localDense holds a durable SQLite dense projection under the residual Dir.
 type localDense struct {

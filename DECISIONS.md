@@ -163,13 +163,32 @@ Calls taken, each reversible by reverting the named commit:
       stale index still points at a live slot, so nothing crashes and the
       results are simply wrong.
 
-      FAISS and Qdrant return `ErrPurgeUnsupported`. They are remote services
-      whose delete surfaces this repository cannot exercise, and an unverified
-      HTTP call reported as an erasure is the overclaiming this branch exists
-      to remove. Against those two the receipt still names `vectors` as
-      skipped and still refuses `VerifiedComplete`. A backend that cannot
-      answer a verification is read as *residual*, not as empty: unable to
-      verify is not verified empty.
+      **FAISS and Qdrant, closed 2026-08-21.** They were left returning
+      `ErrPurgeUnsupported` on the grounds that shipping an erasure path this
+      repository cannot exercise is worse than a named gap. That reasoning
+      missed the shape of the fan-out: it verifies by **re-querying** after the
+      delete, so a wrong endpoint returns non-2xx, which becomes an error,
+      which the verification reports as a residual. A wrong implementation
+      therefore surfaces as an *incomplete* erasure rather than as a successful
+      one -- and refusing to try left those deployments permanently unable to
+      erase, which is strictly worse than trying against a self-checking
+      fan-out.
+
+      Both are now implemented against their documented APIs and exercised
+      against fakes that speak them: Qdrant deletes by a `dsid` payload filter
+      and verifies with an exact count; the FAISS sidecar uses the same
+      request shape as its documented upsert and search. A test drives both
+      against a server that answers 404 to everything, and asserts the purge
+      is reported as a failure rather than a success.
+
+      *Still not claimed:* that either has run against a live server. The
+      verification pass is what makes that tolerable rather than reckless.
+
+      A backend that cannot be reached at all is not wired as a purger, and the
+      receipt names `vectors` as skipped. The reachability probe checks
+      configuration before its empty-input short-circuit -- without that, an
+      unconfigured backend answered "nothing to do", got wired, and would have
+      reported zero removals as an erasure. Caught by its own test.
       *Also:* `internal/deletion` had no test file at all, which is part of why
       none of this was noticed. It has one now.
 

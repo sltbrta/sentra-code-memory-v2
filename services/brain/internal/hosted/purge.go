@@ -1,8 +1,6 @@
 package hosted
 
 import (
-	"errors"
-
 	"github.com/sltbrta/sentra-code-memory-v2/services/brain/internal/deletion"
 )
 
@@ -14,14 +12,16 @@ import (
 // actually answer a query, so a deleted document kept being retrieved,
 // ranked and cited.
 //
-// The dense backend is wired when it can verifiably purge. Three of the five
-// implementations can and are exercised here -- the in-memory store, the HNSW
-// index, and the SQLite-backed local projection -- and Postgres implements the
-// same SQL as its writer. FAISS and Qdrant return ErrPurgeUnsupported: they
-// are remote services whose delete surfaces this repository cannot exercise,
-// and an unverified HTTP call reported as an erasure is worse than a named
-// gap. Against those two the receipt still names `vectors` as skipped and
-// still refuses VerifiedComplete, which is the honest answer.
+// All five dense backends implement the purge port. Three are exercised
+// directly here -- the in-memory store, the HNSW index, and the SQLite-backed
+// local projection -- Postgres implements the same SQL as its writer, and the
+// two remote ones are implemented against their documented APIs and exercised
+// against fakes. None of that requires trusting an unverified call: the
+// fan-out re-queries after the delete, so a wrong endpoint surfaces as a
+// reported residual rather than as a silent success.
+//
+// A backend that cannot be reached at all is not wired, and the receipt names
+// `vectors` as skipped rather than reading zero removals as an erasure.
 func (c *Client) PurgeDocuments(brainID string, docIDs []string) (deletion.PurgeReceipt, error) {
 	if c == nil {
 		return deletion.PurgeReceipt{}, deletion.ErrNoSubstrates
@@ -44,19 +44,22 @@ func (c *Client) PurgeDocuments(brainID string, docIDs []string) (deletion.Purge
 }
 
 // vectorPurger adapts this client's dense backend to the purge port, or
-// returns nil when the backend cannot verifiably delete.
+// returns nil when the backend cannot be reached at all.
 //
 // Nil rather than an adapter that returns errors: the fan-out reports a nil
 // port as a skipped substrate and refuses to call the purge complete, which is
-// exactly the disposition an unsupported backend deserves. An adapter that
-// swallowed ErrPurgeUnsupported would report zero removals as a success.
+// the right disposition for a store nothing can talk to. An adapter would
+// instead report zero removals, which reads as "there was nothing to remove".
+//
+// Reachability is decided once, here, with an empty probe, rather than
+// surfacing as a mid-purge error. A backend that answers an empty probe may
+// still fail the real delete -- and that failure is reported as a residual by
+// the verification pass, which is the point of having one.
 func (c *Client) vectorPurger() deletion.VectorPurger {
 	if c == nil || c.localDense == nil {
 		return nil
 	}
-	// A backend that refuses one probe refuses all of them, so the capability
-	// is decided once, here, rather than surfacing as a mid-purge error.
-	if _, err := c.localDense.HasDocuments(nil); errors.Is(err, ErrPurgeUnsupported) {
+	if _, err := c.localDense.HasDocuments(nil); err != nil {
 		return nil
 	}
 	return denseVectorPurger{backend: c.localDense}

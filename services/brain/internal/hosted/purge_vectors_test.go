@@ -2,7 +2,6 @@ package hosted
 
 import (
 	"context"
-	"errors"
 	"testing"
 )
 
@@ -77,27 +76,33 @@ func TestPurgeReachesTheDenseVectors(t *testing.T) {
 	}
 }
 
-// TestAnUnsupportedBackendIsStillNamedAsSkipped keeps the honest disposition
-// for the two backends that cannot verifiably purge. A receipt that claimed
-// completeness because an unsupported backend returned zero removals would be
-// the overclaiming this replaces.
-func TestAnUnsupportedBackendIsStillNamedAsSkipped(t *testing.T) {
+// TestAnUnconfiguredBackendIsNamedAsSkipped keeps the honest disposition for a
+// backend that cannot answer at all.
+//
+// Both remote backends now implement the purge port -- see
+// remote_purge_test.go -- so the previous version of this test, which asserted
+// they refuse, no longer describes them. What still has to hold is the
+// disposition when a backend cannot be reached: it is not wired as a purger,
+// and the receipt names `vectors` as skipped rather than claiming completeness
+// from zero removals.
+func TestAnUnconfiguredBackendIsNamedAsSkipped(t *testing.T) {
 	for name, backend := range map[string]denseBackend{
+		// No base URL and no collection: nothing to talk to.
 		"faiss":  &faissDense{},
 		"qdrant": &residualQdrantDense{},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := backend.DeleteDocuments([]string{"doc"}); !errors.Is(err, ErrPurgeUnsupported) {
-				t.Fatalf("%s reported a delete it cannot perform", name)
+			if _, err := backend.DeleteDocuments([]string{"doc"}); err == nil {
+				t.Fatalf("%s reported a delete against nothing", name)
 			}
-			if _, err := backend.HasDocuments([]string{"doc"}); !errors.Is(err, ErrPurgeUnsupported) {
-				t.Fatalf("%s reported a verification it cannot perform", name)
+			if _, err := backend.HasDocuments([]string{"doc"}); err == nil {
+				t.Fatalf("%s reported a verification against nothing", name)
 			}
 
 			client := &Client{localDense: backend}
 			if client.vectorPurger() != nil {
-				t.Fatalf("%s was wired as a purger; the fan-out would report "+
-					"zero removals as a successful erasure", name)
+				t.Fatalf("%s was wired as a purger while unreachable; the "+
+					"fan-out would report zero removals as an erasure", name)
 			}
 		})
 	}
