@@ -32,45 +32,50 @@ one that is not.**
   window raised and with chunking around candidate definitions, compared on
   the QA suite's hit@k, not on latency.
 
-### 2026-08-21 — `TestFrozenExactly100ChangeFixture` was load-sensitive
+## Drained
 
-**Still open, but for a smaller reason than before: the original failure was
-never reproduced, so nothing here is proved to have fixed it. What changed is
-that the mechanism it would have used no longer exists.**
+### 2026-08-21 — `TestFrozenExactly100ChangeFixture` was load-sensitive
 
 - **Wave:** W3
 - **Trigger:** failed once during a full `go test ./...` run, passed on two
   subsequent full runs and on seven isolated runs, at this branch and at the
   base revision.
-- **Mechanism, located but never confirmed:** the original entry pointed at
-  `waitForFile`'s fixed 5s deadline, which this test does not call. The bound
-  that expires first is `testConfig`'s `CommandTimeout`, which bounds every git
-  subprocess a reconcile spawns -- so the failure surfaces as a context
-  deadline inside production code rather than as an obviously test-shaped
-  timeout.
-- **What was done:** the class was removed rather than re-tuned. Scaling a
-  fixed number by a multiplier was the first attempt and is the wrong shape:
-  any constant is a guess about a machine, and a wrong guess reappears as an
-  ingestion bug. `subprocessAllowance` derives the bound from the *test
-  binary's own deadline*, so a genuinely stuck git still fails -- reported by
-  the framework, naming the test, with a stack -- and a merely slow one does
-  not. `waitForFile` does the same.
-- **One trap, caught by running it:** the derived value must be clamped to what
+- **Why it was deferred:** unreproducible on demand.
+- **The mechanism, now reproduced rather than read.** The original entry
+  pointed at `waitForFile`'s 5s deadline, which this test does not call. The
+  bound that expires first is `testConfig`'s `CommandTimeout`, which bounds
+  every git subprocess a reconcile spawns -- and a reconcile over the frozen
+  fixture spawns many.
+
+  `command_timeout_test.go` reproduces it on demand with a git wrapper that
+  sleeps a fixed 300ms per invocation, which is what a loaded machine does to a
+  subprocess without anything being wrong. Under a constant allowance the
+  reconcile fails with `context deadline exceeded` **surfaced from the
+  authority**, not from the test framework -- which is exactly why the original
+  failure was hard to place: it reads as an ingestion defect rather than as a
+  slow subprocess.
+
+- **What satisfied it:** `subprocessAllowance` derives the bound from the test
+  binary's own deadline, so the bound follows the budget the runner was given
+  instead of a constant chosen on one machine. The same 300ms-slow git is
+  absorbed; reverting to a constant makes it fail with the signature above.
+  Red-proved.
+
+  One trap, caught by running it: the derived value must be clamped to what
   `ingestion.Config` accepts, which rejects a `CommandTimeout` over ten
   minutes. Without the clamp, `-timeout 20m` produced `ingestion: invalid
-  input` on every test in the package -- turning "this ran with a long budget"
-  into a worse failure than the one being removed.
-- **Verification:** `-count=20 -race` under 12 competing CPU-burning
-  processes, at `-timeout 20m`: green in 281s. The same run with the original
-  flat allowances was also green, which is why this entry stays open -- the
-  original failure remains unreproduced, and a change that cannot be shown to
-  fix it is not a fix.
-- **What would close it:** a reproduction. Failing that, the next occurrence
-  captured with `-race`: if it is a `context deadline exceeded` from a git
-  command, the diagnosis is confirmed and this can close; if it is anything
-  else, this work was aimed at the wrong bound.
+  input` on every test in the package -- a worse failure than the one being
+  removed.
 
-## Drained
+- **What is still not claimed:** that the *original* 2026-08-21 failure was
+  this mechanism. It was never reproduced and cannot be attributed after the
+  fact. What is now shown is that the mechanism is real, that its signature
+  matches what was observed, and that it no longer exists. If the fixture fails
+  again with something other than a git context deadline, this entry was aimed
+  at the wrong bound and should be reopened.
+- **Verification:** `-count=20 -race` under 12 competing CPU-burning processes
+  at `-timeout 20m`: green in 281s.
+
 
 ### 2026-08-21 — three performance findings, measured and fixed
 
