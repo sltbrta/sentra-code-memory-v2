@@ -2,6 +2,8 @@ package dense
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -93,4 +95,69 @@ func (s *MemoryStore) Delete(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.docs, id)
+}
+
+// DeleteDocumentVectors removes every vector belonging to the given documents.
+//
+// Vectors are keyed per chunk ("doc-1#0", "doc-1#1", ...), so deleting by
+// document id needs a prefix sweep: Delete(docID) removes nothing, because no
+// vector is stored under a bare document id. A purge that called Delete once
+// per document therefore reported success having removed nothing at all.
+func (s *MemoryStore) DeleteDocumentVectors(docIDs []string) int {
+	if s == nil || len(docIDs) == 0 {
+		return 0
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	removed := 0
+	for id := range s.docs {
+		if vectorBelongsToDocument(id, docIDs) {
+			delete(s.docs, id)
+			removed++
+		}
+	}
+	return removed
+}
+
+// HasDocumentVectors returns the document ids that still have vectors stored.
+func (s *MemoryStore) HasDocumentVectors(docIDs []string) []string {
+	if s == nil || len(docIDs) == 0 {
+		return nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	found := map[string]struct{}{}
+	for id := range s.docs {
+		for _, docID := range docIDs {
+			if vectorIDMatchesDocument(id, docID) {
+				found[docID] = struct{}{}
+			}
+		}
+	}
+	out := make([]string, 0, len(found))
+	for id := range found {
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func vectorBelongsToDocument(vectorID string, docIDs []string) bool {
+	for _, docID := range docIDs {
+		if vectorIDMatchesDocument(vectorID, docID) {
+			return true
+		}
+	}
+	return false
+}
+
+// vectorIDMatchesDocument reports whether a vector id belongs to a document.
+//
+// The match is on the exact id or on the "docID#" chunk prefix, never on a
+// bare string prefix: "doc-1" must not claim "doc-10#0".
+func vectorIDMatchesDocument(vectorID, docID string) bool {
+	if docID == "" {
+		return false
+	}
+	return vectorID == docID || strings.HasPrefix(vectorID, docID+"#")
 }

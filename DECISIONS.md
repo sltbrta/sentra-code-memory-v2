@@ -80,19 +80,38 @@ Calls taken, each reversible by reverting the named commit:
       *Recommendation:* back them with `localstate`, together with (a) above —
       an erasure guarantee that does not survive a restart is not one.
 
-- [ ] **Wire `orgscope.Erase` into the deletion command?**
-      *Why it matters:* `internal/deletion` flips manifest status and purges
-      vault objects, but the surfaces that actually answer queries — corpus,
-      HotLex, dense store, sealed sessions, query log — are untouched, so
-      deleted content keeps answering searches. `orgscope.Erase` is the only
-      complete leak-verified erasure implementation in the repository and has
-      no caller.
-      *Options:* wire it and give it durable storage (it is in-memory today, so
-      tombstones would not survive a restart either); or delete it and
-      implement a purge fan-out directly in `deletion`.
-      *Recommendation:* the fan-out in `deletion`, reusing `orgscope`'s
-      verification. `internal/deletion` also has no test file at all, which
-      should be fixed in the same change.
+- [x] **Wire `orgscope.Erase`, or fan out in `deletion`? — fan-out in
+      `deletion` (2026-08-21).**
+      *What was wrong:* `internal/deletion` flipped a manifest to
+      immediate-deny and scheduled a purge job for the object store. Nothing
+      removed the projections a query is answered from, so a deleted document
+      stayed in the corpus, the lexical index, the memory cortex and the query
+      log, and went on being retrieved, ranked and cited.
+      *What was built:* `deletion.Purge`, a fan-out over one small port per
+      substrate, and the substrate implementations that did not exist. The
+      cortex had no deletion at all -- every mutator added and nothing removed
+      -- so `PurgeDocuments` now covers all eleven document-keyed projections
+      including both directions of the adjacency, and the query log, which
+      records the document ids each question was answered from, is rewritten
+      through `durablefile`.
+      *What was reused from `orgscope`:* its discipline, not its code. It
+      erases its own in-memory model rather than the product's substrates.
+      What carries over is naming the exact coverage, counting what each
+      substrate removed, and then **looking again** -- verification is a second
+      pass, because a delete count says how many entries a loop matched, not
+      whether the document survives somewhere the loop did not look. A test
+      covers exactly that: a substrate that reports a delete and keeps the
+      document is caught.
+      *What is deliberately not done:* the dense backends. There are five
+      behind `denseBackend` -- SQLite, Postgres, FAISS, HNSW, Qdrant -- and
+      none exposes a delete. Adding one to each without being able to exercise
+      Postgres or Qdrant would ship an erasure path that has never run. The
+      receipt names `vectors` as **skipped** and refuses `VerifiedComplete`,
+      so the gap is in the artifact rather than in a footnote. Closing it is
+      the remaining work, and is now a bounded task: implement one method per
+      backend against a port that already exists and is already tested.
+      *Also:* `internal/deletion` had no test file at all, which is part of why
+      none of this was noticed. It has one now.
 
 - [x] **Delete the Rust `workers/code-index` crate? — yes, deleted
       (2026-08-21).** Its own doc comment said it "does not index code, invoke
