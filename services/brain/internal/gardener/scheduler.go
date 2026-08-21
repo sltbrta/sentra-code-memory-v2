@@ -69,9 +69,16 @@ func (s *Scheduler) RunWave(ctx context.Context, workerID string) ([]Receipt, er
 				if err := s.Queue.Complete(ctx, rec); err != nil {
 					// Losing this write strands the job as permanently claimed,
 					// so it is recorded on the receipt rather than discarded.
+					//
+					// Error is the field that carries a cause. Writing into
+					// Output only when it was empty put the reason nowhere in
+					// the case that matters most: a job that succeeded has
+					// output, so a successful job whose completion was never
+					// persisted came back OK=false with no explanation at all.
+					// A job that already failed keeps its own cause.
 					rec.OK = false
-					if rec.Output == "" {
-						rec.Output = "complete failed: " + err.Error()
+					if rec.Error == "" {
+						rec.Error = "complete_failed: " + err.Error()
 					}
 				}
 				mu.Lock()
