@@ -178,13 +178,33 @@ Calls taken, each reversible by reverting the named commit:
       the repository -- no unsafe, no unwrap, zero third-party crates -- so
       this was about wiring, not quality.
 
-- [ ] **Wire or remove `llmadapter`?**
-      *Why it matters:* 727 lines with no non-test importer, including the
-      Gemini provider seam. Its claim-extraction prompt also concatenates
-      repository content directly into the instruction with no delimiter or
-      untrusted-content framing.
-      *Options:* wire it behind an explicit opt-in, or remove it until a
-      consumer exists.
-      *Recommendation:* keep it dormant for now and fix the prompt framing
-      before it is ever wired — but say so in its package doc, which currently
-      reads as though it is in use.
+- [x] **Wire or remove `llmadapter`? — wired behind an explicit opt-in
+      (2026-08-21).** 727 lines with no non-test importer: a second
+      implementation of query expansion and candidate scoring, including a
+      Gemini provider seam, sitting beside the one in `llm_multiquery.go` that
+      is actually used.
+
+      **The prompt framing was fixed first, not after.** Every prompt in the
+      package concatenated content the caller did not author straight into the
+      instruction -- a document's text after `ExtractClaims`' directives, a
+      user's query after `ExpandQuery`'s, retrieved passages after
+      `ScoreCandidates`' -- so a document containing "ignore the above and ..."
+      was structurally indistinguishable from the operator speaking. Wiring a
+      consumer to that would have taken a dormant defect and made it
+      reachable. Content is now fenced in a per-call randomised block that it
+      cannot close, and the system prompt states the fenced region is data.
+      Framing is not immunity and the code says so; what it removes is the part
+      that was the caller's fault.
+
+      *The opt-in:* `OUROBOROS_BRAIN_LLMADAPTER_EXPAND=1`, off by default,
+      consuming `ExpandQuery` in the retrieval path. Off, nothing changes.
+      On and unconfigured, llmadapter's own deterministic fallback answers --
+      it abstains rather than fabricating -- so an absent key degrades to
+      expansions rather than to an error, which is what makes an opt-in over an
+      unexercised path safe to turn on. Whatever it returns is added to the
+      deterministic variants, never substituted for them, so enabling it cannot
+      narrow retrieval.
+
+      *Still without a consumer:* `ScoreCandidates` and `ExtractClaims`. The
+      package doc now says which of the three is wired and which are not,
+      instead of describing all of them in the present tense.

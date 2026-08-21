@@ -252,8 +252,9 @@ func (s *Service) ExpandQuery(ctx context.Context, query string) ([]string, Diag
 	}
 	sys := `Expand a code search query into diverse reformulations for retrieval.
 Reply with ONLY JSON: {"queries":["...", ...]}.
-Keep the original intent. No prose, no commentary.`
-	prompt := "max_queries=" + strconv.Itoa(s.cfg.MaxExpansions) + "\nquery=" + query
+Keep the original intent. No prose, no commentary.` + untrustedFraming
+	prompt := "max_queries=" + strconv.Itoa(s.cfg.MaxExpansions) + "\n" +
+		untrustedBlock("query", query)
 	raw, ok := s.call(ctx, OpExpandQuery, sys, prompt, &diag)
 	if !ok {
 		return s.expandFallback(query), diag
@@ -371,7 +372,7 @@ func (s *Service) ScoreCandidates(ctx context.Context, query string, cands []Can
 	}
 	sys := `Score each candidate's semantic relevance to the query from 0.0 to 1.0.
 Reply with ONLY JSON: {"scores":[{"id":"<candidate id>","score":0.0}, ...]}.
-Use only the candidate ids provided. No prose.`
+Use only the candidate ids provided. No prose.` + untrustedFraming
 	type promptCand struct {
 		ID   string `json:"id"`
 		Text string `json:"text"`
@@ -384,7 +385,8 @@ Use only the candidate ids provided. No prose.`
 	if err != nil {
 		return lexicalScores(query, cands), diag
 	}
-	prompt := "query=" + query + "\ncandidates=" + string(payload)
+	prompt := untrustedBlock("query", query) + "\n" +
+		untrustedBlock("candidates (JSON array of {id,text})", string(payload))
 	raw, ok := s.call(ctx, OpScoreCandidates, sys, prompt, &diag)
 	if !ok {
 		return lexicalScores(query, cands), diag
@@ -492,8 +494,10 @@ func (s *Service) ExtractClaims(ctx context.Context, docID, text string) ([]Clai
 	}
 	sys := `Extract factual subject-predicate-object triples from the document.
 Reply with ONLY JSON: {"claims":[{"subject":"...","predicate":"...","object":"...","span":"..."}, ...]}.
-High precision only. Abstain with an empty list when unsure. No prose.`
-	prompt := "max_claims=" + strconv.Itoa(s.cfg.MaxClaims) + "\ndocument_id=" + docID + "\n\n" + text
+High precision only. Abstain with an empty list when unsure. No prose.` + untrustedFraming
+	prompt := "max_claims=" + strconv.Itoa(s.cfg.MaxClaims) + "\n" +
+		untrustedBlock("document_id", docID) + "\n" +
+		untrustedBlock("document", text)
 	raw, ok := s.call(ctx, OpExtractClaims, sys, prompt, &diag)
 	if !ok {
 		return nil, diag

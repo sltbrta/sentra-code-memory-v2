@@ -315,7 +315,26 @@ func sanitizeQueryBags(bags []string, maxN int) []string {
 // meta is safe to stamp into retrieval diagnostics.
 func multiQueryVariantsWithLLM(ctx context.Context, question, questionType string) (variants []string, meta map[string]any) {
 	static := multiQueryVariants(question, questionType)
-	llm, meta := llmExpandQueries(ctx, question, questionType, 4)
+
+	// The llmadapter path is off by default and is the only consumer that
+	// package has; see llmadapter_expansion.go. When it is enabled it replaces
+	// this expansion rather than stacking a second round trip on top of it,
+	// and when it declines -- unconfigured, over budget, refused -- the
+	// ordinary path runs exactly as before.
+	if adapted, adapterMeta := llmadapterExpandQueries(ctx, question, 4); len(adapted) > 0 {
+		return dedupeQueries(append(append([]string{}, adapted...), static...)), adapterMeta
+	} else if enabled, _ := adapterMeta["llmadapter_expand"].(bool); enabled || adapterMeta["skip"] != "disabled" {
+		meta = adapterMeta
+	}
+
+	llm, expandMeta := llmExpandQueries(ctx, question, questionType, 4)
+	if meta == nil {
+		meta = expandMeta
+	} else {
+		for k, v := range expandMeta {
+			meta[k] = v
+		}
+	}
 	if len(llm) == 0 {
 		return static, meta
 	}
