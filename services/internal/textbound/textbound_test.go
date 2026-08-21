@@ -71,6 +71,13 @@ func TestEllipsisNeverExceedsItsLimit(t *testing.T) {
 // FuzzBytesAlwaysValid is the amplification pass: whatever bytes and limit
 // arrive, the result must be valid UTF-8 and within the bound.
 func FuzzBytesAlwaysValid(f *testing.F) {
+	// Invalid-UTF-8 seeds: the retreat to a rune boundary used to walk back
+	// over every continuation byte, so input with no rune start emptied
+	// entirely. Found by a fuzz test in another package that was trying to
+	// prove something unrelated.
+	f.Add(strings.Repeat("\xa1", 3000), 2000)
+	f.Add(strings.Repeat("a", 100)+strings.Repeat("\xa1", 2900), 2000)
+	f.Add("\x80\x81\x82\x83", 2)
 	for _, seed := range []string{"", "a", "café", "日本語", "🎉", "mixed ünï 日本 🎉"} {
 		f.Add(seed, 3)
 	}
@@ -85,5 +92,98 @@ func FuzzBytesAlwaysValid(f *testing.F) {
 		if !strings.HasPrefix(s, got) {
 			t.Fatalf("Bytes(%q, %d) = %q: not a prefix", s, limit, got)
 		}
+		// The retreat is at most one rune's width. Without this the walk back
+		// over continuation bytes is unbounded, and input with no rune start
+		// empties entirely -- which is how this was found.
+		if limit > 0 && limit < len(s) {
+			if retreat := limit - len(got); retreat > utf8.UTFMax-1 {
+				t.Fatalf("Bytes(%q, %d) retreated %d bytes; a rune is at most %d",
+					s, limit, retreat, utf8.UTFMax)
+			}
+		}
 	})
+}
+
+// Bytes emptied its input rather than bounding it, whenever the input was not
+// valid UTF-8.
+//
+// The retreat to a rune boundary was an unbounded walk back over any byte that
+// is not a rune start. A run of continuation bytes -- a binary file, a
+// mis-decoded document, anything that is not text -- has no rune start to find,
+// so the walk ran to the beginning of the string and returned almost nothing.
+// Measured before the fix: 3,000 bytes with a 2,000-byte limit returned 0.
+//
+// This function is on the path to an embedding provider, a reranker and three
+// LLM prompts. Silently sending an empty string is worse than sending a
+// truncated one, and nothing downstream could tell the difference.
+//
+// A fuzz test in the ontology package found it, while trying to prove an
+// unrelated claim about a different truncation site.
+
+func TestBytesBoundsInvalidInputRatherThanEmptyingIt(t *testing.T) {
+	for name, tc := range map[string]struct {
+		input   string
+		limit   int
+		wantMin int
+	}{
+		// No rune start anywhere: the old walk ran to zero.
+		"all continuation bytes": {strings.Repeat("\xa1", 3000), 2000, 1997},
+		"binary-ish":             {strings.Repeat("\x80\x81\x82", 1000), 2000, 1997},
+		// Valid prefix then garbage: the old walk discarded the valid part too.
+		"valid then garbage": {strings.Repeat("a", 100) + strings.Repeat("\xa1", 2900), 2000, 1997},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := textbound.Bytes(tc.input, tc.limit)
+			if len(got) > tc.limit {
+				t.Fatalf("returned %d bytes, over the %d limit", len(got), tc.limit)
+			}
+			if len(got) < tc.wantMin {
+				t.Fatalf("returned %d bytes of a %d-byte input bounded at %d: "+
+					"invalid input is being emptied rather than truncated, and "+
+					"every caller sends the result to a model provider",
+					len(got), len(tc.input), tc.limit)
+			}
+		})
+	}
+}
+
+// TestBytesRetreatsAtMostARuneWidth is the property the comment always claimed
+// and the loop did not enforce.
+func TestBytesRetreatsAtMostARuneWidth(t *testing.T) {
+	const limit = 500
+	for name, input := range map[string]string{
+		"valid multibyte": strings.Repeat("界", 400),
+		"valid ascii":     strings.Repeat("a", 1000),
+		"invalid":         strings.Repeat("\xa1", 1000),
+		"mixed":           strings.Repeat("界", 100) + strings.Repeat("\x80", 900),
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := textbound.Bytes(input, limit)
+			if retreat := limit - len(got); retreat > utf8.UTFMax-1 {
+				t.Fatalf("retreated %d bytes; a rune is at most %d, so the walk "+
+					"is unbounded on input that has no rune start",
+					retreat, utf8.UTFMax)
+			}
+		})
+	}
+}
+
+// TestBytesStillEmptiesWhenTheLimitIsSmallerThanTheFirstRune keeps the
+// documented case: a limit that cannot hold one rune yields the empty string
+// rather than a fragment. The fix must not turn that into a broken rune.
+func TestBytesStillEmptiesWhenTheLimitIsSmallerThanTheFirstRune(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		limit int
+	}{
+		{"🎉", 1}, {"🎉", 2}, {"🎉", 3},
+		{"界", 1}, {"界", 2},
+		{"日本語のテキスト", 1},
+	} {
+		got := textbound.Bytes(tc.input, tc.limit)
+		if got != "" {
+			t.Errorf("textbound.Bytes(%q, %d) = %q, want empty: a limit smaller than the "+
+				"first rune must not yield a fragment", tc.input, tc.limit, got)
+		}
+	}
 }

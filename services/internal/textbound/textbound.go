@@ -24,6 +24,15 @@ import "unicode/utf8"
 //
 // The result is always valid UTF-8 when s is. A limit smaller than the first
 // rune yields the empty string rather than a fragment.
+//
+// When s is *not* valid UTF-8, the result is bounded rather than emptied. The
+// retreat is capped at utf8.UTFMax-1 positions, which is what the comment
+// below always claimed and what the loop did not do: an unbounded walk back
+// over a run of continuation bytes discards everything before it. A fuzz test
+// found it -- 3,000 bytes of invalid input with a 2,000-byte limit returned
+// zero bytes, so an embedding input, a rerank document or an LLM prompt built
+// from a binary or mis-decoded file silently became empty instead of
+// truncated, at every one of this package's call sites.
 func Bytes(s string, limit int) string {
 	if limit <= 0 {
 		return ""
@@ -32,12 +41,29 @@ func Bytes(s string, limit int) string {
 		return s
 	}
 	// Walk back from the limit to the start of the rune that straddles it.
-	// A rune is at most 4 bytes, so this retreats at most 3 positions.
-	cut := limit
-	for cut > 0 && !utf8.RuneStart(s[cut]) {
-		cut--
+	// A rune is at most 4 bytes, so this retreats at most 3 positions -- and
+	// the bound is enforced rather than assumed, because it only holds for
+	// valid input and this function is handed whatever was ingested.
+	floor := limit - (utf8.UTFMax - 1)
+	if floor < 0 {
+		floor = 0
 	}
-	return s[:cut]
+	for cut := limit; cut > floor; cut-- {
+		if utf8.RuneStart(s[cut]) {
+			return s[:cut]
+		}
+	}
+	if utf8.RuneStart(s[floor]) {
+		// Includes the documented case where the limit is smaller than the
+		// first rune: floor is 0, s[0] starts a rune, and the result is empty
+		// rather than a fragment.
+		return s[:floor]
+	}
+	// No rune boundary within a rune's width of the limit, and the retreat did
+	// not reach a rune start: s is not valid UTF-8 here. Honour the byte bound
+	// the caller asked for rather than returning almost nothing -- the result
+	// is no less valid than the input, and an empty one loses everything.
+	return s[:limit]
 }
 
 // Runes returns at most limit runes of s.

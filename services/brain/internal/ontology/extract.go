@@ -232,8 +232,23 @@ func termsForDoc(docID, text string) map[RelationKind]map[string]struct{} {
 	return out
 }
 
+// extractMentionTokens bounds its input and tokenises it.
+//
+// The bound is a rune boundary rather than a byte offset, for consistency with
+// every other bounded text path in this repository. It is worth being precise
+// about why, because this site is not a defect: the tokenizer below ranges
+// over the string, so an invalid byte decodes as U+FFFD, which is neither a
+// letter, a digit nor a separator and therefore ends the current token rather
+// than joining it. A partial rune is discarded either way.
+//
+// truncation_equivalence_test.go asserts that -- by case and by fuzz -- so the
+// claim recorded in the audit ledger matches what the code does.
 func extractMentionTokens(body string) []string {
-	body = textbound.Bytes(body, 2_000)
+	return mentionTokensOf(textbound.Bytes(body, 2_000))
+}
+
+// mentionTokensOf tokenises an already-bounded body.
+func mentionTokensOf(body string) []string {
 	var out []string
 	seen := map[string]struct{}{}
 	var b strings.Builder
