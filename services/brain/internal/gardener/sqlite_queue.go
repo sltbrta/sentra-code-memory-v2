@@ -80,7 +80,27 @@ func OpenSQLiteQueue(path string) (*SQLiteQueue, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("gardener: schema: %w", err)
 	}
+	// SQLite creates the database and its WAL sidecars 0644, so the queue --
+	// which holds job payloads derived from ingested content -- was readable
+	// by every local account. D-007 tightened the corpus and sidecars to 0600
+	// and did not reach this writer.
+	if err := restrictQueueFiles(clean); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("gardener: restrict queue permissions: %w", err)
+	}
 	return &SQLiteQueue{db: db, path: clean, LeaseTTL: 2 * time.Minute}, nil
+}
+
+// restrictQueueFiles narrows the database and its WAL sidecars to 0600. The
+// sidecars are created lazily, so absent ones are not an error; a sidecar that
+// appears later inherits the database file's mode from SQLite.
+func restrictQueueFiles(path string) error {
+	for _, name := range []string{path, path + "-wal", path + "-shm"} {
+		if err := os.Chmod(name, 0o600); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 // Path returns the database file path.

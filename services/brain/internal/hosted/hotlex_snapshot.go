@@ -752,6 +752,12 @@ func addHotLexStringBytes(total *uint64, value string) error {
 	return nil
 }
 
+// hotLexSnapshotPerm is 0600, not the 0644 these snapshots used to carry. A
+// snapshot holds document text for the offline path, so publishing it
+// world-readable leaks exactly what chunks.jsonl was tightened to protect
+// (D-007, which set the corpus and sidecars to 0600 and missed this writer).
+const hotLexSnapshotPerm os.FileMode = 0o600
+
 func (h *HotLex) writeSnapshotLocked(path string, plan hotLexWritePlan) (retErr error) {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -768,7 +774,7 @@ func (h *HotLex) writeSnapshotLocked(path string, plan hotLexWritePlan) (retErr 
 			_ = os.Remove(tmpName)
 		}
 	}()
-	if err := tmp.Chmod(0o644); err != nil {
+	if err := tmp.Chmod(hotLexSnapshotPerm); err != nil {
 		return err
 	}
 	header := make([]byte, int(hotLexHeaderSize))
@@ -925,7 +931,7 @@ func (h *HotLex) writeLegacyGobLocked(path string) (retErr error) {
 			_ = os.Remove(tmpName)
 		}
 	}()
-	if err := tmp.Chmod(0o644); err != nil {
+	if err := tmp.Chmod(hotLexSnapshotPerm); err != nil {
 		return err
 	}
 	terms := make([]string, 0, len(h.postings))
@@ -983,7 +989,7 @@ func copyFileAtomic(source, target string, maxBytes uint64) (retErr error) {
 			_ = os.Remove(tmpName)
 		}
 	}()
-	if err := tmp.Chmod(0o644); err != nil {
+	if err := tmp.Chmod(hotLexSnapshotPerm); err != nil {
 		return err
 	}
 	written, err := io.Copy(tmp, io.LimitReader(in, int64(maxBytes)+1))

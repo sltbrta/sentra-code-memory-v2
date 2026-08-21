@@ -38,7 +38,9 @@ func (s *Store) AppendQueryLog(e QueryLogEntry) error {
 	}
 	queryLogMu.Lock()
 	defer queryLogMu.Unlock()
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	// 0600: the query log holds user questions verbatim, so it carries the
+	// same disclosure risk as the corpus D-007 tightened.
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}

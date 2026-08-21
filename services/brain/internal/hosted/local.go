@@ -246,7 +246,18 @@ func (d *durableStore) flush() error {
 		dirtyIDs = append(dirtyIDs, id)
 	}
 	// First non-empty corpus write or explicit compact: full base rewrite.
-	needFull := d.forceFullFlush || (baseEmpty && len(bag) > 0)
+	//
+	// forcedFull is read once, here, and passed on. The corpus branch below
+	// used to clear d.forceFullFlush itself, before flushSidecarsLocked read
+	// the same field -- so an explicit full-rewrite request never reached the
+	// sidecar writer at all. DeleteDocuments is the caller that sets it, which
+	// meant a deleted document's derived sidecar text stayed in sidecars.jsonl
+	// indefinitely while its chunks were correctly removed from the corpus.
+	//
+	// It is cleared after the sidecars are written, so a failure part way
+	// through leaves the request pending rather than swallowing it.
+	forcedFull := d.forceFullFlush
+	needFull := forcedFull || (baseEmpty && len(bag) > 0)
 	if !needFull && len(d.dirty) == 0 {
 		// Only meta/sidecars/hotlex may need update.
 	} else if needFull {
@@ -255,7 +266,6 @@ func (d *durableStore) flush() error {
 		}
 		_ = os.Remove(deltaPath)
 		d.dirty = map[string]struct{}{}
-		d.forceFullFlush = false
 	} else {
 		// Append-only delta for dirty chunk ids (no full corpus rewrite).
 		if err := d.appendDeltaLocked(deltaPath, bag, d.dirty); err != nil {
@@ -271,10 +281,12 @@ func (d *durableStore) flush() error {
 		}
 	}
 
-	// Sidecars: append delta for dirty docs; full rewrite only when base missing or compacting.
-	if err := d.flushSidecarsLocked(side); err != nil {
+	// Sidecars: append delta for dirty docs; full rewrite only when base missing
+	// or compacting, or when a full rewrite was explicitly requested.
+	if err := d.flushSidecarsLocked(side, forcedFull); err != nil {
 		return err
 	}
+	d.forceFullFlush = false
 	// HotLex: incremental merge when gob exists and only dirty ids changed.
 	gobPath := filepath.Join(d.dir, "hotlex.gob")
 	_, gobErr := os.Stat(gobPath)
@@ -312,7 +324,7 @@ func (d *durableStore) flush() error {
 	return nil
 }
 
-func (d *durableStore) flushSidecarsLocked(side map[string]map[string]string) error {
+func (d *durableStore) flushSidecarsLocked(side map[string]map[string]string, forceFull bool) error {
 	base := filepath.Join(d.dir, localSidecarName)
 	delta := filepath.Join(d.dir, localSidecarDelta)
 
@@ -349,7 +361,7 @@ func (d *durableStore) flushSidecarsLocked(side map[string]map[string]string) er
 
 	info, err := os.Stat(base)
 	baseEmpty := os.IsNotExist(err) || (err == nil && info.Size() == 0)
-	if baseEmpty || d.forceFullFlush {
+	if baseEmpty || forceFull {
 		if err := writeBase(); err != nil {
 			return err
 		}
